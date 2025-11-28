@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.global.auth.jwt.JwtFilter;
 import pingpong.backend.global.auth.jwt.JwtUtil;
 import pingpong.backend.global.auth.jwt.LoginFilter;
@@ -46,6 +47,9 @@ public class SecurityConfig {
     private final JwtUtil jwtUtil;
     private final AuthService authService;
 
+    /**
+     * 비밀번호 인코더 Bean
+     */
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder() {
         return new BCryptPasswordEncoder();
@@ -68,9 +72,15 @@ public class SecurityConfig {
     }
 
     @Bean
+    public JwtFilter jwtFilter(MemberService memberService) {
+        return new JwtFilter(jwtUtil, memberService);
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            DaoAuthenticationProvider provider,
-                                           AuthenticationManager authManager) throws Exception {
+                                           AuthenticationManager authManager,
+                                           JwtFilter jwtFilter) throws Exception {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -78,7 +88,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(provider)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(org.springframework.http.HttpMethod.GET,  ALLOWED_GET_URLS).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, ALLOWED_GET_URLS).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, ALLOWED_POST_URLS).permitAll()
                         .anyRequest().authenticated()
                 );
@@ -86,13 +96,12 @@ public class SecurityConfig {
         LoginFilter loginFilter = new LoginFilter(authManager, refreshTokenCacheUtil, jwtUtil, authService);
         loginFilter.setFilterProcessesUrl("/api/v1/auth/login");
 
-        //JWTFilter 등록
-        http.addFilterBefore(new JwtFilter(jwtUtil), LoginFilter.class);
+        // JWTFilter 등록
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-        //필터 추가 LoginFilter()는 인자를 받음 (AuthenticationManager() 메소드에 authenticationConfiguration 객체를 넣어야 함) 따라서 등록 필요
+        // LoginFilter 등록
         http.addFilterAt(loginFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
 }
