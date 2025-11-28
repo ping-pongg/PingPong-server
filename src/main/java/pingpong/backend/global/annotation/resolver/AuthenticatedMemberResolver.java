@@ -12,6 +12,8 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.auth.jwt.JwtUtil;
+import pingpong.backend.global.exception.CustomException;
+import pingpong.backend.global.exception.ErrorCode;
 
 @Component
 @RequiredArgsConstructor
@@ -30,13 +32,12 @@ public class AuthenticatedMemberResolver implements HandlerMethodArgumentResolve
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
         String header = webRequest.getHeader("Authorization");
 
-        if (header != null) {
-            String token = header.split(" ")[1];
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring(7);
             String email = jwtUtil.getEmail(token);
 
             return memberService.findByEmail(email);
-        }
-        return null;
+        } throw new CustomException(ErrorCode.UNAUTHORIZED);
     }
 }
 
