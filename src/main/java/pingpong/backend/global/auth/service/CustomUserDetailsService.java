@@ -6,6 +6,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.repository.MemberRepository;
 import pingpong.backend.global.auth.dto.CustomUserDetails;
 
@@ -18,9 +19,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
-        Member member = memberRepository.getByEmail(email);
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException(MemberErrorCode.USER_EMAIL_NOT_EXIST.getMessage()));
 
-        // UserDetails에 반환하면 AuthenticationManager가 검증
         return new CustomUserDetails(member);
     }
 }
