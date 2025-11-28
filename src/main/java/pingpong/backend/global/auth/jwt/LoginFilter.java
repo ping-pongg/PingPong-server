@@ -35,11 +35,6 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
     private final AuthService authService;
 
     @Override
-    protected String obtainUsername(HttpServletRequest request) {
-        return request.getParameter("email");
-    }
-
-    @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
