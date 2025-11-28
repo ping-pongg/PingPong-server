@@ -30,12 +30,10 @@ public class Member {
     private String nickname;
 
     public static Member register(MemberRegisterRequest registerRequest, PasswordEncoder passwordEncoder) {
-        Member member = new Member();
-
-        member.email = requireNonNull(registerRequest.email());
-        member.password = requireNonNull(passwordEncoder.encode(registerRequest.password()));
-        member.nickname = registerRequest.nickname();
-
-        return member;
+        return Member.builder()
+                .email(requireNonNull(registerRequest.email()))
+                .password(requireNonNull(passwordEncoder.encode(registerRequest.password())))
+                .nickname(registerRequest.nickname())
+                .build();
     }
 }
