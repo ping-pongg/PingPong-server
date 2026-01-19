@@ -10,7 +10,6 @@ import pingpong.backend.domain.member.dto.MemberRegisterRequest;
 import pingpong.backend.domain.member.dto.MemberResponse;
 import pingpong.backend.domain.member.dto.MemberSearchResponse;
 import pingpong.backend.domain.member.service.MemberService;
-import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -23,7 +22,6 @@ import java.util.List;
 public class MemberController {
 
     private final MemberService memberService;
-    private final TeamService teamService;
 
     @PostMapping
     @Operation(summary = "회원가입", description = "이메일과 비밀번호로 회원가입 합니다.")
@@ -59,6 +57,6 @@ public class MemberController {
     public SuccessResponse<List<MemberSearchResponse>> searchByEmail(
             @RequestParam("keyword") String keyword
     ) {
-        return SuccessResponse.ok(teamService.searchMembersByEmail(keyword));
+        return SuccessResponse.ok(memberService.findByEmailContaining(keyword));
     }
 }

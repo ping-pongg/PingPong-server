@@ -8,6 +8,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.dto.MemberRegisterRequest;
 import pingpong.backend.domain.member.dto.MemberResponse;
+import pingpong.backend.domain.member.dto.MemberSearchResponse;
 import pingpong.backend.domain.member.repository.MemberRepository;
 import pingpong.backend.global.exception.CustomException;
 import java.util.List;
@@ -60,8 +61,10 @@ public class MemberService {
      * 이메일 검색
      */
     @Transactional(readOnly = true)
-    public List<Member> findByEmailContaining(String keyword) {
-        return memberRepository.findByEmailContainingIgnoreCase(keyword);
+    public List<MemberSearchResponse> findByEmailContaining(String keyword) {
+        return memberRepository.findByEmailContainingIgnoreCase(keyword).stream()
+                .map(MemberSearchResponse::of)
+                .toList();
     }
 
     /**
