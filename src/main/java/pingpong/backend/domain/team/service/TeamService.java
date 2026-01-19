@@ -49,18 +49,6 @@ public class TeamService {
         return new TeamCreateResponse(savedTeam.getId());
     }
 
-
-    /**
-     * 이메일로 회원 검색
-     */
-    @Transactional(readOnly = true)
-    public List<MemberSearchResponse> searchMembersByEmail(String keyword) {
-        return memberService.findByEmailContaining(keyword).stream()
-                .map(MemberSearchResponse::of)
-                .toList();
-    }
-
-
     /**
      * 팀에 팀원 추가 (teamId + memberEmail)
      */
