@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.global.exception.CustomException;
+import java.util.List;
 import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
@@ -21,5 +22,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    List<Member> findByEmailContainingIgnoreCase(String keyword);
 }
 
