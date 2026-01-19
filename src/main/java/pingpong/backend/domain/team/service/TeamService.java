@@ -110,12 +110,7 @@ public class TeamService {
                     if (m == null) {
                         throw new CustomException(MemberErrorCode.MEMBER_NOT_FOUND);
                     }
-                    return new TeamMemberResponse(
-                            m.getId(),
-                            m.getNickname(),
-                            m.getEmail(),
-                            mt.getRole()
-                    );
+                    return TeamMemberResponse.of(m, mt.getRole());
                 })
                 .toList();
     }
