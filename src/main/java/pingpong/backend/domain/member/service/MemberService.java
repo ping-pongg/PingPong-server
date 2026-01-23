@@ -8,8 +8,10 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.dto.MemberRegisterRequest;
 import pingpong.backend.domain.member.dto.MemberResponse;
+import pingpong.backend.domain.member.dto.MemberSearchResponse;
 import pingpong.backend.domain.member.repository.MemberRepository;
 import pingpong.backend.global.exception.CustomException;
+import java.util.List;
 
 @Service
 @Transactional
@@ -32,7 +34,7 @@ public class MemberService {
     }
 
     /**
-     * 회원 단건 조회 (memberId 기준)
+     * 회원 DTO 단건 조회
      */
     public MemberResponse find(Long memberId) {
         Member member = memberRepository.getById(memberId);
@@ -53,5 +55,32 @@ public class MemberService {
         if (memberRepository.existsByEmail(registerRequest.email())) {
             throw new CustomException(MemberErrorCode.EMAIL_DUPLICATED);
         }
+    }
+
+    /**
+     * 이메일 검색
+     */
+    @Transactional(readOnly = true)
+    public List<MemberSearchResponse> findByEmailContaining(String keyword) {
+        return memberRepository.findByEmailContainingIgnoreCase(keyword).stream()
+                .map(MemberSearchResponse::of)
+                .toList();
+    }
+
+    /**
+     * 회원 엔티티 단건 조회
+     */
+    @Transactional(readOnly = true)
+    public Member findById(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(MemberErrorCode.MEMBER_NOT_FOUND));
+    }
+
+    /**
+     * 회원 엔티티 다건조회
+     */
+    @Transactional(readOnly = true)
+    public List<Member> findAllByIds(List<Long> memberIds) {
+        return memberRepository.findAllById(memberIds);
     }
 }

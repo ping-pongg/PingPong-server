@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.*;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.dto.MemberRegisterRequest;
 import pingpong.backend.domain.member.dto.MemberResponse;
+import pingpong.backend.domain.member.dto.MemberSearchResponse;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -44,5 +47,16 @@ public class MemberController {
             @CurrentMember Member member
     ) {
         return SuccessResponse.ok(MemberResponse.of(member));
+    }
+
+    @GetMapping("/search")
+    @Operation(
+            summary = "이메일로 회원 검색",
+            description = "이메일의 일부만 입력해도 검색 결과를 반환합니다."
+    )
+    public SuccessResponse<List<MemberSearchResponse>> searchByEmail(
+            @RequestParam("keyword") String keyword
+    ) {
+        return SuccessResponse.ok(memberService.findByEmailContaining(keyword));
     }
 }
