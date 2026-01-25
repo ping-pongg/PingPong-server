@@ -117,9 +117,6 @@ jobs:
           scp -o StrictHostKeyChecking=no -P ${{ secrets.PROD_EC2_PORT }} docker-compose.yml \
             ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }}:/home/${{ secrets.PROD_EC2_USER }}/docker-compose.yml
 
-          scp -o StrictHostKeyChecking=no -P ${{ secrets.PROD_EC2_PORT }} -r nginx \
-            ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }}:/home/${{ secrets.PROD_EC2_USER }}/nginx
-
       - name: Deploy on EC2
         uses: appleboy/ssh-action@master
         with:
