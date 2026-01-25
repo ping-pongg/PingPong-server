@@ -131,6 +131,7 @@ jobs:
             export MYSQL_DATABASE='${{ secrets.MYSQL_DATABASE }}'
             export MYSQL_USER='${{ secrets.MYSQL_USER }}'
             export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'  
+            export MYSQL_ROOT_PASSWORD='${{ secrets.MYSQL_ROOT_PASSWORD }}'
   
             chmod +x /home/${{ secrets.PROD_EC2_USER }}/deploy.sh
             /home/${{ secrets.PROD_EC2_USER }}/deploy.sh
