@@ -2,7 +2,6 @@ package pingpong.backend.global.storage.service;
 
 import java.net.URL;
 import java.util.Date;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 
@@ -13,12 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.Headers;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import pingpong.backend.global.storage.dto.ImageUploadType;
 import pingpong.backend.global.storage.dto.request.PresignedUrlRequest;
 import pingpong.backend.global.storage.dto.response.PresignedUrlResponse;
 
@@ -35,21 +33,19 @@ public class PresignedUrlService {
 
 	@Transactional(readOnly = true)
 	public PresignedUrlResponse getPostS3Url(PresignedUrlRequest request) {
-		String imageName=request.imageName();
 
 		// filename 설정하기(profile 경로 + 멤버ID + 랜덤 값)
-		String fileName=generateUniqueImageName(imageName);
-		String imagePath = "image" + "/" + fileName;
+		String objectKey= generateImageObjectKey(request.uploadType());
 
 		// presigned url 생성하기
 		GeneratePresignedUrlRequest generatePresignedUrlRequest =
-			getPutPreSignedUrlRequest(imagePath);
+			getPutPreSignedUrlRequest(objectKey);
 
 		URL url = s3Client.generatePresignedUrl(generatePresignedUrlRequest);
 
 		return PresignedUrlResponse.builder()
 			.presignedUrl(url.toExternalForm())
-			.imagePath(imagePath)
+			.objectKey(objectKey)
 			.build();
 	}
 
@@ -64,7 +60,7 @@ public class PresignedUrlService {
 
 		return PresignedUrlResponse.builder()
 			.presignedUrl(url.toExternalForm())
-			.imagePath(imagePath)
+			.objectKey(imagePath)
 			.build();
 	}
 
@@ -73,13 +69,9 @@ public class PresignedUrlService {
 	 * 업로드용 preSigned URL 요청 객체 생성
 	 */
 	private GeneratePresignedUrlRequest getPutPreSignedUrlRequest(String imageName){
-		GeneratePresignedUrlRequest generatePresignedUrlRequest= new GeneratePresignedUrlRequest(bucketName, imageName)
+		return new GeneratePresignedUrlRequest(bucketName, imageName)
 				.withMethod(HttpMethod.PUT)
 				.withExpiration(new Date(System.currentTimeMillis()+180000));
-		generatePresignedUrlRequest.addRequestParameter(
-			Headers.S3_CANNED_ACL,
-			CannedAccessControlList.PublicRead.toString());
-		return generatePresignedUrlRequest;
 	}
 
 	/**
@@ -92,11 +84,10 @@ public class PresignedUrlService {
 	}
 
 	/**
-	 * UUID 통해 imagePath 생성
+	 * UUID 통해 objectKey(파일 식별 전체 경로) 생성
 	 */
-	private String generateUniqueImageName(String imageName) {
-		String ext = imageName.substring(imageName.lastIndexOf("."));
-		return identityGenerator.generateIdentity() + ext;
+	private String generateImageObjectKey(ImageUploadType type) {
+		return "image/"+identityGenerator.generateIdentity()+type.getExtension();
 	}
 
 	@Async
