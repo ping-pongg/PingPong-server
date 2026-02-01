@@ -9,6 +9,6 @@ public record PresignedUrlResponse (
 	String presignedUrl,
 
 	@Schema(description = "업로드 완료 후 접근 가능한 이미지 URL")
-	String imagePath
+	String objectKey
 ){
 }
