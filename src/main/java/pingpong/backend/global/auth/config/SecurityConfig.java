@@ -46,9 +46,7 @@ public class SecurityConfig {
             "/api/v1/s3/post-url"
     };
 
-    private static final String[] ALLOWED_DELETE_URLS = {
-        "/api/v1/s3/image"
-    };
+
 
     private final RefreshTokenCacheUtil refreshTokenCacheUtil;
     private final JwtUtil jwtUtil;
@@ -97,7 +95,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.GET, ALLOWED_GET_URLS).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, ALLOWED_POST_URLS).permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, ALLOWED_DELETE_URLS).permitAll()
                         .anyRequest().authenticated()
                 );
 
