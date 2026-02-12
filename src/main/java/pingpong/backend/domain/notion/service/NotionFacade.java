@@ -12,6 +12,10 @@ import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.NotionOAuthExchangeResponse;
 import pingpong.backend.domain.notion.dto.NotionOAuthTokenResponse;
 import pingpong.backend.domain.notion.client.NotionOauthClient;
+import pingpong.backend.domain.notion.dto.NotionCreateDatabaseRequest;
+import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
+import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
+import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.global.exception.CustomException;
@@ -29,6 +33,10 @@ public class NotionFacade {
     private final NotionRestClient notionRestClient;
     private final NotionTokenService notionTokenService;
     private final NotionConnectionService notionConnectionService;
+    private final NotionConnectionApiService notionConnectionApiService;
+    private final NotionDatabaseQueryService notionDatabaseQueryService;
+    private final NotionPageService notionPageService;
+    private final NotionDatabaseCreateService notionDatabaseCreateService;
     private final NotionRepository notionRepository;
     private final NotionJsonUtils notionJsonUtils;
 
@@ -61,6 +69,55 @@ public class NotionFacade {
     public void refreshTokens(Long teamId, Member member) {
         notionConnectionService.assertTeamAccess(teamId, member);
         notionTokenService.refreshTokens(teamId);
+    }
+
+    public JsonNode listCandidateDatabases(Long teamId, Member member) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionConnectionApiService.listCandidateDatabases(teamId);
+    }
+
+    public void setPrimaryDatabase(Long teamId, Member member, String databaseId) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        notionConnectionApiService.connectDatabase(teamId, databaseId);
+    }
+
+    public JsonNode queryPrimaryDatabase(Long teamId, Member member, JsonNode request) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionDatabaseQueryService.queryPrimaryDatabase(teamId, request);
+    }
+
+    public JsonNode createPageInPrimaryDatabase(Long teamId, Member member, NotionCreatePageRequest request) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
+        return notionPageService.createPage(teamId, databaseId, request);
+    }
+
+    public JsonNode updatePage(Long teamId, Member member, String pageId, NotionPageUpdateRequest request) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionPageService.updatePage(teamId, pageId, request);
+    }
+
+    public JsonNode getPageBlocks(Long teamId, Member member, String pageId, Integer pageSize, String startCursor, boolean deep) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, null);
+    }
+
+    public JsonNode getPageBlocksWithDatabaseQuery(
+            Long teamId,
+            Member member,
+            String pageId,
+            Integer pageSize,
+            String startCursor,
+            boolean deep,
+            NotionDatabaseQueryRequest request
+    ) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, request);
+    }
+
+    public JsonNode createDatabase(Long teamId, Member member, String parentPageId, NotionCreateDatabaseRequest request) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionDatabaseCreateService.createDatabase(teamId, parentPageId, request);
     }
 
     private Notion resolveAndPersistDatabaseId(Long teamId) {
