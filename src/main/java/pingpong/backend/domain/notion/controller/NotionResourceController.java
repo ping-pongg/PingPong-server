@@ -15,10 +15,7 @@ import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
 import pingpong.backend.domain.notion.dto.NotionDatabaseFullQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
-import pingpong.backend.domain.notion.service.NotionConnectionService;
-import pingpong.backend.domain.notion.service.NotionDatabaseCreateService;
-import pingpong.backend.domain.notion.service.NotionDatabaseQueryService;
-import pingpong.backend.domain.notion.service.NotionPageService;
+import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -28,10 +25,7 @@ import pingpong.backend.global.response.result.SuccessResponse;
 @Tag(name = "Notion 리소스 API", description = "Notion 데이터베이스 조회 및 페이지 관리 API")
 public class NotionResourceController {
 
-    private final NotionConnectionService notionConnectionService;
-    private final NotionDatabaseQueryService notionDatabaseQueryService;
-    private final NotionPageService notionPageService;
-    private final NotionDatabaseCreateService notionDatabaseCreateService;
+    private final NotionFacade notionFacade;
 
     @PostMapping("/databases/primary/query")
     @Operation(summary = "대표 데이터베이스 전체 조회", description = "팀에 설정된 대표 데이터베이스를 타임스탬프 기반 필터/정렬로 조회합니다.")
@@ -70,8 +64,7 @@ public class NotionResourceController {
             )
             @RequestBody(required = false) JsonNode request
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return SuccessResponse.ok(notionDatabaseQueryService.queryPrimaryDatabase(teamId, request));
+        return SuccessResponse.ok(notionFacade.queryPrimaryDatabase(teamId, member, request));
     }
 
     @PostMapping("/databases/primary/pages")
@@ -81,9 +74,7 @@ public class NotionResourceController {
             @CurrentMember Member member,
             @RequestBody @Valid NotionCreatePageRequest request
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
-        return SuccessResponse.ok(notionPageService.createPage(teamId, databaseId, request));
+        return SuccessResponse.ok(notionFacade.createPageInPrimaryDatabase(teamId, member, request));
     }
 
     @PatchMapping("/pages/{pageId}")
@@ -94,8 +85,7 @@ public class NotionResourceController {
             @CurrentMember Member member,
             @RequestBody @Valid NotionPageUpdateRequest request
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return SuccessResponse.ok(notionPageService.updatePage(teamId, pageId, request));
+        return SuccessResponse.ok(notionFacade.updatePage(teamId, member, pageId, request));
     }
 
     @GetMapping("/pages/{pageId}/blocks")
@@ -108,8 +98,7 @@ public class NotionResourceController {
             @RequestParam(value = "deep", required = false, defaultValue = "false") boolean deep,
             @CurrentMember Member member
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return SuccessResponse.ok(notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, null));
+        return SuccessResponse.ok(notionFacade.getPageBlocks(teamId, member, pageId, pageSize, startCursor, deep));
     }
 
     @PostMapping("/pages/{pageId}/blocks")
@@ -152,8 +141,17 @@ public class NotionResourceController {
             )
             @RequestBody(required = false) NotionDatabaseQueryRequest request
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return SuccessResponse.ok(notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, request));
+        return SuccessResponse.ok(
+                notionFacade.getPageBlocksWithDatabaseQuery(
+                        teamId,
+                        member,
+                        pageId,
+                        pageSize,
+                        startCursor,
+                        deep,
+                        request
+                )
+        );
     }
 
     @PostMapping("/pages/{parentPageId}/databases")
@@ -164,7 +162,6 @@ public class NotionResourceController {
             @CurrentMember Member member,
             @RequestBody @Valid NotionCreateDatabaseRequest request
     ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return SuccessResponse.ok(notionDatabaseCreateService.createDatabase(teamId, parentPageId, request));
+        return SuccessResponse.ok(notionFacade.createDatabase(teamId, member, parentPageId, request));
     }
 }
