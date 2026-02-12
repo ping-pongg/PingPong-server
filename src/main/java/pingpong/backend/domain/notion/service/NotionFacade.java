@@ -80,9 +80,9 @@ public class NotionFacade {
         notionConnectionApiService.connectDatabase(teamId, databaseId);
     }
 
-    public JsonNode queryPrimaryDatabase(Long teamId, Member member, JsonNode request) {
+    public JsonNode queryPrimaryDatabase(Long teamId, Member member) {
         notionConnectionService.assertTeamAccess(teamId, member);
-        return notionDatabaseQueryService.queryPrimaryDatabase(teamId, request);
+        return notionDatabaseQueryService.queryPrimaryDatabase(teamId);
     }
 
     public JsonNode createPageInPrimaryDatabase(Long teamId, Member member, NotionCreatePageRequest request) {
