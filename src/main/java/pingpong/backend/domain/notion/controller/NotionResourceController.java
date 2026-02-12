@@ -13,7 +13,6 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.notion.dto.NotionCreateDatabaseRequest;
 import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
 import pingpong.backend.domain.notion.dto.NotionDatabaseFullQueryRequest;
-import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.global.annotation.CurrentMember;
@@ -99,59 +98,6 @@ public class NotionResourceController {
             @CurrentMember Member member
     ) {
         return SuccessResponse.ok(notionFacade.getPageBlocks(teamId, member, pageId, pageSize, startCursor, deep));
-    }
-
-    @PostMapping("/pages/{pageId}/blocks")
-    @Operation(summary = "페이지 블록 목록 조회 (DB 쿼리 포함)", description = "페이지의 하위 블록(콘텐츠)과 child_database 조회 결과를 함께 반환합니다. deep=true 시 최대 4단계 재귀 로딩합니다.")
-    public SuccessResponse<JsonNode> getPageBlocksWithDatabaseQuery(
-            @PathVariable Long teamId,
-            @PathVariable String pageId,
-            @RequestParam(value = "page_size", required = false) Integer pageSize,
-            @RequestParam(value = "start_cursor", required = false) String startCursor,
-            @RequestParam(value = "deep", required = false, defaultValue = "false") boolean deep,
-            @CurrentMember Member member,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = false,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = NotionDatabaseQueryRequest.class),
-                            examples = @ExampleObject(
-                                    name = "example",
-                                    value = """
-                                            {
-                                              "filter": {
-                                                "property": "Status",
-                                                "status": {
-                                                  "equals": "Done"
-                                                }
-                                              },
-                                              "sorts": [
-                                                {
-                                                  "property": "Date",
-                                                  "direction": "descending"
-                                                }
-                                              ],
-                                              "page_size": 50,
-                                              "start_cursor": "cursor_value",
-                                              "include_pages": true
-                                            }
-                                            """
-                            )
-                    )
-            )
-            @RequestBody(required = false) NotionDatabaseQueryRequest request
-    ) {
-        return SuccessResponse.ok(
-                notionFacade.getPageBlocksWithDatabaseQuery(
-                        teamId,
-                        member,
-                        pageId,
-                        pageSize,
-                        startCursor,
-                        deep,
-                        request
-                )
-        );
     }
 
     @PostMapping("/pages/{parentPageId}/databases")

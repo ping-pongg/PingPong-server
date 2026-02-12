@@ -13,7 +13,6 @@ import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.config.NotionProperties;
 import pingpong.backend.domain.notion.dto.NotionDatabaseFullQueryRequest;
-import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionTimestampFilterRequest;
 import pingpong.backend.domain.notion.dto.NotionTimestampSortRequest;
 import pingpong.backend.domain.notion.enums.NotionQueryLogic;
@@ -91,38 +90,18 @@ public class NotionDatabaseQueryService {
         return aggregated;
     }
 
-    public JsonNode queryDatabase(Long teamId, String databaseId, NotionDatabaseQueryRequest request) {
+    public JsonNode queryDatabase(Long teamId, String databaseId) {
         ResponseEntity<String> databaseResponse = callApi(teamId,
                 () -> notionRestClient.get("/v1/databases/" + databaseId, notionTokenService.getAccessToken(teamId)));
         JsonNode databaseNode = notionJsonUtils.parseJson(databaseResponse);
 
         ObjectNode queryBody = objectMapper.createObjectNode();
-        boolean includePages = true;
-        if (request != null) {
-            JsonNode filter = request.filter();
-            if (filter != null && !filter.isNull()) {
-                queryBody.set("filter", filter);
-            }
-            JsonNode sorts = request.sorts();
-            if (sorts != null && !sorts.isNull()) {
-                queryBody.set("sorts", sorts);
-            }
-            if (request.pageSize() != null) {
-                queryBody.put("page_size", request.pageSize());
-            }
-            if (request.startCursor() != null && !request.startCursor().isBlank()) {
-                queryBody.put("start_cursor", request.startCursor());
-            }
-            if (request.includePages() != null) {
-                includePages = request.includePages();
-            }
-        }
 
         ResponseEntity<String> queryResponse = callApi(teamId,
                 () -> notionRestClient.post("/v1/databases/" + databaseId + "/query", notionTokenService.getAccessToken(teamId), queryBody));
         JsonNode queryNode = notionJsonUtils.parseJson(queryResponse);
 
-        ArrayNode pagesNode = fetchPages(teamId, queryNode, includePages);
+        ArrayNode pagesNode = fetchPages(teamId, queryNode, true);
 
         ObjectNode aggregated = objectMapper.createObjectNode();
         aggregated.set("database", databaseNode);

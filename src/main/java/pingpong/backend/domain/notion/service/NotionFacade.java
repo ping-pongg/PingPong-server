@@ -14,7 +14,6 @@ import pingpong.backend.domain.notion.dto.NotionOAuthTokenResponse;
 import pingpong.backend.domain.notion.client.NotionOauthClient;
 import pingpong.backend.domain.notion.dto.NotionCreateDatabaseRequest;
 import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
-import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
@@ -99,20 +98,7 @@ public class NotionFacade {
 
     public JsonNode getPageBlocks(Long teamId, Member member, String pageId, Integer pageSize, String startCursor, boolean deep) {
         notionConnectionService.assertTeamAccess(teamId, member);
-        return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, null);
-    }
-
-    public JsonNode getPageBlocksWithDatabaseQuery(
-            Long teamId,
-            Member member,
-            String pageId,
-            Integer pageSize,
-            String startCursor,
-            boolean deep,
-            NotionDatabaseQueryRequest request
-    ) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep, request);
+        return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep);
     }
 
     public JsonNode createDatabase(Long teamId, Member member, String parentPageId, NotionCreateDatabaseRequest request) {

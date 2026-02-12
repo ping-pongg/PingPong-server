@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
-import pingpong.backend.domain.notion.dto.NotionDatabaseQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionDateRange;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.service.NotionPropertyResolver.PropertyNames;
@@ -57,8 +56,7 @@ public class NotionPageService {
                                   String pageId,
                                   Integer pageSize,
                                   String startCursor,
-                                  boolean deep,
-                                  NotionDatabaseQueryRequest databaseQueryRequest) {
+                                  boolean deep) {
         Map<String, Object> queryParams = new HashMap<>();
         if (pageSize != null) {
             queryParams.put("page_size", pageSize);
@@ -75,7 +73,7 @@ public class NotionPageService {
             attachChildrenRecursively(teamId, root, pageSize, 0);
         }
         ObjectNode aggregated = toObjectNode(root);
-        ArrayNode childDatabases = fetchChildDatabases(teamId, root, databaseQueryRequest);
+        ArrayNode childDatabases = fetchChildDatabases(teamId, root);
         aggregated.set("child_databases", childDatabases);
         return aggregated;
     }
@@ -230,11 +228,11 @@ public class NotionPageService {
         return aggregated;
     }
 
-    private ArrayNode fetchChildDatabases(Long teamId, JsonNode root, NotionDatabaseQueryRequest request) {
+    private ArrayNode fetchChildDatabases(Long teamId, JsonNode root) {
         Set<String> childDatabaseIds = collectChildDatabaseIds(root);
         ArrayNode childDatabases = objectMapper.createArrayNode();
         for (String databaseId : childDatabaseIds) {
-            JsonNode databaseQuery = notionDatabaseQueryService.queryDatabase(teamId, databaseId, request);
+            JsonNode databaseQuery = notionDatabaseQueryService.queryDatabase(teamId, databaseId);
             childDatabases.add(databaseQuery);
         }
         return childDatabases;
