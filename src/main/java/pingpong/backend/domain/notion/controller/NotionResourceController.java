@@ -22,8 +22,8 @@ public class NotionResourceController {
 
     private final NotionFacade notionFacade;
 
-    @GetMapping("/databases/primary/query")
-    @Operation(summary = "대표 데이터베이스 전체 조회", description = "팀에 설정된 대표 데이터베이스를 타임스탬프 기반 필터/정렬로 조회합니다.")
+    @GetMapping("/databases/primary")
+    @Operation(summary = "팀 데이터베이스의 전체 내용 조회", description = "팀에 설정된 대표 데이터베이스를 타임스탬프 기반 필터/정렬로 조회합니다.")
     public SuccessResponse<JsonNode> queryPrimaryDatabase(
             @PathVariable Long teamId,
             @CurrentMember Member member
@@ -31,8 +31,8 @@ public class NotionResourceController {
         return SuccessResponse.ok(notionFacade.queryPrimaryDatabase(teamId, member));
     }
 
-    @PostMapping("/databases/primary/pages")
-    @Operation(summary = "대표 데이터베이스에 페이지 생성", description = "팀에 설정된 대표 데이터베이스에 새 페이지를 생성합니다.")
+    @PostMapping("/databases/primary")
+    @Operation(summary = "팀 데이터베이스에 페이지 추가 생성", description = "팀에 설정된 대표 데이터베이스에 새 페이지를 생성합니다.")
     public SuccessResponse<JsonNode> createPageInPrimaryDatabase(
             @PathVariable Long teamId,
             @CurrentMember Member member,
@@ -52,8 +52,8 @@ public class NotionResourceController {
         return SuccessResponse.ok(notionFacade.updatePage(teamId, member, pageId, request));
     }
 
-    @GetMapping("/pages/{pageId}/blocks")
-    @Operation(summary = "페이지 블록 목록 조회", description = "페이지의 하위 블록(콘텐츠)과 child_database 조회 결과를 함께 반환합니다. deep=true 시 최대 4단계 재귀 로딩합니다.")
+    @GetMapping("/pages/{pageId}")
+    @Operation(summary = "페이지 내용 전체 조회", description = "페이지의 하위 블록(콘텐츠)과 child_database 조회 결과를 함께 반환합니다. deep=true 시 최대 4단계 재귀 로딩합니다.")
     public SuccessResponse<JsonNode> getPageBlocks(
             @PathVariable Long teamId,
             @PathVariable String pageId,
@@ -65,14 +65,14 @@ public class NotionResourceController {
         return SuccessResponse.ok(notionFacade.getPageBlocks(teamId, member, pageId, pageSize, startCursor, deep));
     }
 
-    @PostMapping("/pages/{parentPageId}/databases")
+    @PostMapping("/pages/{pageId}/databases")
     @Operation(summary = "페이지 하위에 데이터베이스 생성", description = "지정된 페이지 하위에 새 데이터베이스를 생성합니다.")
     public SuccessResponse<JsonNode> createDatabase(
             @PathVariable Long teamId,
-            @PathVariable String parentPageId,
+            @PathVariable String pageId,
             @CurrentMember Member member,
             @RequestBody @Valid NotionCreateDatabaseRequest request
     ) {
-        return SuccessResponse.ok(notionFacade.createDatabase(teamId, member, parentPageId, request));
+        return SuccessResponse.ok(notionFacade.createDatabase(teamId, member, pageId, request));
     }
 }

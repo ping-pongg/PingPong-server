@@ -55,7 +55,7 @@ public class NotionOauthController {
     }
 
     @GetMapping("/databases")
-    @Operation(summary = "후보 데이터베이스 목록 조회", description = "팀의 Notion 워크스페이스에서 사용 가능한 데이터베이스 목록을 조회합니다.")
+    @Operation(summary = "Integration의 접근을 허가한 데이터베이스 목록 조회", description = "팀의 Notion 워크스페이스에서 사용 가능한 데이터베이스 목록을 조회합니다.")
     public SuccessResponse<JsonNode> listCandidateDatabases(
             @PathVariable Long teamId,
             @CurrentMember Member member
@@ -64,7 +64,7 @@ public class NotionOauthController {
     }
 
     @PutMapping("/databases/primary")
-    @Operation(summary = "대표 데이터베이스 설정", description = "팀의 대표 Notion 데이터베이스를 설정합니다.")
+    @Operation(summary = "팀 데이터베이스 선택", description = "팀의 대표 Notion 데이터베이스를 설정합니다.")
     public SuccessResponse<Void> setPrimaryDatabase(
             @PathVariable Long teamId,
             @CurrentMember Member member,
