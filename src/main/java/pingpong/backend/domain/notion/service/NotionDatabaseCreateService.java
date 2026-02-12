@@ -15,6 +15,7 @@ import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.notion.util.NotionLogSupport;
 import pingpong.backend.global.exception.CustomException;
 
+import java.util.Set;
 import java.util.function.Supplier;
 
 @Service
@@ -23,6 +24,10 @@ public class NotionDatabaseCreateService {
 
     private static final Logger log = LoggerFactory.getLogger(NotionDatabaseCreateService.class);
     private static final int MAX_LOG_BODY_CHARS = 10 * 1024;
+    private static final Set<String> ALLOWED_PROPERTY_TYPES = Set.of("title", "rich_text", "number",
+            "select", "multi_select", "date", "people", "checkbox", "url", "email", "phone_number", "files",
+            "relation", "rollup", "formula", "created_time", "created_by", "last_edited_time", "last_edited_by"
+    );
 
     private final NotionTokenService notionTokenService;
     private final NotionRestClient notionRestClient;
@@ -119,12 +124,6 @@ public class NotionDatabaseCreateService {
     }
 
     private boolean isAllowedPropertyType(String type) {
-        return switch (type) {
-            case "title", "rich_text", "number", "select", "multi_select",
-                 "date", "people", "checkbox", "url", "email", "phone_number", "files",
-                 "relation", "rollup", "formula", "created_time", "created_by",
-                 "last_edited_time", "last_edited_by" -> true;
-            default -> false;
-        };
+        return ALLOWED_PROPERTY_TYPES.contains(type);
     }
 }
