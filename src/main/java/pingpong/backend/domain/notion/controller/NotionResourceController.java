@@ -17,7 +17,7 @@ import pingpong.backend.global.response.result.SuccessResponse;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/teams/{teamId}/notion")
-@Tag(name = "Notion 리소스 API", description = "Notion 데이터베이스 조회 및 페이지 관리 API")
+@Tag(name = "Notion 리소스 API", description = "Notion 데이터베이스 조회 및 페이지 관리 API 입니다.")
 public class NotionResourceController {
 
     private final NotionFacade notionFacade;

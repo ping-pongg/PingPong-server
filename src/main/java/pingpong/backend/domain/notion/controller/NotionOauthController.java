@@ -17,7 +17,7 @@ import pingpong.backend.global.response.result.SuccessResponse;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/teams/{teamId}/notion")
-@Tag(name = "Notion 연결 API", description = "Notion OAuth 인증 및 데이터베이스 연결 관리 API")
+@Tag(name = "Notion 연결 API", description = "Notion OAuth 인증 및 데이터베이스 연결 관리 API 입니다.")
 public class NotionOauthController {
 
     private final NotionFacade notionFacade;
