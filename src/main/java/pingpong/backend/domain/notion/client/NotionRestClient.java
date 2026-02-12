@@ -88,6 +88,6 @@ public class NotionRestClient {
     }
 
     private String buildUrl(String baseUrl, String path) {
-        return baseUrl + path;
+        return UriComponentsBuilder.fromHttpUrl(baseUrl).path(path).build().toUriString();
     }
 }
