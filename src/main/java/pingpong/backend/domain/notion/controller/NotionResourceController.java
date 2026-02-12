@@ -2,9 +2,6 @@ package pingpong.backend.domain.notion.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.notion.dto.NotionCreateDatabaseRequest;
 import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
-import pingpong.backend.domain.notion.dto.NotionDatabaseFullQueryRequest;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.global.annotation.CurrentMember;
@@ -26,44 +22,13 @@ public class NotionResourceController {
 
     private final NotionFacade notionFacade;
 
-    @PostMapping("/databases/primary/query")
+    @GetMapping("/databases/primary/query")
     @Operation(summary = "대표 데이터베이스 전체 조회", description = "팀에 설정된 대표 데이터베이스를 타임스탬프 기반 필터/정렬로 조회합니다.")
     public SuccessResponse<JsonNode> queryPrimaryDatabase(
             @PathVariable Long teamId,
-            @CurrentMember Member member,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = false,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = NotionDatabaseFullQueryRequest.class),
-                            examples = @ExampleObject(
-                                    name = "example",
-                                    value = """
-                                            {
-                                              "logic": "AND",
-                                              "timestampFilters": [
-                                                {
-                                                  "timestamp": "last_edited_time",
-                                                  "operator": "on_or_after",
-                                                  "value": "2026-01-01"
-                                                }
-                                              ],
-                                              "timestampSorts": [
-                                                {
-                                                  "timestamp": "last_edited_time",
-                                                  "direction": "descending"
-                                                }
-                                              ],
-                                              "pageSize": 50,
-                                              "includePages": true
-                                            }
-                                            """
-                            )
-                    )
-            )
-            @RequestBody(required = false) JsonNode request
+            @CurrentMember Member member
     ) {
-        return SuccessResponse.ok(notionFacade.queryPrimaryDatabase(teamId, member, request));
+        return SuccessResponse.ok(notionFacade.queryPrimaryDatabase(teamId, member));
     }
 
     @PostMapping("/databases/primary/pages")
