@@ -11,6 +11,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class Chunker {
 
+    private static final int MIN_CHUNK_SIZE = 200;
     private static final int CHUNK_BOUNDARY_WINDOW = 120;
 
     private final IndexingProperties properties;
@@ -20,7 +21,7 @@ public class Chunker {
             return List.of();
         }
 
-        int chunkSize = Math.max(200, properties.getChunkSize());
+        int chunkSize = Math.max(MIN_CHUNK_SIZE, properties.getChunkSize());
         int overlap = Math.max(0, Math.min(properties.getChunkOverlap(), chunkSize - 1));
 
         List<String> chunks = new ArrayList<>();
