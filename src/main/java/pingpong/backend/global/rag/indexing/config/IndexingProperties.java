@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "notion.indexing")
+@ConfigurationProperties(prefix = "rag.indexing")
 public class IndexingProperties {
 
     private boolean enabled = true;
