@@ -38,6 +38,7 @@ public class NotionDatabaseCreateService {
         if (payload == null) {
             throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
         }
+        String normalizedParentPageId = compactNotionId(parentPageId);
         log.info("DB-CREATE: incoming request={}",
                 NotionLogSupport.truncate(notionJsonUtils.writeJson(payload), MAX_LOG_BODY_CHARS));
 
@@ -45,7 +46,7 @@ public class NotionDatabaseCreateService {
 
         ObjectNode body = objectMapper.createObjectNode();
         ObjectNode parent = objectMapper.createObjectNode();
-        parent.put("page_id", parentPageId);
+        parent.put("page_id", normalizedParentPageId);
         body.set("parent", parent);
 
         body.set("title", notionJsonUtils.toRichTextArray(payload.title()));
@@ -125,5 +126,9 @@ public class NotionDatabaseCreateService {
 
     private boolean isAllowedPropertyType(String type) {
         return ALLOWED_PROPERTY_TYPES.contains(type);
+    }
+
+    private String compactNotionId(String notionId) {
+        return notionId == null ? null : notionId.replace("-", "");
     }
 }
