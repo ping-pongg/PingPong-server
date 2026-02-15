@@ -1,5 +1,9 @@
 package pingpong.backend.domain.flow;
 
+import static java.util.Objects.*;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +18,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
 import pingpong.backend.domain.team.Team;
 
 @Getter
@@ -38,4 +44,12 @@ public class Flow {
 
 	@Column
 	private String description;
+
+	public static Flow create(FlowCreateRequest req,Team team) {
+		return Flow.builder()
+			.title(req.title())
+			.description(req.description())
+			.team(team)
+			.build();
+	}
 }
