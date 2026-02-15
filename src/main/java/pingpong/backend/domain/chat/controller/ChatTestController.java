@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("api/v1/chat")
+@RequestMapping("/api/v1/chat")
 @Tag(name = "채팅 API", description = "채팅 관련 API 입니다.")
 public class ChatTestController {
 
@@ -19,8 +19,9 @@ public class ChatTestController {
     }
 
     @GetMapping("/test")
-    public String ping(@RequestParam(defaultValue = "한 문장으로 자기소개 해줘") String q) {
+    public String test(@RequestParam(defaultValue = "한 문장으로 자기소개 해줘") String q) {
         return chatClient.prompt()
+//                .system("시스템 프롬프트") TODO: 시스템 프롬프트 추가하기
                 .user(q)
                 .call()
                 .content();
