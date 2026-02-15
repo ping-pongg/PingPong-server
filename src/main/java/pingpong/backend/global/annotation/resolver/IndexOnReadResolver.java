@@ -40,6 +40,8 @@ public class IndexOnReadResolver {
                 return;
             }
             if (!(result instanceof JsonNode jsonNode)) {
+                log.warn("VECTORIZE: @IndexOnRead expects JsonNode return type but got {}",
+                        result == null ? "null" : result.getClass().getSimpleName());
                 return;
             }
 
@@ -88,6 +90,7 @@ public class IndexOnReadResolver {
         StandardEvaluationContext context = new StandardEvaluationContext();
         String[] parameterNames = parameterNameDiscoverer.getParameterNames(method);
 
+        // SpEL 변수: #p0/#a0 = 첫 번째 파라미터, #p1/#a1 = 두 번째 파라미터, ... 또는 #파라미터이름
         for (int i = 0; i < args.length; i++) {
             context.setVariable("p" + i, args[i]);
             context.setVariable("a" + i, args[i]);
