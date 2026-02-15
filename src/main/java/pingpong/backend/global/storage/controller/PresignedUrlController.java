@@ -20,12 +20,12 @@ import pingpong.backend.global.storage.service.PresignedUrlService;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/s3")
-@Tag(name="presigend URL 발급 API", description = "이미지 업로드 시 사용하는 API입니다.")
+@Tag(name="presigned URL 발급 API", description = "이미지 업로드 시 사용하는 API입니다.")
 public class PresignedUrlController {
 
 	private final PresignedUrlService presignedUrlService;
 
-	@PostMapping("/post-url")
+	@PostMapping("/url")
 	@Operation(summary="이미지 업로드용 presigned url 생성")
 	public SuccessResponse<PresignedUrlResponse> createPresignedUrl(
 		@RequestBody @Valid PresignedUrlRequest request
@@ -34,7 +34,7 @@ public class PresignedUrlController {
 		return SuccessResponse.ok(response);
 	}
 
-	@GetMapping("/get-url")
+	@GetMapping("/url")
 	@Operation(summary="이미지 조회용 presigned url 조회")
 	public SuccessResponse<PresignedUrlResponse> getPresignedUrl(
 		@RequestParam String imagePath
