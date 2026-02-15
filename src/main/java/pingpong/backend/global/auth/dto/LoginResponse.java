@@ -4,9 +4,10 @@ import pingpong.backend.domain.member.Member;
 
 public record LoginResponse(
         Long userId,
-        String nickname
+        String nickname,
+        String email
 ) {
     public static LoginResponse of(Member member) {
-        return new LoginResponse(member.getId(), member.getNickname());
+        return new LoginResponse(member.getId(), member.getNickname(), member.getEmail());
     }
 }
