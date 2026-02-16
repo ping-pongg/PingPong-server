@@ -10,9 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
-import pingpong.backend.domain.notion.dto.NotionCreateDatabaseRequest;
+import pingpong.backend.domain.notion.dto.response.DatabaseCreatedResponse;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.notion.util.NotionLogSupport;
+import pingpong.backend.domain.notion.util.NotionPropertyExtractor;
 import pingpong.backend.global.exception.CustomException;
 
 import java.util.Set;
@@ -24,47 +25,55 @@ public class NotionDatabaseCreateService {
 
     private static final Logger log = LoggerFactory.getLogger(NotionDatabaseCreateService.class);
     private static final int MAX_LOG_BODY_CHARS = 10 * 1024;
-    private static final Set<String> ALLOWED_PROPERTY_TYPES = Set.of("title", "rich_text", "number",
-            "select", "multi_select", "date", "people", "checkbox", "url", "email", "phone_number", "files",
-            "relation", "rollup", "formula", "created_time", "created_by", "last_edited_time", "last_edited_by"
-    );
 
     private final NotionTokenService notionTokenService;
     private final NotionRestClient notionRestClient;
     private final NotionJsonUtils notionJsonUtils;
     private final ObjectMapper objectMapper;
 
-    public JsonNode createDatabase(Long teamId, String parentPageId, NotionCreateDatabaseRequest payload) {
-        if (payload == null) {
-            throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-        }
+    /**
+     * 페이지 내에 고정된 구조의 데이터베이스 생성
+     * 요구사항에 따라 "API Status Overview" 데이터베이스를 생성
+     *
+     * @param teamId 팀 ID
+     * @param parentPageId 부모 페이지 ID
+     * @return 생성된 데이터베이스 정보 (id, title, url)
+     */
+    public DatabaseCreatedResponse createDatabase(Long teamId, String parentPageId) {
         String normalizedParentPageId = compactNotionId(parentPageId);
-        log.info("DB-CREATE: incoming request={}",
-                NotionLogSupport.truncate(notionJsonUtils.writeJson(payload), MAX_LOG_BODY_CHARS));
+        log.info("DB-CREATE: Creating fixed structure database in page={}", normalizedParentPageId);
 
-        validateCreateDatabaseRequest(payload);
-
+        // 고정된 body 구조 생성
         ObjectNode body = objectMapper.createObjectNode();
+
+        // parent
         ObjectNode parent = objectMapper.createObjectNode();
         parent.put("page_id", normalizedParentPageId);
         body.set("parent", parent);
 
-        body.set("title", notionJsonUtils.toRichTextArray(payload.title()));
-        if (payload.description() != null && !payload.description().isBlank()) {
-            body.set("description", notionJsonUtils.toRichTextArray(payload.description()));
-        }
-        if (payload.isInline() != null) {
-            body.put("is_inline", payload.isInline());
-        }
-        if (payload.icon() != null) {
-            body.set("icon", payload.icon());
-        }
-        if (payload.cover() != null) {
-            body.set("cover", payload.cover());
-        }
+        // title (고정: "API Status Overview")
+        body.set("title", notionJsonUtils.toRichTextArray("API Status Overview"));
 
+        // is_inline (고정: true)
+        body.put("is_inline", true);
+
+        // properties (고정 구조)
         ObjectNode propertiesNode = objectMapper.createObjectNode();
-        payload.properties().forEach(propertiesNode::set);
+
+        // "Status" property: select type
+        ObjectNode statusProperty = objectMapper.createObjectNode();
+        statusProperty.put("type", "select");
+        ObjectNode selectConfig = objectMapper.createObjectNode();
+        selectConfig.set("options", objectMapper.createArrayNode());
+        statusProperty.set("select", selectConfig);
+        propertiesNode.set("Status", statusProperty);
+
+        // "API List" property: title type
+        ObjectNode apiListProperty = objectMapper.createObjectNode();
+        apiListProperty.put("type", "title");
+        apiListProperty.set("title", objectMapper.createObjectNode());
+        propertiesNode.set("API List", apiListProperty);
+
         body.set("properties", propertiesNode);
 
         log.info("DB-CREATE: payload={}",
@@ -75,7 +84,13 @@ public class NotionDatabaseCreateService {
 
         JsonNode result = notionJsonUtils.parseJson(response);
         log.info("DB-CREATE: responseStatus={}", response.getStatusCode().value());
-        return result;
+
+        // 응답에서 필요한 정보만 추출
+        String databaseId = compactNotionId(result.path("id").asText(null));
+        String databaseTitle = NotionPropertyExtractor.extractTitleFromArray(result.get("title"));
+        String databaseUrl = result.path("url").asText(null);
+
+        return new DatabaseCreatedResponse(databaseId, databaseTitle, databaseUrl);
     }
 
     private ResponseEntity<String> callApi(Long teamId, Supplier<ResponseEntity<String>> supplier) {
@@ -86,47 +101,6 @@ public class NotionDatabaseCreateService {
         return response;
     }
 
-    private void validateCreateDatabaseRequest(NotionCreateDatabaseRequest payload) {
-        if (payload.title() == null || payload.title().isBlank()) {
-            throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-        }
-        if (payload.properties() == null || payload.properties().isEmpty()) {
-            throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-        }
-        int titleCount = 0;
-        for (var entry : payload.properties().entrySet()) {
-            String name = entry.getKey();
-            JsonNode node = entry.getValue();
-            if (name == null || name.isBlank() || node == null || !node.isObject()) {
-                throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-            }
-            JsonNode typeNode = node.get("type");
-            if (typeNode == null || typeNode.asText().isBlank()) {
-                throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-            }
-            String type = typeNode.asText();
-            if (!isAllowedPropertyType(type)) {
-                throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-            }
-            int fieldCount = node.size();
-            if (fieldCount > 2) {
-                throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-            }
-            if (!node.has(type)) {
-                throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-            }
-            if ("title".equals(type)) {
-                titleCount++;
-            }
-        }
-        if (titleCount != 1) {
-            throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
-        }
-    }
-
-    private boolean isAllowedPropertyType(String type) {
-        return ALLOWED_PROPERTY_TYPES.contains(type);
-    }
 
     private String compactNotionId(String notionId) {
         return notionId == null ? null : notionId.replace("-", "");
