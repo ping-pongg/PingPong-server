@@ -1,4 +1,4 @@
-package pingpong.backend.domain.openAPI.service;
+package pingpong.backend.domain.swagger.service;
 
 import java.net.URI;
 

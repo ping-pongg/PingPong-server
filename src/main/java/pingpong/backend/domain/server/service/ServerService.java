@@ -32,4 +32,13 @@ public class ServerService {
 		serverRepository.save(savedServer);
 		return new ServerCreateResponse(savedServer.getId());
 	}
+
+	/**
+	 * Server 조회
+	 * @param id
+	 * @return
+	 */
+	public Server getServer(Long id){
+		return serverRepository.findById(id).orElse(null);
+	}
 }

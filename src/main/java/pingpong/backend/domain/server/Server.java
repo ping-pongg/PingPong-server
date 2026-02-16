@@ -41,8 +41,8 @@ public class Server {
 	@Column
 	private String description;
 
-	@Column(name="server_uri")
-	private String serverURI;
+	@Column(name="swagger_uri")
+	private String swaggerURI;
 
 	public static Server create(ServerCreateRequest req,Team team) {
 		return Server.builder()
