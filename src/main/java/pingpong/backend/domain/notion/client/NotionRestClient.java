@@ -20,6 +20,21 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
+/**
+ * Thin wrapper around Notion REST API calls.
+ *
+ * The actual Notion endpoint is determined by {@code path}. In this codebase, the following endpoints are used:
+ * - {@code POST /v1/search}: {@code NotionFacade.resolveAndPersistDatabaseId}, {@code NotionConnectionApiService.listCandidateDatabases}
+ * - {@code GET /v1/databases/{database_id}}: {@code NotionDatabaseQueryService}, {@code NotionPageService}, {@code NotionConnectionApiService.connectDatabase}
+ * - {@code POST /v1/databases/{database_id}/query}: {@code NotionDatabaseQueryService.queryAll}
+ * - {@code GET /v1/pages/{page_id}}: {@code NotionDatabaseQueryService.fetchPages}
+ * - {@code POST /v1/pages}: {@code NotionPageService.createPage}
+ * - {@code PATCH /v1/pages/{page_id}}: {@code NotionPageService.updatePage}
+ * - {@code GET /v1/blocks/{block_id}/children}: {@code NotionPageService.getPageBlocks}, {@code NotionPageService.attachChildrenRecursively}
+ * - {@code POST /v1/databases}: {@code NotionDatabaseCreateService.createDatabase}
+ * - {@code GET /v1/data_sources/{data_source_id}}: {@code NotionDatabaseQueryService.queryPrimaryDatabase} (Notion data-source model)
+ * - {@code POST /v1/data_sources/{data_source_id}/query}: {@code NotionDatabaseQueryService.queryAll} (Notion data-source model)
+ */
 public class NotionRestClient {
 
     private static final Logger log = LoggerFactory.getLogger(NotionRestClient.class);
@@ -29,22 +44,53 @@ public class NotionRestClient {
     private final NotionProperties properties;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Executes a Notion {@code POST} request.
+     *
+     * Endpoints used in this codebase include:
+     * - {@code POST /v1/search}
+     * - {@code POST /v1/pages}
+     * - {@code POST /v1/databases}
+     * - {@code POST /v1/databases/{database_id}/query}
+     * - {@code POST /v1/data_sources/{data_source_id}/query}
+     */
     public ResponseEntity<String> post(String path, String accessToken, Object body) {
         HttpEntity<Object> entity = new HttpEntity<>(body, buildBearerHeaders(accessToken));
         String url = buildUrl(properties.getApiBaseUrl(), path);
         return exchangeWithLogging(url, HttpMethod.POST, entity, body);
     }
 
+    /**
+     * Executes a Notion {@code PATCH} request.
+     *
+     * Endpoints used in this codebase include:
+     * - {@code PATCH /v1/pages/{page_id}}
+     */
     public ResponseEntity<String> patch(String path, String accessToken, Object body) {
         HttpEntity<Object> entity = new HttpEntity<>(body, buildBearerHeaders(accessToken));
         String url = buildUrl(properties.getApiBaseUrl(), path);
         return exchangeWithLogging(url, HttpMethod.PATCH, entity, body);
     }
 
+    /**
+     * Executes a Notion {@code GET} request.
+     *
+     * Endpoints used in this codebase include:
+     * - {@code GET /v1/databases/{database_id}}
+     * - {@code GET /v1/pages/{page_id}}
+     * - {@code GET /v1/blocks/{block_id}/children}
+     * - {@code GET /v1/data_sources/{data_source_id}}
+     */
     public ResponseEntity<String> get(String path, String accessToken) {
         return get(path, accessToken, null);
     }
 
+    /**
+     * Executes a Notion {@code GET} request with optional query parameters.
+     *
+     * Endpoints used in this codebase include:
+     * - {@code GET /v1/blocks/{block_id}/children?page_size=&start_cursor=}
+     */
     public ResponseEntity<String> get(String path, String accessToken, Map<String, Object> queryParams) {
         HttpEntity<Void> entity = new HttpEntity<>(buildBearerHeaders(accessToken));
         String url = buildUrl(properties.getApiBaseUrl(), path);

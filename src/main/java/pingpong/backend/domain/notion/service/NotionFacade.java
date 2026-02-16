@@ -17,7 +17,9 @@ import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
 import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
+import pingpong.backend.global.annotation.IndexOnRead;
 import pingpong.backend.global.exception.CustomException;
+import pingpong.backend.global.rag.indexing.enums.IndexSourceType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -80,6 +82,13 @@ public class NotionFacade {
         notionConnectionApiService.connectDatabase(teamId, databaseId);
     }
 
+    @IndexOnRead(
+            sourceType = IndexSourceType.NOTION,
+            teamId = "#p0",
+            apiPath = "'GET /api/v1/teams/' + #p0 + '/notion/databases/primary'",
+            skipIfPageSizePresent = false,
+            skipIfStartCursorPresent = false
+    )
     public JsonNode queryPrimaryDatabase(Long teamId, Member member) {
         notionConnectionService.assertTeamAccess(teamId, member);
         return notionDatabaseQueryService.queryPrimaryDatabase(teamId);
@@ -96,6 +105,17 @@ public class NotionFacade {
         return notionPageService.updatePage(teamId, pageId, request);
     }
 
+    @IndexOnRead(
+            sourceType = IndexSourceType.NOTION,
+            teamId = "#p0",
+            apiPath = "'GET /api/v1/teams/' + #p0 + '/notion/pages/' + #p2",
+            resourceId = "#p2",
+            pageSize = "#p3",
+            startCursor = "#p4",
+            condition = "#p5 == true",
+            skipIfPageSizePresent = true,
+            skipIfStartCursorPresent = true
+    )
     public JsonNode getPageBlocks(Long teamId, Member member, String pageId, Integer pageSize, String startCursor, boolean deep) {
         notionConnectionService.assertTeamAccess(teamId, member);
         return notionPageService.getPageBlocks(teamId, pageId, pageSize, startCursor, deep);

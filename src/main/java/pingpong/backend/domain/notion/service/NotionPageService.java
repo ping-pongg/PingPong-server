@@ -57,6 +57,7 @@ public class NotionPageService {
                                   Integer pageSize,
                                   String startCursor,
                                   boolean deep) {
+        String normalizedPageId = compactNotionId(pageId);
         Map<String, Object> queryParams = new HashMap<>();
         if (pageSize != null) {
             queryParams.put("page_size", pageSize);
@@ -66,7 +67,7 @@ public class NotionPageService {
         }
 
         ResponseEntity<String> response = callApi(teamId,
-                () -> notionRestClient.get("/v1/blocks/" + pageId + "/children",
+                () -> notionRestClient.get("/v1/blocks/" + normalizedPageId + "/children",
                         notionTokenService.getAccessToken(teamId), queryParams));
         JsonNode root = notionJsonUtils.parseJson(response);
         if (deep) {
@@ -80,6 +81,7 @@ public class NotionPageService {
 
     public JsonNode updatePage(Long teamId, String pageId, NotionPageUpdateRequest payload) {
         String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
+        String normalizedPageId = compactNotionId(pageId);
         log.info("PAGE-UPDATE: incoming request={}", notionJsonUtils.writeJson(payload));
 
         if (payload == null || isEmptyUpdate(payload)) {
@@ -115,7 +117,7 @@ public class NotionPageService {
                 NotionLogSupport.truncate(notionJsonUtils.writeJson(body), MAX_LOG_BODY_CHARS));
 
         ResponseEntity<String> response = callApi(teamId,
-                () -> notionRestClient.patch("/v1/pages/" + pageId,
+                () -> notionRestClient.patch("/v1/pages/" + normalizedPageId,
                         notionTokenService.getAccessToken(teamId), body));
 
         JsonNode result = notionJsonUtils.parseJson(response);
@@ -291,6 +293,7 @@ public class NotionPageService {
             if (blockId == null || blockId.isBlank()) {
                 continue;
             }
+            String normalizedBlockId = compactNotionId(blockId);
             ArrayNode allChildren = objectMapper.createArrayNode();
             String cursor = null;
             boolean hasMore;
@@ -303,7 +306,7 @@ public class NotionPageService {
                     params.put("start_cursor", cursor);
                 }
                 ResponseEntity<String> childResponse = callApi(teamId,
-                        () -> notionRestClient.get("/v1/blocks/" + blockId + "/children",
+                        () -> notionRestClient.get("/v1/blocks/" + normalizedBlockId + "/children",
                                 notionTokenService.getAccessToken(teamId), params));
                 JsonNode childRoot = notionJsonUtils.parseJson(childResponse);
                 JsonNode results = childRoot.path("results");
@@ -328,5 +331,9 @@ public class NotionPageService {
         boolean statusEmpty = payload.status() == null || payload.status().isBlank();
         boolean dateEmpty = payload.date() == null;
         return titleEmpty && statusEmpty && dateEmpty;
+    }
+
+    private String compactNotionId(String notionId) {
+        return notionId == null ? null : notionId.replace("-", "");
     }
 }

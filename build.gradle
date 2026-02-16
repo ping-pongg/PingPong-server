@@ -29,6 +29,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -50,10 +51,15 @@ dependencies {
 	//S3
 	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.1.1'
 
-	// BOM, OpenAI Starter
+	// Spring AI BOM, OpenAI Starter
 	implementation platform("org.springframework.ai:spring-ai-bom:1.1.2")
 	implementation "org.springframework.ai:spring-ai-starter-model-openai"
 
+	// Spring AI Pinecone VectorStore
+	implementation "org.springframework.ai:spring-ai-starter-vector-store-pinecone"
+
+	// Spring AI Advisors (QuestionAnswerAdvisor)
+	implementation "org.springframework.ai:spring-ai-advisors-vector-store"
 }
 
 
