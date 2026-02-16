@@ -34,14 +34,19 @@ public class SecurityConfig {
             "/v3/api-docs/**",
 
             // Member
-            "/api/v1/members/*"
+            "/api/v1/members/*",
+
+            "/api/v1/s3/get-url"
     };
 
     private static final String[] ALLOWED_POST_URLS = {
             "/api/v1/auth/login",
             "/api/v1/auth/reissue",
-            "/api/v1/members"
+            "/api/v1/members",
+            "/api/v1/s3/post-url"
     };
+
+
 
     private final RefreshTokenCacheUtil refreshTokenCacheUtil;
     private final JwtUtil jwtUtil;
