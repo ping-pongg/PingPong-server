@@ -57,6 +57,9 @@ dependencies {
 
 	// Spring AI Pinecone VectorStore
 	implementation "org.springframework.ai:spring-ai-starter-vector-store-pinecone"
+
+	// Spring AI Advisors (QuestionAnswerAdvisor)
+	implementation "org.springframework.ai:spring-ai-advisors-vector-store"
 }
 
 
