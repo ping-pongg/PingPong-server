@@ -1,7 +1,8 @@
-package pingpong.backend.domain.notion.dto;
+package pingpong.backend.domain.notion.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import pingpong.backend.domain.notion.dto.common.NotionDateRange;
 
 @Schema(description = "Notion 페이지 수정 요청 (제공된 필드만 수정)")
 public record NotionPageUpdateRequest(

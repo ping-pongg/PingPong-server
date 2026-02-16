@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import pingpong.backend.domain.notion.config.NotionProperties;
-import pingpong.backend.domain.notion.dto.NotionOAuthTokenResponse;
+import pingpong.backend.domain.notion.dto.response.NotionOAuthTokenResponse;
 import pingpong.backend.domain.notion.util.NotionLogSupport;
 
 import java.util.Map;

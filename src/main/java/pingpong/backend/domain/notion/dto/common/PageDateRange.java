@@ -1,4 +1,4 @@
-package pingpong.backend.domain.notion.dto.response;
+package pingpong.backend.domain.notion.dto.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

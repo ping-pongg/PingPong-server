@@ -1,8 +1,9 @@
-package pingpong.backend.domain.notion.dto;
+package pingpong.backend.domain.notion.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import pingpong.backend.domain.notion.dto.common.NotionDateRange;
 
 @Schema(
         description = "페이지 생성 요청",

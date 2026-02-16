@@ -1,6 +1,7 @@
 package pingpong.backend.domain.notion.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
 
 import java.util.List;
 

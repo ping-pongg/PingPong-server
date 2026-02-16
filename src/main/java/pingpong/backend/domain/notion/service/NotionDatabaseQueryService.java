@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
-import pingpong.backend.domain.notion.dto.response.PageDateRange;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
 import pingpong.backend.domain.notion.dto.response.PageSummary;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.notion.util.NotionPropertyExtractor;

@@ -1,7 +1,7 @@
 package pingpong.backend.domain.notion.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import pingpong.backend.domain.notion.dto.response.PageDateRange;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
 
 import java.util.Iterator;
 

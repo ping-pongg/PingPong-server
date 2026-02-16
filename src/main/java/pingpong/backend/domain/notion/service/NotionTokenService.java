@@ -10,7 +10,7 @@ import org.springframework.web.client.RestClientException;
 import pingpong.backend.domain.notion.Notion;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionOauthClient;
-import pingpong.backend.domain.notion.dto.NotionOAuthTokenResponse;
+import pingpong.backend.domain.notion.dto.response.NotionOAuthTokenResponse;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.team.Team;
 import pingpong.backend.domain.team.TeamErrorCode;

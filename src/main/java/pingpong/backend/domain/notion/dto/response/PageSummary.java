@@ -1,6 +1,7 @@
 package pingpong.backend.domain.notion.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
 
 /**
  * 데이터베이스 쿼리 결과에서 반환되는 페이지 요약 정보
