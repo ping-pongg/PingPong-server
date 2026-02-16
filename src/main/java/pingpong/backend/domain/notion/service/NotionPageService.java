@@ -2,7 +2,6 @@ package pingpong.backend.domain.notion.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -11,20 +10,23 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
-import pingpong.backend.domain.notion.dto.NotionCreatePageRequest;
-import pingpong.backend.domain.notion.dto.NotionDateRange;
-import pingpong.backend.domain.notion.dto.NotionPageUpdateRequest;
+import pingpong.backend.domain.notion.dto.request.NotionCreatePageRequest;
+import pingpong.backend.domain.notion.dto.common.NotionDateRange;
+import pingpong.backend.domain.notion.dto.request.NotionPageUpdateRequest;
+import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
+import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.service.NotionPropertyResolver.PropertyNames;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.notion.util.NotionLogSupport;
+import pingpong.backend.domain.notion.util.NotionPropertyExtractor;
 import pingpong.backend.global.exception.CustomException;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -37,7 +39,6 @@ public class NotionPageService {
 
     private static final Logger log = LoggerFactory.getLogger(NotionPageService.class);
     private static final int MAX_LOG_BODY_CHARS = 10 * 1024;
-    private static final int MAX_CHILD_DEPTH = 4;
     private static final Duration DATABASE_SCHEMA_TTL = Duration.ofMinutes(5);
 
     private final NotionConnectionService notionConnectionService;
@@ -52,34 +53,60 @@ public class NotionPageService {
     private record CachedDatabase(JsonNode node, Instant cachedAt) {
     }
 
-    public JsonNode getPageBlocks(Long teamId,
-                                  String pageId,
-                                  Integer pageSize,
-                                  String startCursor,
-                                  boolean deep) {
+    /**
+     * 페이지 상세 정보를 조회 (속성, 본문 내용, 자식 데이터베이스)
+     *
+     * @param teamId 팀 ID
+     * @param pageId 페이지 ID
+     * @return 페이지 상세 정보
+     */
+    public PageDetailResponse getPageBlocks(Long teamId, String pageId) {
         String normalizedPageId = compactNotionId(pageId);
-        Map<String, Object> queryParams = new HashMap<>();
-        if (pageSize != null) {
-            queryParams.put("page_size", pageSize);
-        }
-        if (startCursor != null && !startCursor.isBlank()) {
-            queryParams.put("start_cursor", startCursor);
-        }
 
-        ResponseEntity<String> response = callApi(teamId,
+        // 1. 페이지 속성 조회
+        ResponseEntity<String> pageResponse = callApi(teamId,
+                () -> notionRestClient.get("/v1/pages/" + normalizedPageId,
+                        notionTokenService.getAccessToken(teamId)));
+        JsonNode pageNode = notionJsonUtils.parseJson(pageResponse);
+
+        // 2. 페이지 속성 추출
+        JsonNode properties = pageNode.path("properties");
+        String title = NotionPropertyExtractor.extractTitle(properties);
+        PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
+        String status = NotionPropertyExtractor.extractStatus(properties);
+
+        // 3. 페이지 블록(본문) 조회
+        ResponseEntity<String> blocksResponse = callApi(teamId,
                 () -> notionRestClient.get("/v1/blocks/" + normalizedPageId + "/children",
-                        notionTokenService.getAccessToken(teamId), queryParams));
-        JsonNode root = notionJsonUtils.parseJson(response);
-        if (deep) {
-            attachChildrenRecursively(teamId, root, pageSize, 0);
-        }
-        ObjectNode aggregated = toObjectNode(root);
-        ArrayNode childDatabases = fetchChildDatabases(teamId, root);
-        aggregated.set("child_databases", childDatabases);
-        return aggregated;
+                        notionTokenService.getAccessToken(teamId)));
+        JsonNode blocksRoot = notionJsonUtils.parseJson(blocksResponse);
+
+        // 4. paragraph 텍스트 추출
+        JsonNode results = blocksRoot.path("results");
+        String pageContent = NotionPropertyExtractor.extractParagraphText(results);
+
+        // 5. child_database 블록들 처리
+        List<DatabaseWithPagesResponse> childDatabases = fetchChildDatabases(teamId, blocksRoot);
+
+        return new PageDetailResponse(
+                normalizedPageId,
+                title,
+                date,
+                status,
+                pageContent,
+                childDatabases
+        );
     }
 
-    public JsonNode updatePage(Long teamId, String pageId, NotionPageUpdateRequest payload) {
+    /**
+     * 페이지를 수정하고 상세 정보를 반환
+     *
+     * @param teamId 팀 ID
+     * @param pageId 페이지 ID
+     * @param payload 페이지 수정 요청
+     * @return 수정된 페이지의 상세 정보
+     */
+    public PageDetailResponse updatePage(Long teamId, String pageId, NotionPageUpdateRequest payload) {
         String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
         String normalizedPageId = compactNotionId(pageId);
         log.info("PAGE-UPDATE: incoming request={}", notionJsonUtils.writeJson(payload));
@@ -122,10 +149,20 @@ public class NotionPageService {
 
         JsonNode result = notionJsonUtils.parseJson(response);
         log.info("PAGE-UPDATE: responseStatus={}", response.getStatusCode().value());
-        return result;
+
+        // 수정된 페이지의 상세 정보 조회
+        return getPageBlocks(teamId, normalizedPageId);
     }
 
-    public JsonNode createPage(Long teamId, String databaseId, NotionCreatePageRequest payload) {
+    /**
+     * 데이터베이스에 새 페이지를 생성하고 상세 정보를 반환
+     *
+     * @param teamId 팀 ID
+     * @param databaseId 데이터베이스 ID
+     * @param payload 페이지 생성 요청
+     * @return 생성된 페이지의 상세 정보
+     */
+    public PageDetailResponse createPage(Long teamId, String databaseId, NotionCreatePageRequest payload) {
         if (payload == null || payload.title() == null || payload.title().isBlank()) {
             throw new CustomException(NotionErrorCode.NOTION_INVALID_QUERY);
         }
@@ -159,23 +196,23 @@ public class NotionPageService {
 
         body.set("properties", propertiesNode);
 
-        if (payload.children() != null) {
-            body.set("children", payload.children());
-        }
-        if (payload.icon() != null) {
-            body.set("icon", payload.icon());
-        }
-        if (payload.cover() != null) {
-            body.set("cover", payload.cover());
-        }
-
         log.info("PAGE-CREATE: payload={}",
                 NotionLogSupport.truncate(notionJsonUtils.writeJson(body), MAX_LOG_BODY_CHARS));
 
         ResponseEntity<String> response = callApi(teamId,
                 () -> notionRestClient.post("/v1/pages",
                         notionTokenService.getAccessToken(teamId), body));
-        return notionJsonUtils.parseJson(response);
+
+        JsonNode result = notionJsonUtils.parseJson(response);
+        log.info("PAGE-CREATE: responseStatus={}", response.getStatusCode().value());
+
+        // 생성된 페이지의 ID를 추출하여 상세 정보 조회
+        String createdPageId = result.path("id").asText(null);
+        if (createdPageId == null || createdPageId.isBlank()) {
+            throw new CustomException(NotionErrorCode.NOTION_API_ERROR);
+        }
+
+        return getPageBlocks(teamId, createdPageId);
     }
 
     private void buildDateProperty(NotionDateRange dateRange,
@@ -217,24 +254,14 @@ public class NotionPageService {
         return response;
     }
 
-    private ObjectNode toObjectNode(JsonNode root) {
-        if (root != null && root.isObject()) {
-            return (ObjectNode) root;
-        }
-        ObjectNode aggregated = objectMapper.createObjectNode();
-        if (root != null) {
-            aggregated.set("blocks", root);
-        } else {
-            aggregated.putNull("blocks");
-        }
-        return aggregated;
-    }
-
-    private ArrayNode fetchChildDatabases(Long teamId, JsonNode root) {
+    /**
+     * 블록 결과에서 child_database를 찾아 조회
+     */
+    private List<DatabaseWithPagesResponse> fetchChildDatabases(Long teamId, JsonNode root) {
         Set<String> childDatabaseIds = collectChildDatabaseIds(root);
-        ArrayNode childDatabases = objectMapper.createArrayNode();
+        List<DatabaseWithPagesResponse> childDatabases = new ArrayList<>();
         for (String databaseId : childDatabaseIds) {
-            JsonNode databaseQuery = notionDatabaseQueryService.queryDatabase(teamId, databaseId);
+            DatabaseWithPagesResponse databaseQuery = notionDatabaseQueryService.queryDatabase(teamId, databaseId);
             childDatabases.add(databaseQuery);
         }
         return childDatabases;
@@ -278,53 +305,6 @@ public class NotionPageService {
         return databaseNode;
     }
 
-    private void attachChildrenRecursively(Long teamId, JsonNode node, Integer pageSize, int depth) {
-        if (depth >= MAX_CHILD_DEPTH) {
-            return;
-        }
-        if (node == null || !node.has("results") || !node.get("results").isArray()) {
-            return;
-        }
-        for (JsonNode block : node.get("results")) {
-            if (!block.path("has_children").asBoolean(false)) {
-                continue;
-            }
-            String blockId = block.path("id").asText(null);
-            if (blockId == null || blockId.isBlank()) {
-                continue;
-            }
-            String normalizedBlockId = compactNotionId(blockId);
-            ArrayNode allChildren = objectMapper.createArrayNode();
-            String cursor = null;
-            boolean hasMore;
-            do {
-                Map<String, Object> params = new HashMap<>();
-                if (pageSize != null) {
-                    params.put("page_size", pageSize);
-                }
-                if (cursor != null) {
-                    params.put("start_cursor", cursor);
-                }
-                ResponseEntity<String> childResponse = callApi(teamId,
-                        () -> notionRestClient.get("/v1/blocks/" + normalizedBlockId + "/children",
-                                notionTokenService.getAccessToken(teamId), params));
-                JsonNode childRoot = notionJsonUtils.parseJson(childResponse);
-                JsonNode results = childRoot.path("results");
-                if (results.isArray()) {
-                    results.forEach(allChildren::add);
-                }
-                hasMore = childRoot.path("has_more").asBoolean(false);
-                cursor = childRoot.path("next_cursor").asText(null);
-                if (hasMore && (cursor == null || cursor.isBlank())) {
-                    hasMore = false;
-                }
-            } while (hasMore);
-            if (block.isObject()) {
-                ((ObjectNode) block).set("children", allChildren);
-                attachChildrenRecursively(teamId, block, pageSize, depth + 1);
-            }
-        }
-    }
 
     private boolean isEmptyUpdate(NotionPageUpdateRequest payload) {
         boolean titleEmpty = payload.title() == null || payload.title().isBlank();

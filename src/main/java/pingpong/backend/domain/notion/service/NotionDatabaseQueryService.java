@@ -2,7 +2,6 @@ package pingpong.backend.domain.notion.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -11,12 +10,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
-import pingpong.backend.domain.notion.config.NotionProperties;
+import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
+import pingpong.backend.domain.notion.dto.common.PageDateRange;
+import pingpong.backend.domain.notion.dto.response.PageSummary;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
+import pingpong.backend.domain.notion.util.NotionPropertyExtractor;
 import pingpong.backend.global.exception.CustomException;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 @Service
@@ -24,116 +26,77 @@ import java.util.function.Supplier;
 public class NotionDatabaseQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(NotionDatabaseQueryService.class);
-    private static final String VERSION_2025_09_03 = "2025-09-03";
     private static final int DEFAULT_PAGE_SIZE = 100;
 
     private final NotionConnectionService notionConnectionService;
     private final NotionTokenService notionTokenService;
     private final NotionRestClient notionRestClient;
-    private final NotionProperties properties;
     private final NotionJsonUtils notionJsonUtils;
     private final ObjectMapper objectMapper;
 
-    public JsonNode queryPrimaryDatabase(Long teamId) {
+    /**
+     * 팀의 primary 데이터베이스를 조회하여 구조화된 응답 반환
+     *
+     * @param teamId 팀 ID
+     * @return 데이터베이스 제목과 페이지 목록
+     */
+    public DatabaseWithPagesResponse queryPrimaryDatabase(Long teamId) {
         String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
+        return queryDatabase(teamId, databaseId);
+    }
 
+    /**
+     * 특정 데이터베이스를 조회하여 구조화된 응답 반환
+     * (child database 조회에서도 사용)
+     *
+     * @param teamId 팀 ID
+     * @param databaseId 조회할 데이터베이스 ID
+     * @return 데이터베이스 제목과 페이지 목록
+     */
+    public DatabaseWithPagesResponse queryDatabase(Long teamId, String databaseId) {
+        // 1. 데이터베이스 정보 조회하여 제목 추출
+        String compactDatabaseId = compactNotionId(databaseId);
         ResponseEntity<String> databaseResponse = callApi(teamId,
-                () -> notionRestClient.get("/v1/databases/" + databaseId, notionTokenService.getAccessToken(teamId)));
+                () -> notionRestClient.get("/v1/databases/" + compactDatabaseId, notionTokenService.getAccessToken(teamId)));
         JsonNode databaseNode = notionJsonUtils.parseJson(databaseResponse);
 
-        String dataSourceId = resolveDataSourceId(teamId, databaseNode);
-        boolean isDataSourceModel = VERSION_2025_09_03.equals(properties.getNotionVersion());
-        if (isDataSourceModel && (dataSourceId == null || dataSourceId.isBlank())) {
-            log.warn("FULL-FLOW: dataSourceId missing for data-source model; databaseId={}", databaseId);
-            throw new CustomException(NotionErrorCode.NOTION_API_ERROR);
+        String databaseTitle = NotionPropertyExtractor.extractTitleFromArray(databaseNode.get("title"));
+
+        // 2. 데이터베이스 페이지 쿼리 (page_size: 100)
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("page_size", DEFAULT_PAGE_SIZE);
+
+        ResponseEntity<String> queryResponse = callApi(teamId,
+                () -> notionRestClient.post("/v1/databases/" + compactDatabaseId + "/query",
+                        notionTokenService.getAccessToken(teamId), body));
+        JsonNode queryResult = notionJsonUtils.parseJson(queryResponse);
+
+        // 3. 각 페이지에서 필요한 정보만 추출
+        List<PageSummary> pages = new ArrayList<>();
+        JsonNode results = queryResult.path("results");
+
+        if (results.isArray()) {
+            for (JsonNode pageNode : results) {
+                String pageId = compactNotionId(pageNode.path("id").asText(null));
+                if (pageId == null || pageId.isBlank()) {
+                    continue;
+                }
+
+                JsonNode properties = pageNode.path("properties");
+                String title = NotionPropertyExtractor.extractTitle(properties);
+                PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
+                String status = NotionPropertyExtractor.extractStatus(properties);
+
+                pages.add(new PageSummary(pageId, title, date, status));
+            }
         }
 
-        JsonNode dataSourceNode = objectMapper.createObjectNode();
-        if (dataSourceId != null && !dataSourceId.isBlank()) {
-            ResponseEntity<String> dataSourceResponse = callApi(teamId,
-                    () -> notionRestClient.get("/v1/data_sources/" + dataSourceId, notionTokenService.getAccessToken(teamId)));
-            dataSourceNode = notionJsonUtils.parseJson(dataSourceResponse);
-        }
-
-        String queryPath;
-        if (isDataSourceModel && dataSourceId != null && !dataSourceId.isBlank()) {
-            queryPath = "/v1/data_sources/" + dataSourceId + "/query";
-        } else {
-            queryPath = "/v1/databases/" + databaseId + "/query";
-        }
-        log.info("FULL-FLOW: Notion query | path={} | databaseId={} | dataSourceId={}", queryPath, databaseId, dataSourceId);
-
-        ObjectNode queryNode = queryAll(teamId, queryPath);
-        ArrayNode pagesNode = fetchPages(teamId, queryNode);
-
-        ObjectNode aggregated = objectMapper.createObjectNode();
-        aggregated.set("database", databaseNode);
-        aggregated.set("data_source", dataSourceNode);
-        aggregated.set("query_result", queryNode);
-        aggregated.set("pages", pagesNode);
-        return aggregated;
+        return new DatabaseWithPagesResponse(databaseTitle, pages);
     }
 
-    public JsonNode queryDatabase(Long teamId, String databaseId) {
-        ResponseEntity<String> databaseResponse = callApi(teamId,
-                () -> notionRestClient.get("/v1/databases/" + databaseId, notionTokenService.getAccessToken(teamId)));
-        JsonNode databaseNode = notionJsonUtils.parseJson(databaseResponse);
-
-        ObjectNode queryNode = queryAll(teamId, "/v1/databases/" + databaseId + "/query");
-        ArrayNode pagesNode = fetchPages(teamId, queryNode);
-
-        ObjectNode aggregated = objectMapper.createObjectNode();
-        aggregated.set("database", databaseNode);
-        aggregated.set("query_result", queryNode);
-        aggregated.set("pages", pagesNode);
-        return aggregated;
-    }
-
-    private ObjectNode queryAll(Long teamId, String queryPath) {
-        ArrayNode allResults = objectMapper.createArrayNode();
-        String cursor = null;
-        boolean hasMore;
-        ObjectNode baseNode = null;
-
-        do {
-            ObjectNode body = objectMapper.createObjectNode();
-            body.put("page_size", DEFAULT_PAGE_SIZE);
-            if (cursor != null && !cursor.isBlank()) {
-                body.put("start_cursor", cursor);
-            }
-
-            ResponseEntity<String> queryResponse = callApi(teamId,
-                    () -> notionRestClient.post(queryPath, notionTokenService.getAccessToken(teamId), body));
-            JsonNode queryNode = notionJsonUtils.parseJson(queryResponse);
-            if (queryNode == null || queryNode.isNull()) {
-                break;
-            }
-
-            if (baseNode == null) {
-                baseNode = queryNode.isObject() ? ((ObjectNode) queryNode).deepCopy() : objectMapper.createObjectNode();
-            }
-
-            JsonNode results = queryNode.path("results");
-            if (results.isArray()) {
-                results.forEach(allResults::add);
-            }
-
-            hasMore = queryNode.path("has_more").asBoolean(false);
-            cursor = queryNode.path("next_cursor").asText(null);
-            if (hasMore && (cursor == null || cursor.isBlank())) {
-                hasMore = false;
-            }
-        } while (hasMore);
-
-        if (baseNode == null) {
-            baseNode = objectMapper.createObjectNode();
-        }
-        baseNode.set("results", allResults);
-        baseNode.put("has_more", false);
-        baseNode.putNull("next_cursor");
-        return baseNode;
-    }
-
+    /**
+     * Notion API 호출을 토큰 갱신과 함께 실행
+     */
     private ResponseEntity<String> callApi(Long teamId, Supplier<ResponseEntity<String>> supplier) {
         ResponseEntity<String> response = notionTokenService.executeWithRefresh(teamId, supplier);
         if (!response.getStatusCode().is2xxSuccessful()) {
@@ -142,36 +105,14 @@ public class NotionDatabaseQueryService {
         return response;
     }
 
-    private ArrayNode fetchPages(Long teamId, ObjectNode queryNode) {
-        ArrayNode pagesNode = objectMapper.createArrayNode();
-
-        Set<String> pageIds = new LinkedHashSet<>();
-        JsonNode results = queryNode.path("results");
-        if (results.isArray()) {
-            for (JsonNode result : results) {
-                String pageId = result.path("id").asText(null);
-                if (pageId == null || pageId.isBlank()) {
-                    continue;
-                }
-                pageIds.add(pageId);
-            }
+    /**
+     * Notion ID에서 대시(-)를 제거하여 compact 형태로 변환
+     */
+    private String compactNotionId(String notionId) {
+        if (notionId == null) {
+            return null;
         }
-
-        for (String pageId : pageIds) {
-            ResponseEntity<String> pageResponse = callApi(teamId,
-                    () -> notionRestClient.get("/v1/pages/" + pageId, notionTokenService.getAccessToken(teamId)));
-            pagesNode.add(notionJsonUtils.parseJson(pageResponse));
-        }
-
-        return pagesNode;
-    }
-
-    private String resolveDataSourceId(Long teamId, JsonNode databaseNode) {
-        String dataSourceId = notionTokenService.getNotionOrThrow(teamId).getDataSourceId();
-        if (dataSourceId != null && !dataSourceId.isBlank()) {
-            return dataSourceId;
-        }
-        return notionJsonUtils.extractDataSourceId(databaseNode);
+        return notionId.replace("-", "");
     }
 }
 
