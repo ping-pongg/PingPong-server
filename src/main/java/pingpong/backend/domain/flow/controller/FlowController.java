@@ -22,12 +22,14 @@ public class FlowController {
 
 	private final FlowService flowService;
 
-	@PostMapping("/create/{teamId}")
+	@PostMapping("/create/{serverId}")
 	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
 	public SuccessResponse<FlowCreateResponse> createFlow(
-		@PathVariable Long teamId,
+		@PathVariable Long serverId,
 		@RequestBody FlowCreateRequest flowCreateRequest
 	){
-		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest,teamId));
+		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, serverId));
 	}
+
+
 }

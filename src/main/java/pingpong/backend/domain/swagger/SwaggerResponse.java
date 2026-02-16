@@ -1,8 +1,4 @@
-package pingpong.backend.domain.flow;
-
-import static java.util.Objects.*;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
+package pingpong.backend.domain.swagger;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,10 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.server.Server;
-import pingpong.backend.domain.team.Team;
 
 @Getter
 @Entity
@@ -29,30 +21,26 @@ import pingpong.backend.domain.team.Team;
 @Table
 @NoArgsConstructor(access= AccessLevel.PROTECTED)
 @AllArgsConstructor(access= AccessLevel.PRIVATE)
-public class Flow {
+public class SwaggerResponse {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column
 	private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "server_id")
-	private Server server;
+	@Column
+	private String mediaType;
 
 	@Column
-	private String title;
+	private Long statusCode;
 
 	@Column
 	private String description;
 
-	//이미지 추가
+	@Column
+	private String schemaHash;
 
-	public static Flow create(FlowCreateRequest req,Server server) {
-		return Flow.builder()
-			.title(req.title())
-			.description(req.description())
-			.server(server)
-			.build();
-	}
+	@ManyToOne(fetch= FetchType.LAZY)
+	@JoinColumn(name="endpoint_id")
+	private Endpoint endpoint;
 }
