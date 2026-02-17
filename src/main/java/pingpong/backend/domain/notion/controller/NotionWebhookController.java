@@ -1,0 +1,44 @@
+package pingpong.backend.domain.notion.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import pingpong.backend.domain.notion.service.NotionWebhookService;
+import pingpong.backend.global.response.result.SuccessResponse;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/notion/webhooks")
+@RequiredArgsConstructor
+@Tag(name = "Notion Webhook API", description = "Notion 웹훅 구독 검증 및 이벤트 수신 API 입니다.")
+public class NotionWebhookController {
+
+    private final NotionWebhookService notionWebhookService;
+
+    /**
+     * Notion 웹훅 수신 엔드포인트.
+     * - 구독 검증: {@code { "verification_token": "..." }} 페이로드 → {@code { "challenge": "..." }} 반환
+     * - 일반 이벤트: {@code X-Notion-Signature: sha256=<hex>} 검증 후 처리
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            summary = "Notion 웹훅 수신",
+            description = """
+                    Notion 서버로부터 웹훅 요청을 수신합니다.
+                    - verification_token 페이로드: 구독 검증 challenge 반환
+                    - 일반 이벤트: X-Notion-Signature 헤더 검증 후 처리
+                    """
+    )
+    public ResponseEntity<?> handleWebhook(
+            @RequestHeader(value = "X-Notion-Signature", required = false) String signatureHeader,
+            @RequestBody String rawBody
+    ) {
+        return notionWebhookService.handle(rawBody, signatureHeader)
+                .map(challenge -> ResponseEntity.ok((Object) Map.of("challenge", challenge)))
+                .orElseGet(() -> ResponseEntity.ok(SuccessResponse.ok(null)));
+    }
+}
