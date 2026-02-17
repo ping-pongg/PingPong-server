@@ -2,6 +2,7 @@ package pingpong.backend.domain.notion.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import pingpong.backend.domain.notion.dto.request.NotionPageUpdateRequest;
 import pingpong.backend.domain.notion.dto.response.DatabaseCreatedResponse;
 import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
+import pingpong.backend.domain.notion.event.NotionInitialIndexEvent;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.global.annotation.IndexOnRead;
@@ -42,6 +44,7 @@ public class NotionFacade {
     private final NotionDatabaseCreateService notionDatabaseCreateService;
     private final NotionRepository notionRepository;
     private final NotionJsonUtils notionJsonUtils;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public NotionOAuthExchangeResponse exchangeCodeAndPersist(Long teamId, Member member, String code, String redirectUri) {
@@ -58,6 +61,8 @@ public class NotionFacade {
         if (notion.getDatabaseId() == null) {
             notion = resolveAndPersistDatabaseId(teamId);
         }
+
+        eventPublisher.publishEvent(new NotionInitialIndexEvent(teamId));
 
         return new NotionOAuthExchangeResponse(
                 true,
