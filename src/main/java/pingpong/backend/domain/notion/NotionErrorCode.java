@@ -14,7 +14,8 @@ public enum NotionErrorCode implements ApiErrorCode {
     NOTION_INVALID_QUERY("NOTION400", "Notion 쿼리 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
     NOTION_TOKEN_REFRESH_FAILED("NOTION401", "Notion 토큰 갱신에 실패했습니다. 다시 연결해주세요.", HttpStatus.UNAUTHORIZED),
     NOTION_PERMISSION_DENIED("NOTION403", "Notion 권한이 부족합니다.", HttpStatus.FORBIDDEN),
-    NOTION_API_ERROR("NOTION502", "Notion API 요청에 실패했습니다.", HttpStatus.BAD_GATEWAY);
+    NOTION_API_ERROR("NOTION502", "Notion API 요청에 실패했습니다.", HttpStatus.BAD_GATEWAY),
+    NOTION_WEBHOOK_INVALID_SIGNATURE("NOTION_W401", "웹훅 서명이 유효하지 않습니다.", HttpStatus.UNAUTHORIZED);
 
     private final String errorCode;
     private final String message;
