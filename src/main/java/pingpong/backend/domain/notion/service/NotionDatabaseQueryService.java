@@ -10,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
-import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.common.PageDateRange;
+import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
+import pingpong.backend.domain.notion.dto.response.ChildPageSummary;
+import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.PageSummary;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.notion.util.NotionPropertyExtractor;
@@ -83,15 +85,60 @@ public class NotionDatabaseQueryService {
                 }
 
                 JsonNode properties = pageNode.path("properties");
+                String pageUrl = pageNode.path("url").asText(null);
                 String title = NotionPropertyExtractor.extractTitle(properties);
                 PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
                 String status = NotionPropertyExtractor.extractStatus(properties);
 
-                pages.add(new PageSummary(pageId, title, date, status));
+                pages.add(new PageSummary(pageId, pageUrl, title, date, status));
             }
         }
 
         return new DatabaseWithPagesResponse(databaseTitle, pages);
+    }
+
+    /**
+     * child database를 조회하여 구조화된 응답 반환 (date 제외)
+     *
+     * @param teamId 팀 ID
+     * @param databaseId 조회할 데이터베이스 ID
+     * @return 데이터베이스 제목과 페이지 목록
+     */
+    public ChildDatabaseWithPagesResponse queryChildDatabase(Long teamId, String databaseId) {
+        String compactDatabaseId = compactNotionId(databaseId);
+        ResponseEntity<String> databaseResponse = callApi(teamId,
+                () -> notionRestClient.get("/v1/databases/" + compactDatabaseId, notionTokenService.getAccessToken(teamId)));
+        JsonNode databaseNode = notionJsonUtils.parseJson(databaseResponse);
+        String databaseTitle = NotionPropertyExtractor.extractTitleFromArray(databaseNode.get("title"));
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("page_size", DEFAULT_PAGE_SIZE);
+
+        ResponseEntity<String> queryResponse = callApi(teamId,
+                () -> notionRestClient.post("/v1/databases/" + compactDatabaseId + "/query",
+                        notionTokenService.getAccessToken(teamId), body));
+        JsonNode queryResult = notionJsonUtils.parseJson(queryResponse);
+
+        List<ChildPageSummary> pages = new ArrayList<>();
+        JsonNode results = queryResult.path("results");
+
+        if (results.isArray()) {
+            for (JsonNode pageNode : results) {
+                String pageId = compactNotionId(pageNode.path("id").asText(null));
+                if (pageId == null || pageId.isBlank()) {
+                    continue;
+                }
+
+                JsonNode properties = pageNode.path("properties");
+                String pageUrl = pageNode.path("url").asText(null);
+                String title = NotionPropertyExtractor.extractTitle(properties);
+                String status = NotionPropertyExtractor.extractStatus(properties);
+
+                pages.add(new ChildPageSummary(pageId, pageUrl, title, status));
+            }
+        }
+
+        return new ChildDatabaseWithPagesResponse(databaseTitle, pages);
     }
 
     /**
@@ -115,4 +162,3 @@ public class NotionDatabaseQueryService {
         return notionId.replace("-", "");
     }
 }
-

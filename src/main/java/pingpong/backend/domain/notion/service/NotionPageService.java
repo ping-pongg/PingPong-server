@@ -13,7 +13,7 @@ import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.request.NotionCreatePageRequest;
 import pingpong.backend.domain.notion.dto.common.NotionDateRange;
 import pingpong.backend.domain.notion.dto.request.NotionPageUpdateRequest;
-import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
+import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.common.PageDateRange;
 import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.service.NotionPropertyResolver.PropertyNames;
@@ -71,6 +71,7 @@ public class NotionPageService {
 
         // 2. 페이지 속성 추출
         JsonNode properties = pageNode.path("properties");
+        String pageUrl = pageNode.path("url").asText(null);
         String title = NotionPropertyExtractor.extractTitle(properties);
         PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
         String status = NotionPropertyExtractor.extractStatus(properties);
@@ -86,10 +87,11 @@ public class NotionPageService {
         String pageContent = NotionPropertyExtractor.extractParagraphText(results);
 
         // 5. child_database 블록들 처리
-        List<DatabaseWithPagesResponse> childDatabases = fetchChildDatabases(teamId, blocksRoot);
+        List<ChildDatabaseWithPagesResponse> childDatabases = fetchChildDatabases(teamId, blocksRoot);
 
         return new PageDetailResponse(
                 normalizedPageId,
+                pageUrl,
                 title,
                 date,
                 status,
@@ -257,11 +259,11 @@ public class NotionPageService {
     /**
      * 블록 결과에서 child_database를 찾아 조회
      */
-    private List<DatabaseWithPagesResponse> fetchChildDatabases(Long teamId, JsonNode root) {
+    private List<ChildDatabaseWithPagesResponse> fetchChildDatabases(Long teamId, JsonNode root) {
         Set<String> childDatabaseIds = collectChildDatabaseIds(root);
-        List<DatabaseWithPagesResponse> childDatabases = new ArrayList<>();
+        List<ChildDatabaseWithPagesResponse> childDatabases = new ArrayList<>();
         for (String databaseId : childDatabaseIds) {
-            DatabaseWithPagesResponse databaseQuery = notionDatabaseQueryService.queryDatabase(teamId, databaseId);
+            ChildDatabaseWithPagesResponse databaseQuery = notionDatabaseQueryService.queryChildDatabase(teamId, databaseId);
             childDatabases.add(databaseQuery);
         }
         return childDatabases;
