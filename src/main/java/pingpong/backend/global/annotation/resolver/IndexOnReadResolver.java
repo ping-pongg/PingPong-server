@@ -1,6 +1,7 @@
 package pingpong.backend.global.annotation.resolver;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
@@ -29,6 +30,7 @@ public class IndexOnReadResolver {
 
     private final IndexJobPublisher indexJobPublisher;
     private final IndexingProperties properties;
+    private final ObjectMapper objectMapper;
 
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
@@ -39,9 +41,13 @@ public class IndexOnReadResolver {
             if (!properties.isEnabled()) {
                 return;
             }
-            if (!(result instanceof JsonNode jsonNode)) {
-                log.warn("VECTORIZE: @IndexOnRead expects JsonNode return type but got {}",
-                        result == null ? "null" : result.getClass().getSimpleName());
+            JsonNode jsonNode;
+            if (result instanceof JsonNode jn) {
+                jsonNode = jn;
+            } else if (result != null) {
+                jsonNode = objectMapper.valueToTree(result);
+            } else {
+                log.warn("VECTORIZE: @IndexOnRead received null result, skipping.");
                 return;
             }
 

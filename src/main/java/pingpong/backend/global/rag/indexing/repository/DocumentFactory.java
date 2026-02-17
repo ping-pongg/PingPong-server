@@ -34,6 +34,16 @@ public class DocumentFactory {
         String lastEditedTime = extractLastEditedTime(payload);
         String firstBlockId = extractFirstBlockId(payload);
 
+        boolean isPageDoc = job.apiPath() != null && job.apiPath().contains("/notion/pages/");
+        boolean isDatabaseDoc = job.apiPath() != null && job.apiPath().contains("/databases/primary");
+
+        String status = extractStatus(payload);
+        String startDate = extractStartDate(payload);
+        String endDate = extractEndDate(payload);
+        String pageUrl = extractPageUrl(payload, isPageDoc);
+        String databaseTitle = extractDatabaseTitle(payload, isDatabaseDoc);
+        int pageCount = extractPageCount(payload, isDatabaseDoc);
+
         for (int i = 0; i < chunks.size(); i++) {
             String chunk = chunks.get(i);
             Map<String, Object> metadata = new LinkedHashMap<>();
@@ -51,6 +61,16 @@ public class DocumentFactory {
             metadata.put("chunkIndex", i);
             metadata.put("chunkCount", chunks.size());
             metadata.put("updatedAt", now.toString());
+            if (isPageDoc) {
+                metadata.put("status", defaultString(status));
+                metadata.put("startDate", defaultString(startDate));
+                metadata.put("endDate", defaultString(endDate));
+                metadata.put("pageUrl", defaultString(pageUrl));
+            }
+            if (isDatabaseDoc) {
+                metadata.put("databaseTitle", defaultString(databaseTitle));
+                metadata.put("pageCount", pageCount);
+            }
 
             Document document = Document.builder()
                     .id(documentPrefix + "-" + i)
@@ -117,19 +137,14 @@ public class DocumentFactory {
         return maxDepth;
     }
 
-    private String extractDatabaseId(JsonNode payload) {
-        if (payload == null || payload.isNull()) {
-            return "";
-        }
-        String id = payload.path("database").path("id").asText("");
-        if (!id.isBlank()) {
-            return id;
-        }
+    // -------------------------------------------------------------------------
+    // DTO JSON 구조 기반 필드 추출
+    // DatabaseWithPagesResponse: { "databaseTitle": "...", "pages": [...] }
+    // PageDetailResponse: { "id", "url", "title", "date": {"start","end"}, "status", "pageContent", "childDatabases": [...] }
+    // -------------------------------------------------------------------------
 
-        JsonNode childDatabases = payload.path("child_databases");
-        if (childDatabases.isArray() && !childDatabases.isEmpty()) {
-            return childDatabases.get(0).path("database").path("id").asText("");
-        }
+    private String extractDatabaseId(JsonNode payload) {
+        // DTO 구조에는 databaseId 필드가 없음 — 빈 문자열 반환
         return "";
     }
 
@@ -140,58 +155,74 @@ public class DocumentFactory {
         if (payload == null || payload.isNull()) {
             return "";
         }
-        JsonNode results = payload.path("query_result").path("results");
-        if (results.isArray() && !results.isEmpty()) {
-            return results.get(0).path("id").asText("");
-        }
-        return "";
+        // PageDetailResponse: root.id
+        return payload.path("id").asText("");
     }
 
     private String extractTitle(JsonNode payload) {
         if (payload == null || payload.isNull()) {
             return "";
         }
-        String title = payload.path("database").path("title").path(0).path("plain_text").asText("");
-        if (!title.isBlank()) {
-            return title;
+        // PageDetailResponse: root.title
+        String pageTitle = payload.path("title").asText("").trim();
+        if (!pageTitle.isBlank()) {
+            return pageTitle;
         }
-
-        JsonNode pages = payload.path("query_result").path("results");
-        if (pages.isArray() && !pages.isEmpty()) {
-            return pages.get(0).path("url").asText("");
-        }
-        return "";
+        // DatabaseWithPagesResponse: root.databaseTitle
+        return payload.path("databaseTitle").asText("").trim();
     }
 
     private String extractLastEditedTime(JsonNode payload) {
-        if (payload == null || payload.isNull()) {
-            return "";
-        }
-        String databaseEdited = payload.path("database").path("last_edited_time").asText("");
-        if (!databaseEdited.isBlank()) {
-            return databaseEdited;
-        }
-
-        JsonNode pageResults = payload.path("query_result").path("results");
-        if (pageResults.isArray() && !pageResults.isEmpty()) {
-            String pageEdited = pageResults.get(0).path("last_edited_time").asText("");
-            if (!pageEdited.isBlank()) {
-                return pageEdited;
-            }
-        }
-
+        // DTO에는 lastEditedTime 필드가 없음 — 빈 문자열 반환
         return "";
     }
 
     private String extractFirstBlockId(JsonNode payload) {
+        // DTO에는 blockId 필드가 없음 — 빈 문자열 반환
+        return "";
+    }
+
+    private String extractStatus(JsonNode payload) {
         if (payload == null || payload.isNull()) {
             return "";
         }
-        JsonNode results = payload.path("results");
-        if (results.isArray() && !results.isEmpty()) {
-            return results.get(0).path("id").asText("");
+        return payload.path("status").asText("").trim();
+    }
+
+    private String extractStartDate(JsonNode payload) {
+        if (payload == null || payload.isNull()) {
+            return "";
         }
-        return "";
+        return payload.path("date").path("start").asText("").trim();
+    }
+
+    private String extractEndDate(JsonNode payload) {
+        if (payload == null || payload.isNull()) {
+            return "";
+        }
+        return payload.path("date").path("end").asText("").trim();
+    }
+
+    private String extractPageUrl(JsonNode payload, boolean isPageDoc) {
+        if (!isPageDoc || payload == null || payload.isNull()) {
+            return "";
+        }
+        return payload.path("url").asText("").trim();
+    }
+
+    private String extractDatabaseTitle(JsonNode payload, boolean isDatabaseDoc) {
+        if (!isDatabaseDoc || payload == null || payload.isNull()) {
+            return "";
+        }
+        return payload.path("databaseTitle").asText("").trim();
+    }
+
+    private int extractPageCount(JsonNode payload, boolean isDatabaseDoc) {
+        if (!isDatabaseDoc || payload == null || payload.isNull()) {
+            return 0;
+        }
+        JsonNode pages = payload.path("pages");
+        return pages.isArray() ? pages.size() : 0;
     }
 
     private String defaultString(String value) {
