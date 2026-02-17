@@ -69,6 +69,12 @@ public class NotionPropertyExtractor {
                     return status.get("name").asText();
                 }
             }
+            if (property.has("type") && "select".equals(property.get("type").asText())) {
+                JsonNode select = property.get("select");
+                if (select != null && select.has("name")) {
+                    return select.get("name").asText();
+                }
+            }
         }
         return null;
     }
