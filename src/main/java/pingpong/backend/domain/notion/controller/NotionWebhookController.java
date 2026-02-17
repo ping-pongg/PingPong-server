@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import pingpong.backend.domain.notion.service.NotionWebhookService;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -22,7 +25,7 @@ public class NotionWebhookController {
     /**
      * Notion 웹훅 수신 엔드포인트.
      * - 구독 검증: {@code { "verification_token": "..." }} 페이로드 → {@code { "challenge": "..." }} 반환
-     * - 일반 이벤트: {@code X-Notion-Signature: sha256=<hex>} 검증 후 처리
+     * - 일반 이벤트: 이벤트 처리
      */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
@@ -34,10 +37,9 @@ public class NotionWebhookController {
                     """
     )
     public ResponseEntity<?> handleWebhook(
-            @RequestHeader(value = "X-Notion-Signature", required = false) String signatureHeader,
             @RequestBody String rawBody
     ) {
-        return notionWebhookService.handle(rawBody, signatureHeader)
+        return notionWebhookService.handle(rawBody)
                 .map(challenge -> ResponseEntity.ok((Object) Map.of("challenge", challenge)))
                 .orElseGet(() -> ResponseEntity.ok(SuccessResponse.ok(null)));
     }
