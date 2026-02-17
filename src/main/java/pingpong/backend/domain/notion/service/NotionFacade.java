@@ -62,8 +62,6 @@ public class NotionFacade {
             notion = resolveAndPersistDatabaseId(teamId);
         }
 
-        eventPublisher.publishEvent(new NotionInitialIndexEvent(teamId));
-
         return new NotionOAuthExchangeResponse(
                 true,
                 notion.getWorkspaceId(),
@@ -84,9 +82,11 @@ public class NotionFacade {
         return notionConnectionApiService.listCandidateDatabases(teamId);
     }
 
+    @Transactional
     public void setPrimaryDatabase(Long teamId, Member member, String databaseId) {
         notionConnectionService.assertTeamAccess(teamId, member);
         notionConnectionApiService.connectDatabase(teamId, databaseId);
+        eventPublisher.publishEvent(new NotionInitialIndexEvent(teamId));
     }
 
     @IndexOnRead(

@@ -147,6 +147,7 @@ public class NotionDatabaseQueryService {
     private ResponseEntity<String> callApi(Long teamId, Supplier<ResponseEntity<String>> supplier) {
         ResponseEntity<String> response = notionTokenService.executeWithRefresh(teamId, supplier);
         if (!response.getStatusCode().is2xxSuccessful()) {
+            log.warn("Notion API 오류 응답 — status={} body={}", response.getStatusCode().value(), response.getBody());
             throw new CustomException(NotionErrorCode.NOTION_API_ERROR);
         }
         return response;
