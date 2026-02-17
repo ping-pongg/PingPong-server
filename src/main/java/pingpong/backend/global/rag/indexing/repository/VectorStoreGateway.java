@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.global.rag.indexing.IndexingState;
 import pingpong.backend.global.rag.indexing.dto.IndexJob;
 import pingpong.backend.global.rag.indexing.dto.IndexQueryOptions;
+import pingpong.backend.global.rag.indexing.enums.IndexSourceType;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -66,6 +67,25 @@ public class VectorStoreGateway {
         stateRepository.save(state);
         log.info("INDEX: upserted sourceType={} teamId={} apiPath={} resourceId={} chunks={}",
                 job.sourceType(), job.teamId(), job.apiPath(), job.resourceId(), chunks.size());
+    }
+
+    /**
+     * page.deleted 이벤트 처리용: 삭제된 페이지의 VectorDB 청크와 IndexingState를 제거합니다.
+     */
+    @Transactional
+    public void deleteByPageId(Long teamId, String pageId) {
+        stateRepository.findBySourceTypeAndTeamIdAndResourceId(IndexSourceType.NOTION, teamId, pageId)
+                .ifPresent(state -> {
+                    List<String> ids = new ArrayList<>();
+                    for (int i = 0; i < state.getChunkCount(); i++) {
+                        ids.add(state.getDocumentPrefix() + "-" + i);
+                    }
+                    if (!ids.isEmpty()) {
+                        vectorStore.delete(ids);
+                    }
+                    stateRepository.delete(state);
+                    log.info("INDEX: deleted pageId={} teamId={} chunks={}", pageId, teamId, ids.size());
+                });
     }
 
     public List<Document> query(IndexQueryOptions options) {
