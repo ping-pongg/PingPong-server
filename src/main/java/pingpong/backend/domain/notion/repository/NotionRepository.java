@@ -18,7 +18,7 @@ public interface NotionRepository extends JpaRepository<Notion, Long> {
     @Query("select n from Notion n where n.team.id = :teamId")
     Optional<Notion> findByTeamIdForUpdate(@Param("teamId") Long teamId);
 
-    @Query("select n from Notion n where n.workspaceId = :workspaceId")
+    @Query("select n from Notion n join fetch n.team where n.workspaceId = :workspaceId")
     Optional<Notion> findByWorkspaceId(@Param("workspaceId") String workspaceId);
 
 }
