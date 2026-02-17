@@ -50,6 +50,9 @@ public class Notion {
     @Column(name = "token_updated_at")
     private Instant tokenUpdatedAt;
 
+    @Column(name = "verification_token")
+    private String verificationToken;
+
     @Version
     private Long version;
 
@@ -80,5 +83,9 @@ public class Notion {
     public void updateConnection(String databaseId, String dataSourceId) {
         this.databaseId = databaseId;
         this.dataSourceId = dataSourceId;
+    }
+
+    public void updateVerificationToken(String verificationToken) {
+        this.verificationToken = verificationToken;
     }
 }
