@@ -26,8 +26,8 @@ public class ChatController {
     private final ChatStreamService chatStreamService;
 
     @Hidden
-    @PostMapping("/legacy")
-    @Operation(summary = "PM 채팅", description = "팀의 노션 문서를 기반으로 AI에게 질문합니다.")
+    @PostMapping("/test")
+    @Operation(summary = "PM 채팅 응답 테스트 용도", description = "팀의 노션 문서를 기반으로 AI에게 질문하고, 답변을 스웨거에서도 확인할 수 있도록 텍스트로 답변이 돌아옵니다.")
     public SuccessResponse<ChatResponse> chat(
             @PathVariable Long teamId,
             @CurrentMember Member member,
