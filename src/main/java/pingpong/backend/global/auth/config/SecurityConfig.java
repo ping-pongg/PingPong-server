@@ -1,8 +1,12 @@
 package pingpong.backend.global.auth.config;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -16,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.global.auth.jwt.JwtFilter;
 import pingpong.backend.global.auth.jwt.JwtUtil;
@@ -23,6 +28,7 @@ import pingpong.backend.global.auth.jwt.LoginFilter;
 import pingpong.backend.global.auth.service.AuthService;
 import pingpong.backend.global.redis.RefreshTokenCacheUtil;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -93,9 +99,13 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(provider)
+                .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, ALLOWED_GET_URLS).permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, ALLOWED_POST_URLS).permitAll()
+                        .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
+                        .requestMatchers("/error", "/error/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, ALLOWED_GET_URLS).permitAll()
+                        .requestMatchers(HttpMethod.POST, ALLOWED_POST_URLS).permitAll()
                         .anyRequest().authenticated()
                 );
 
@@ -109,5 +119,19 @@ public class SecurityConfig {
         http.addFilterAt(loginFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, ex) -> {
+            log.error("ACCESS DENIED: {} {} | dispatcher={}",
+                    request.getMethod(), request.getRequestURI(), request.getDispatcherType());
+            if (response.isCommitted()) {
+                return;
+            }
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":403,\"message\":\"FORBIDDEN\"}");
+        };
     }
 }
