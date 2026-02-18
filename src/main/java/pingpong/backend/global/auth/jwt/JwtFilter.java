@@ -34,6 +34,14 @@ public class JwtFilter extends OncePerRequestFilter {
         log.debug("JWT filter: dispatcherType={}, method={}, uri={}, asyncStarted={}",
                 request.getDispatcherType(), request.getMethod(), request.getRequestURI(), request.isAsyncStarted());
 
+        if (request.getDispatcherType() == jakarta.servlet.DispatcherType.ASYNC) {
+            Authentication existing = SecurityContextHolder.getContext().getAuthentication();
+            if (existing != null && existing.isAuthenticated()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
+
         // request 에서 Authorization 헤더 획득
         String authorization = request.getHeader("Authorization");
         log.debug("Auth header present? {}", authorization != null);
@@ -75,5 +83,15 @@ public class JwtFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authToken);
 
         filterChain.doFilter(request, response);
+    }
+
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false; // async dispatch에서도 JWT 필터 동작
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false; // (선택) error dispatch에서도 JWT 필터 동작
     }
 }
