@@ -1,5 +1,9 @@
 package pingpong.backend.domain.swagger.util;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -36,18 +40,23 @@ public class SwaggerNormalizeUtil {
 
 		if (node.isObject()) {
 			ObjectNode sorted = mapper.createObjectNode();
+
+			List<String> fieldNames=new ArrayList<>();
+			node.fieldNames().forEachRemaining(fieldNames::add);
+			Collections.sort(fieldNames);
+
 			//모든 필드 순회
-			node.fieldNames().forEachRemaining(field -> {
+			for(String field:fieldNames){
 				//무시할 필드 제거
 				if (isIgnorableField(field)) {
-					return;
+					continue;
 				}
 				//json 트리 전체 재귀 순회
 				JsonNode child = node.get(field);
 				if (child != null && !child.isNull()) {
 					sorted.set(field, normalizeNode(child));
 				}
-			});
+			}
 
 			return sorted;
 		}
@@ -60,7 +69,6 @@ public class SwaggerNormalizeUtil {
 			}
 			return array;
 		}
-
 		return node;
 	}
 

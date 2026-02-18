@@ -2,9 +2,15 @@ package pingpong.backend.domain.swagger.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
@@ -19,7 +25,9 @@ import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
+import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
@@ -62,16 +70,31 @@ public class SwaggerService {
 	 * @param member
 	 * @return
 	 */
-	public List<EndpointResponse> syncSwagger(Long serverId,Member member){
+	public List<EndpointGroupResponse> syncSwagger(Long serverId,Member member){
 		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		//전체 스펙 해시 계산
 		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
+
 		//기존 최신 스냅샷 조회
 		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByServerIdOrderByIdDesc(serverId);
 
 		if(latest.isPresent() && latest.get().getSpecHash().equals(specHash)){
 			return null;
+		}
+
+		//이전 endpoint map 준비
+		Map<String,Endpoint> prevMap;
+		if(latest.isPresent()){
+			List<Endpoint> prevEndpoints=
+				endpointRepository.findBySnapshotId(latest.get().getId());
+			prevMap=prevEndpoints.stream()
+				.collect(Collectors.toMap(
+					e->e.getPath()+"|"+e.getMethod(),
+					Function.identity()
+				));
+		} else {
+			prevMap = new HashMap<>();
 		}
 
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
@@ -84,21 +107,70 @@ public class SwaggerService {
 			.build();
 
 		swaggerSnapshotRepository.save(snapshot);
-		List<Endpoint> endpoints=saveAggregates(aggregates,member);
+		List<Endpoint> endpoints=saveAggregates(aggregates,member,snapshot,prevMap);
 
-		return endpoints.stream()
-			.map(EndpointResponse::toDto)
+		//삭제된 endpoint 감지
+		Set<String> currentKeys=endpoints.stream()
+			.map(e->e.getPath()+"|"+e.getMethod())
+			.collect(Collectors.toSet());
+		List<Endpoint> deletedEndpoints=new ArrayList<>();
+		for(Map.Entry<String,Endpoint> entry:prevMap.entrySet()){
+			String key=entry.getKey();
+			if(!currentKeys.contains(key)){
+				Endpoint deleted=markDeleted(
+					entry.getValue(),
+					member,
+					snapshot
+				);
+				deletedEndpoints.add(endpointRepository.save(deleted));
+			}
+		}
+
+		// current + deleted 합치기
+		List<Endpoint> allEndpoints = Stream.concat(
+			endpoints.stream(),
+			deletedEndpoints.stream()
+		).toList();
+
+		// endpoint diff
+		Map<String, List<EndpointResponse>> grouped =
+			allEndpoints.stream()
+				.filter(e -> Boolean.TRUE.equals(e.getIsChanged()))
+				.map(EndpointResponse::toDto)
+				.collect(Collectors.groupingBy(EndpointResponse::tag));
+
+		return grouped.entrySet().stream()
+			.map(e->new EndpointGroupResponse(
+				e.getKey(),
+				e.getValue()
+			))
 			.toList();
-
 	}
 
-	private List<Endpoint> saveAggregates(List<EndpointAggregate> aggregates,Member member){
+	/**
+	 * endpoint 단위 diff 비교 및 swagger endpoint,response,request,parameter 정규화 후 DB 저장
+	 * @param aggregates
+	 * @param member
+	 * @param snapshot
+	 * @param prevMap
+	 * @return
+	 */
+	private List<Endpoint> saveAggregates(
+		List<EndpointAggregate> aggregates,
+		Member member,
+		SwaggerSnapshot snapshot,
+		Map<String,Endpoint> prevMap) {
 		List<Endpoint> savedEndpoints=new ArrayList<>();
 
 		for(EndpointAggregate aggregate:aggregates){
 			Endpoint endpoint=aggregate.endpoint();
 
-			endpoint.markCreated(aggregate.createdAt(),member);
+			endpoint.markCreated(aggregate.createdAt(),member,snapshot);
+
+			String key=endpoint.getPath()+"|"+endpoint.getMethod();
+			Endpoint prev=prevMap.get(key);
+			endpoint.applyDiff(prev);
+
 			Endpoint saved=endpointRepository.save(endpoint);
 			savedEndpoints.add(saved);
 
@@ -109,33 +181,22 @@ public class SwaggerService {
 		return savedEndpoints;
 	}
 
-	/**
-	 * 기존 specHash값과 비교하여 변경된 부분이 있는지 확인
-	 * @param newSpecHash
-	 * @param serverId
-	 */
-	private boolean isSpecChanged(String newSpecHash,Long serverId,JsonNode swaggerJson) {
-		return swaggerSnapshotRepository
-			.findTopByServerIdOrderByIdDesc(serverId)
-			.map(snapshot->!Objects.equals(snapshot.getSpecHash(),newSpecHash))
-			.orElse(true);
+	public Endpoint markDeleted(
+		Endpoint prev,
+		Member member,
+		SwaggerSnapshot snapshot
+	){
+		return Endpoint.builder()
+			.path(prev.getPath())
+			.method(prev.getMethod())
+			.summary(prev.getSummary())
+			.description(prev.getDescription())
+			.isChanged(true)
+			.changeType(ChangeType.DELETED)
+			.updatedBy(member)
+			.updatedAt(LocalDateTime.now())
+			.snapshot(snapshot)
+			.build();
 	}
-
-
-	/**
-	 * swagger request, response 저장
-	 * @param operationNode
-	 * @param endpoint
-	 */
-	private void attachRequestAndResponses(JsonNode operationNode,
-		Endpoint endpoint){
-		List<SwaggerRequest> requests=swaggerParser.extractRequests(operationNode,endpoint);
-		List<SwaggerResponse> responses=swaggerParser.extractResponses(operationNode,endpoint);
-
-		swaggerRequestRepository.saveAll(requests);
-		swaggerResponseRepository.saveAll(responses);
-
-	}
-
 
 }

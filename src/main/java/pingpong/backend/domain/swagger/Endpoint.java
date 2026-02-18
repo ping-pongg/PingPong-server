@@ -1,9 +1,12 @@
 package pingpong.backend.domain.swagger;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -49,6 +52,9 @@ public class Endpoint {
 	@Column
 	private String operationId;
 
+	@Column
+	private String tag;
+
 	//연동 여부
 	@Column(name="is_linked")
 	private Boolean isLinked;
@@ -58,6 +64,7 @@ public class Endpoint {
 
 	//변경 타입
 	@Column
+	@Enumerated(EnumType.STRING)
 	private ChangeType changeType;
 
 	@Column
@@ -70,8 +77,9 @@ public class Endpoint {
 	@ManyToOne(fetch= FetchType.LAZY)
 	private Member createdBy;
 
-	@Column
-	private Long updatedBy;
+	@JoinColumn(name="updated_by",nullable=false)
+	@ManyToOne(fetch= FetchType.LAZY)
+	private Member updatedBy;
 
 	@Column(name="request_schema_hash")
 	private String requestSchemaHash;
@@ -79,9 +87,48 @@ public class Endpoint {
 	@Column(name="response_schema_hash")
 	private String responseSchemaHash;
 
+	@JoinColumn(name="snapshot_id",nullable=false)
+	@ManyToOne(fetch = FetchType.LAZY)
+	private SwaggerSnapshot snapshot;
 
-	public void markCreated(LocalDateTime createdAt, Member createdBy) {
+
+	public void markCreated(LocalDateTime createdAt, Member createdBy,SwaggerSnapshot snapshot) {
 		this.createdAt = createdAt;
 		this.createdBy = createdBy;
+		this.snapshot = snapshot;
+	}
+
+
+	public void applyDiff(Endpoint prev) {
+		if (prev == null) {
+			this.isChanged = true;
+			this.changeType = ChangeType.CREATED;
+			return;
+		}
+
+		boolean requestChanged =
+			!Objects.equals(this.requestSchemaHash, prev.getRequestSchemaHash());
+		boolean responseChanged =
+			!Objects.equals(this.responseSchemaHash, prev.getResponseSchemaHash());
+		boolean changed = requestChanged || responseChanged;
+		this.isChanged = changed;
+
+		if (!changed) {
+			return;
+		}
+
+		if (requestChanged && responseChanged) {
+			this.changeType = ChangeType.BOTH_CHANGED;
+		} else if (requestChanged) {
+			this.changeType = ChangeType.REQUEST_CHANGED;
+		} else if (responseChanged) {
+			this.changeType = ChangeType.RESPONSE_CHANGED;
+		} else {
+			this.changeType = ChangeType.MODIFIED;
+		}
+	}
+
+	public void assignTag(String tag) {
+		this.tag = tag;
 	}
 }

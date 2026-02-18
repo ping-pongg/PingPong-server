@@ -2,6 +2,7 @@ package pingpong.backend.domain.swagger.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.http.HttpStatusCode;
@@ -9,6 +10,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.swagger.Endpoint;
@@ -29,6 +33,7 @@ public class SwaggerParser {
 
 	private final RestClient restClient;
 	private final SwaggerHashUtil swaggerHashUtil;
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * swagger JSON의 전체 필드 파싱
@@ -39,6 +44,7 @@ public class SwaggerParser {
 		List<EndpointAggregate> result=new ArrayList<>();
 
 		JsonNode pathsNode=root.get("paths");
+
 		if(pathsNode==null){
 			return result;
 		}
@@ -53,17 +59,28 @@ public class SwaggerParser {
 					return;
 				}
 				JsonNode operationNode=operationEntry.getValue();
+				String tag=extractTag(operationNode);
 				Endpoint endpoint=buildEndpoint(path,method,operationNode);
+				endpoint.assignTag(tag);
 
-				List<SwaggerParameter> parameters=extractParameters(pathLevelParams,operationNode,endpoint);
-				List<SwaggerRequest> requests=extractRequests(operationNode,endpoint);
-				List<SwaggerResponse> responses=extractResponses(operationNode,endpoint);
+				List<SwaggerParameter> parameters=extractParameters(pathLevelParams,operationNode,endpoint,root);
+				List<SwaggerRequest> requests=extractRequests(operationNode,endpoint,root);
+				List<SwaggerResponse> responses=extractResponses(operationNode,endpoint,root);
 
 				result.add(new EndpointAggregate(endpoint,parameters,requests,responses, LocalDateTime.now()));
 			});
 		});
 		return result;
-}
+	}
+
+	private String extractTag(JsonNode operationNode){
+		JsonNode tagsNode=operationNode.get("tags");
+		if(tagsNode!=null && tagsNode.isArray() && tagsNode.size()>0){
+			return tagsNode.get(0).asText();
+		}
+		return null;
+	}
+
 
 	/**
 	 * swagger json 파싱
@@ -116,16 +133,16 @@ public class SwaggerParser {
 
 	/**
 	 * swagger Request JSON에서 추출해서 객체 생성
-	 * @param root
+	 * @param operationNode
 	 * @param endpoint
 	 * @return
 	 */
-	public List<SwaggerRequest> extractRequests(JsonNode root,
-		Endpoint endpoint){
+	public List<SwaggerRequest> extractRequests(JsonNode operationNode,
+		Endpoint endpoint,JsonNode root){
 
 		List<SwaggerRequest> result=new ArrayList<>();
 
-		JsonNode requestBody=root.get("requestBody");
+		JsonNode requestBody=operationNode.get("requestBody");
 		if(requestBody==null){
 			return result;
 		}
@@ -143,7 +160,7 @@ public class SwaggerParser {
 
 			JsonNode schemaNode=mediaNode.get("schema");
 
-			String schemaHash=swaggerHashUtil.generateSchemaHash(schemaNode);
+			String schemaHash=swaggerHashUtil.generateSchemaHash(schemaNode,root);
 
 			SwaggerRequest request=SwaggerRequest.builder()
 				.mediaType(mediaType)
@@ -158,72 +175,92 @@ public class SwaggerParser {
 
 	/**
 	 * swagger Response JSON에서 추출해서 객체 생성
-	 * @param root
+	 * @param operationNode
 	 * @param endpoint
 	 * @return
 	 */
-	public List<SwaggerResponse> extractResponses(JsonNode root,
-		Endpoint endpoint){
+	public List<SwaggerResponse> extractResponses(JsonNode operationNode, Endpoint endpoint,JsonNode root) {
 
-		List<SwaggerResponse> result=new ArrayList<>();
+		List<SwaggerResponse> result = new ArrayList<>();
 
-		JsonNode responsesNode=root.get("responses");
-		if(responsesNode==null){
+		JsonNode responsesNode = operationNode.get("responses");
+		if (responsesNode == null || responsesNode.isNull()) {
 			return result;
 		}
 
-		responsesNode.fields().forEachRemaining(statusEntry->{
-			String statusCodeStr=statusEntry.getKey();
-			JsonNode responseNode=statusEntry.getValue();
+		// 1. status code 정렬
+		List<String> statusCodes = new ArrayList<>();
+		responsesNode.fieldNames().forEachRemaining(statusCodes::add);
+		Collections.sort(statusCodes);
 
-			Long statusCode;
-			try{
-				statusCode=Long.parseLong(statusCodeStr);
-			}catch(NumberFormatException e){
-				return;
+		for (String statusCodeStr : statusCodes) {
+
+			JsonNode responseNode = responsesNode.get(statusCodeStr);
+
+			// 2. description
+			String description = responseNode.path("description").asText(null);
+
+			JsonNode contentNode = responseNode.path("content");
+
+			// 3. content 존재 체크 (중요)
+			if (contentNode.isMissingNode() || contentNode.isNull()) {
+				continue;
 			}
 
-			String description=responseNode.path("description").asText(null);
-			JsonNode contentNode=responseNode.path("content");
-			if(contentNode==null){
-				return;
-			}
+			// 4. media type 정렬
+			List<String> mediaTypes = new ArrayList<>();
+			contentNode.fieldNames().forEachRemaining(mediaTypes::add);
+			Collections.sort(mediaTypes);
 
-			contentNode.fields().forEachRemaining(contentEntry->{
-				String mediaType=contentEntry.getKey();
-				JsonNode mediaNode=contentEntry.getValue();
+			for (String mediaType : mediaTypes) {
 
-				JsonNode schemaNode=mediaNode.get("schema");
-				String schemaHash=swaggerHashUtil.generateSchemaHash(schemaNode);
-				SwaggerResponse response=SwaggerResponse.builder()
+				JsonNode mediaNode = contentNode.get(mediaType);
+
+				// 5. schema 안전 처리
+				JsonNode schemaNode = mediaNode.get("schema");
+
+				String schemaHash = swaggerHashUtil.generateSchemaHash(schemaNode,root);
+
+				SwaggerResponse response = SwaggerResponse.builder()
+					//statusCode는 String 강력 추천
+					.statusCode(statusCodeStr)
 					.mediaType(mediaType)
-					.statusCode(statusCode)
 					.description(description)
 					.schemaHash(schemaHash)
 					.endpoint(endpoint)
 					.build();
+
 				result.add(response);
-			});
-		});
+			}
+		}
+
 		return result;
 	}
 
+	/**
+	 * parameter 추출
+	 * @param pathLevelParams
+	 * @param operationNode
+	 * @param endpoint
+	 * @return
+	 */
 	public List<SwaggerParameter> extractParameters(
 		JsonNode pathLevelParams,
 		JsonNode operationNode,
-		Endpoint endpoint) {
+		Endpoint endpoint,
+		JsonNode root) {
 
 		List<SwaggerParameter> result = new ArrayList<>();
 
 		// Path-level parameters
 		if (pathLevelParams != null && pathLevelParams.isArray()) {
-			parseParameterArray(pathLevelParams, endpoint, result);
+			parseParameterArray(pathLevelParams, endpoint, result,root);
 		}
 
 		// Operation-level parameters
 		JsonNode operationParams = operationNode.get("parameters");
 		if (operationParams != null && operationParams.isArray()) {
-			parseParameterArray(operationParams, endpoint, result);
+			parseParameterArray(operationParams, endpoint, result,root);
 		}
 
 		return result;
@@ -237,7 +274,8 @@ public class SwaggerParser {
 	 */
 	private void parseParameterArray(JsonNode paramArray,
 		Endpoint endpoint,
-		List<SwaggerParameter> result) {
+		List<SwaggerParameter> result,
+		JsonNode root) {
 
 		for (JsonNode paramNode : paramArray) {
 
@@ -248,7 +286,7 @@ public class SwaggerParser {
 			JsonNode schemaNode = paramNode.get("schema");
 
 			String schemaHash =
-				swaggerHashUtil.generateSchemaHash(schemaNode);
+				swaggerHashUtil.generateSchemaHash(schemaNode,root);
 
 			SwaggerParameter parameter = SwaggerParameter.builder()
 				.name(name)

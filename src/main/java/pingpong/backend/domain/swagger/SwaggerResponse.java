@@ -32,7 +32,7 @@ public class SwaggerResponse {
 	private String mediaType;
 
 	@Column
-	private Long statusCode;
+	private String statusCode;
 
 	@Column
 	private String description;
