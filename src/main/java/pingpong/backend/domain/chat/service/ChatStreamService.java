@@ -148,6 +148,10 @@ public class ChatStreamService {
                             // SSE 형식으로 토큰 전송
                             emitter.send(SseEmitter.event().data(token));
                         } catch (IOException e) {
+                            if (isClientDisconnect(e)) {
+                                log.info("SSE client disconnected (ignore): streamId={}", streamId);
+                                return;
+                            }
                             log.error("Failed to send token: streamId={}", streamId, e);
                             throw new RuntimeException(e);
                         }
@@ -176,6 +180,10 @@ public class ChatStreamService {
                             // 완료 후 Redis 정리 (TTL에 의해 자동 삭제되지만 명시적으로 삭제)
                             streamManager.deleteStream(streamId);
                         } catch (IOException e) {
+                            if (isClientDisconnect(e)) {
+                                log.info("SSE client disconnected (ignore): streamId={}", streamId);
+                                return;
+                            }
                             log.error("Failed to send completion event: streamId={}", streamId, e);
                             emitter.completeWithError(e);
                         }
@@ -202,5 +210,14 @@ public class ChatStreamService {
             streamManager.updateStatus(streamId, StreamStatus.ERROR);
             emitter.completeWithError(e);
         }
+    }
+
+    private boolean isClientDisconnect(IOException e) {
+        String message = e.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("broken pipe") || lower.contains("connection reset");
     }
 }
