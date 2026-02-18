@@ -31,6 +31,9 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        log.debug("JWT filter: dispatcherType={}, method={}, uri={}, asyncStarted={}",
+                request.getDispatcherType(), request.getMethod(), request.getRequestURI(), request.isAsyncStarted());
+
         // request 에서 Authorization 헤더 획득
         String authorization = request.getHeader("Authorization");
         log.debug("Auth header present? {}", authorization != null);
