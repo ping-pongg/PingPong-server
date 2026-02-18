@@ -48,6 +48,7 @@ public class Server {
 		return Server.builder()
 			.name(req.name())
 			.description(req.description())
+			.swaggerURI(req.swaggerUrl())
 			.team(team)
 			.build();
 	}

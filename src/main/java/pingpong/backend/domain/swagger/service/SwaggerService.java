@@ -1,6 +1,7 @@
 package pingpong.backend.domain.swagger.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,11 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
-import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
+import pingpong.backend.domain.swagger.dto.EndpointResponse;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
@@ -55,7 +56,13 @@ public class SwaggerService {
 		return swaggerJson;
 	}
 
-	public SwaggerSnapshot syncSwagger(Long serverId){
+	/**
+	 * 가장 최신의 swagger를 업데이트해서 비교
+	 * @param serverId
+	 * @param member
+	 * @return
+	 */
+	public List<EndpointResponse> syncSwagger(Long serverId,Member member){
 		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		//전체 스펙 해시 계산
@@ -69,24 +76,37 @@ public class SwaggerService {
 
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
+			.server(serverService.getServer(serverId))
 			.createdAt(LocalDateTime.now())
 			.specHash(specHash)
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
 			.build();
 
-		snapshot=swaggerSnapshotRepository.save(snapshot);
-		saveAggregates(aggregates);
-		return snapshot;
+		swaggerSnapshotRepository.save(snapshot);
+		List<Endpoint> endpoints=saveAggregates(aggregates,member);
+
+		return endpoints.stream()
+			.map(EndpointResponse::toDto)
+			.toList();
+
 	}
 
-	private void saveAggregates(List<EndpointAggregate> aggregates){
+	private List<Endpoint> saveAggregates(List<EndpointAggregate> aggregates,Member member){
+		List<Endpoint> savedEndpoints=new ArrayList<>();
+
 		for(EndpointAggregate aggregate:aggregates){
-			endpointRepository.save(aggregate.endpoint());
+			Endpoint endpoint=aggregate.endpoint();
+
+			endpoint.markCreated(aggregate.createdAt(),member);
+			Endpoint saved=endpointRepository.save(endpoint);
+			savedEndpoints.add(saved);
+
 			swaggerParameterRepository.saveAll(aggregate.parameters());
 			swaggerRequestRepository.saveAll(aggregate.requests());
 			swaggerResponseRepository.saveAll(aggregate.responses());
 		}
+		return savedEndpoints;
 	}
 
 	/**

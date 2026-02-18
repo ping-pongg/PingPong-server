@@ -1,5 +1,6 @@
 package pingpong.backend.domain.swagger.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,7 +59,7 @@ public class SwaggerParser {
 				List<SwaggerRequest> requests=extractRequests(operationNode,endpoint);
 				List<SwaggerResponse> responses=extractResponses(operationNode,endpoint);
 
-				result.add(new EndpointAggregate(endpoint,parameters,requests,responses));
+				result.add(new EndpointAggregate(endpoint,parameters,requests,responses, LocalDateTime.now()));
 			});
 		});
 		return result;

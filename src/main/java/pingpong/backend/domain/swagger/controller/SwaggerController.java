@@ -1,5 +1,7 @@
 package pingpong.backend.domain.swagger.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
+import pingpong.backend.domain.swagger.dto.EndpointResponse;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -37,10 +40,11 @@ public class SwaggerController {
 	@GetMapping("/sync/{serverId}")
 	@Operation(summary="swagger JSON 정규화해서 DB에 저장",
 		description = "기존에 존재하던 버전의 swagger 내용과 차이점을 비교하여 다를 경우 새로운 버전의 내용의 swagger JSON을 정규화하여 DB에 저장합니다.")
-	public SuccessResponse<SwaggerSnapshot> compareAndSaveSwagger(
-		@PathVariable Long serverId
+	public SuccessResponse<List<EndpointResponse>> compareAndSaveSwagger(
+		@PathVariable Long serverId,
+		@CurrentMember Member currentMember
 	) {
-		return SuccessResponse.ok(swaggerService.syncSwagger(serverId));
+		return SuccessResponse.ok(swaggerService.syncSwagger(serverId,currentMember));
 	}
 
 

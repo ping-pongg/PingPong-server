@@ -11,6 +11,10 @@ public record ServerCreateRequest (
 
 	@NotBlank
 	@Schema(description="sever에 대한 설명",example="개발 서버입니다.")
-	String description
+	String description,
+
+	@NotBlank
+	@Schema(description = "swagger URL",example="https://pingpongg.site/swagger-ui/index.html#")
+	String swaggerUrl
 
 ){}

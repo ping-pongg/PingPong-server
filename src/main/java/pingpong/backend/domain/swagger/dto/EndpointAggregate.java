@@ -1,5 +1,6 @@
 package pingpong.backend.domain.swagger.dto;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import pingpong.backend.domain.swagger.Endpoint;
@@ -11,6 +12,7 @@ public record EndpointAggregate (
 	Endpoint endpoint,
 	List<SwaggerParameter> parameters,
 	List<SwaggerRequest> requests,
-	List<SwaggerResponse> responses
+	List<SwaggerResponse> responses,
+	LocalDateTime createdAt
 ){
 }
