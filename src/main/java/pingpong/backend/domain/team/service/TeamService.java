@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
-import pingpong.backend.domain.member.dto.MemberSearchResponse;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.domain.team.MemberTeam;
 import pingpong.backend.domain.team.Team;
@@ -14,6 +13,7 @@ import pingpong.backend.domain.team.dto.*;
 import pingpong.backend.domain.team.repository.MemberTeamRepository;
 import pingpong.backend.domain.team.repository.TeamRepository;
 import pingpong.backend.global.exception.CustomException;
+import pingpong.backend.global.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -50,20 +50,41 @@ public class TeamService {
     }
 
     /**
-     * 팀에 팀원 추가 (teamId + memberEmail)
+     * 팀에 팀원들 추가 (List 요청)
      */
     @Transactional
-    public void addMemberToTeam(TeamMemberAddRequest req) {
-        Team team = teamRepository.findById(req.teamId())
-                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
-
-        Member member = memberService.findById(req.memberId());
-
-        if (memberTeamRepository.existsByTeamIdAndMemberId(team.getId(), member.getId())) {
-            throw new CustomException(TeamErrorCode.TEAM_MEMBER_ALREADY_EXISTS);
+    public void addMembersToTeam(List<TeamMemberAddRequest> reqs) {
+        if (reqs == null || reqs.isEmpty()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        TeamMemberAddRequest first = reqs.getFirst();
+        if (first == null || first.teamId() == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        memberTeamRepository.save(MemberTeam.of(team.getId(), member.getId(), req.role()));
+        Long teamId = first.teamId();
+        boolean sameTeam = reqs.stream()
+                .allMatch(r -> r != null && teamId.equals(r.teamId()));
+        if (!sameTeam) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+
+        for (TeamMemberAddRequest req : reqs) {
+            if (req.memberId() == null || req.role() == null) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST);
+            }
+
+            Member member = memberService.findById(req.memberId());
+
+            if (memberTeamRepository.existsByTeamIdAndMemberId(team.getId(), member.getId())) {
+                throw new CustomException(TeamErrorCode.TEAM_MEMBER_ALREADY_EXISTS);
+            }
+
+            memberTeamRepository.save(MemberTeam.of(team.getId(), member.getId(), req.role()));
+        }
     }
 
     /**
