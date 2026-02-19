@@ -37,15 +37,29 @@ public class VectorStoreGateway {
         String contentHash = documentFactory.sha256Hex(normalizedText);
         String documentPrefix = documentFactory.documentPrefix(sourceKey);
 
+        log.info("INDEX-UPSERT: sourceType={} teamId={} apiPath={} resourceId={} chunks={} sourceKey={}",
+                job.sourceType(), job.teamId(), job.apiPath(), job.resourceId(), chunks.size(), sourceKey);
+
         Optional<IndexingState> stateOptional = stateRepository.findBySourceKey(sourceKey);
         if (stateOptional.isPresent() && contentHash.equals(stateOptional.get().getContentHash())) {
+            log.info("INDEX-UPSERT: content unchanged (hash match), skipping vectorStore.add — sourceType={} teamId={} resourceId={}",
+                    job.sourceType(), job.teamId(), job.resourceId());
             return;
         }
 
         IndexingState state = stateOptional.orElse(null);
 
         deleteStaleChunks(state, documentPrefix, chunks.size());
-        vectorStore.add(documentFactory.toDocuments(job, sourceKey, documentPrefix, chunks));
+
+        try {
+            log.info("INDEX-UPSERT: calling vectorStore.add() with {} chunks for sourceKey={}", chunks.size(), sourceKey);
+            vectorStore.add(documentFactory.toDocuments(job, sourceKey, documentPrefix, chunks));
+            log.info("INDEX-UPSERT: vectorStore.add() succeeded for sourceKey={}", sourceKey);
+        } catch (Exception e) {
+            log.error("INDEX-UPSERT: vectorStore.add() FAILED — sourceType={} teamId={} apiPath={} resourceId={} sourceKey={} error='{}'",
+                    job.sourceType(), job.teamId(), job.apiPath(), job.resourceId(), sourceKey, e.getMessage(), e);
+            throw e;
+        }
 
         Instant now = Instant.now();
         if (state == null) {
@@ -65,7 +79,7 @@ public class VectorStoreGateway {
         }
 
         stateRepository.save(state);
-        log.info("INDEX: upserted sourceType={} teamId={} apiPath={} resourceId={} chunks={}",
+        log.info("INDEX-UPSERT: complete — sourceType={} teamId={} apiPath={} resourceId={} chunks={}",
                 job.sourceType(), job.teamId(), job.apiPath(), job.resourceId(), chunks.size());
     }
 
@@ -90,8 +104,14 @@ public class VectorStoreGateway {
 
     public List<Document> query(IndexQueryOptions options) {
         if (options == null || options.query() == null || options.query().isBlank()) {
+            log.warn("VECTOR-QUERY: query is null or blank — returning empty result");
             return List.of();
         }
+
+        String queryPreview = options.query().length() > 80
+                ? options.query().substring(0, 80) + "..." : options.query();
+        log.info("VECTOR-QUERY: starting — query='{}' topK={} teamId={} sourceType={}",
+                queryPreview, options.topK(), options.teamId(), options.sourceType());
 
         SearchRequest.Builder builder = SearchRequest.builder().query(options.query());
         if (options.topK() != null && options.topK() > 0) {
@@ -99,11 +119,37 @@ public class VectorStoreGateway {
         }
 
         String filterExpression = buildFilterExpression(options);
+        log.info("VECTOR-QUERY: filter expression='{}'", filterExpression);
         if (!filterExpression.isBlank()) {
             builder.filterExpression(filterExpression);
         }
 
-        return vectorStore.similaritySearch(builder.build());
+        List<Document> results;
+        try {
+            results = vectorStore.similaritySearch(builder.build());
+        } catch (Exception e) {
+            log.error("VECTOR-QUERY: vectorStore.similaritySearch() FAILED — filter='{}' query='{}' error='{}'",
+                    filterExpression, queryPreview, e.getMessage(), e);
+            throw e;
+        }
+
+        if (results == null || results.isEmpty()) {
+            log.warn("VECTOR-QUERY: NO documents found — teamId={} filter='{}' (데이터 인덱싱 여부 또는 필터/유사도 임계값 확인 필요)",
+                    options.teamId(), filterExpression);
+        } else {
+            log.info("VECTOR-QUERY: found {} document(s) — teamId={} filter='{}'",
+                    results.size(), options.teamId(), filterExpression);
+            for (int i = 0; i < results.size(); i++) {
+                Document doc = results.get(i);
+                log.debug("VECTOR-QUERY: result[{}] id={} score={} sourceKey={} apiPath={}",
+                        i, doc.getId(),
+                        doc.getScore(),
+                        doc.getMetadata().get("sourceKey"),
+                        doc.getMetadata().get("apiPath"));
+            }
+        }
+
+        return results;
     }
 
     private String buildFilterExpression(IndexQueryOptions options) {
@@ -138,17 +184,29 @@ public class VectorStoreGateway {
 
         List<String> staleIds = new ArrayList<>();
         if (!state.getDocumentPrefix().equals(currentDocumentPrefix)) {
+            log.info("INDEX-STALE: documentPrefix changed (old={}, new={}) — deleting all {} old chunks",
+                    state.getDocumentPrefix(), currentDocumentPrefix, state.getChunkCount());
             for (int i = 0; i < state.getChunkCount(); i++) {
                 staleIds.add(state.getDocumentPrefix() + "-" + i);
             }
         } else if (state.getChunkCount() > newChunkCount) {
+            int staleCount = state.getChunkCount() - newChunkCount;
+            log.info("INDEX-STALE: chunk count reduced ({} → {}) — deleting {} trailing chunks for prefix={}",
+                    state.getChunkCount(), newChunkCount, staleCount, currentDocumentPrefix);
             for (int i = newChunkCount; i < state.getChunkCount(); i++) {
                 staleIds.add(currentDocumentPrefix + "-" + i);
             }
         }
 
         if (!staleIds.isEmpty()) {
-            vectorStore.delete(staleIds);
+            try {
+                vectorStore.delete(staleIds);
+                log.info("INDEX-STALE: deleted {} stale chunk(s) from vectorStore", staleIds.size());
+            } catch (Exception e) {
+                log.error("INDEX-STALE: vectorStore.delete() FAILED for {} chunk(s) error='{}'",
+                        staleIds.size(), e.getMessage(), e);
+                throw e;
+            }
         }
     }
 }
