@@ -31,11 +31,11 @@ public class TeamController {
     }
 
     @PostMapping("/members")
-    @Operation(summary = "팀원 추가", description = "teamId와 memberId로 팀원을 추가합니다.")
-    public SuccessResponse<Void> addMember(
-            @RequestBody @Valid TeamMemberAddRequest req
+    @Operation(summary = "팀원 추가", description = "teamId와 memberId로 팀원을 추가합니다. (List 요청 지원)")
+    public SuccessResponse<Void> addMembers(
+            @RequestBody @Valid List<@Valid TeamMemberAddRequest> reqs
     ) {
-        teamService.addMemberToTeam(req);
+        teamService.addMembersToTeam(reqs);
         return SuccessResponse.ok(null);
     }
 
