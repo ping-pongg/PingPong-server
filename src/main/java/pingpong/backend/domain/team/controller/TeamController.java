@@ -47,6 +47,15 @@ public class TeamController {
         return SuccessResponse.ok(teamService.getMyTeams(member));
     }
 
+    @GetMapping("/{teamId}")
+    @Operation(summary = "팀 정보 조회", description = "teamId로 팀 정보를 조회합니다.")
+    public SuccessResponse<TeamInfoResponse> getTeamInfo(
+            @PathVariable Long teamId,
+            @CurrentMember Member member
+    ) {
+        return SuccessResponse.ok(teamService.getTeamInfo(teamId, member));
+    }
+
     @GetMapping("/{teamId}/members")
     @Operation(
             summary = "팀원 목록 조회",
