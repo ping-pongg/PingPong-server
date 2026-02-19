@@ -60,5 +60,17 @@ public class TeamController {
         );
     }
 
+    @GetMapping("/{teamId}/my-role")
+    @Operation(
+            summary = "팀 내 내 역할 조회",
+            description = "JWT 토큰과 팀 ID를 기반으로 해당 팀에서 현재 로그인한 사용자의 역할을 조회합니다."
+    )
+    public SuccessResponse<UserRoleResponse> getMyRole(
+            @PathVariable Long teamId,
+            @CurrentMember Member member
+    ) {
+        return SuccessResponse.ok(teamService.getUserRole(teamId, member));
+    }
+
 }
 

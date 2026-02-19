@@ -107,6 +107,20 @@ public class TeamService {
     }
 
     /**
+     * 특정 팀에서 현재 사용자의 역할 조회
+     */
+    @Transactional(readOnly = true)
+    public UserRoleResponse getUserRole(Long teamId, Member member) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+
+        MemberTeam memberTeam = memberTeamRepository.findByTeamIdAndMemberId(teamId, member.getId())
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_MEMBER_NOT_FOUND));
+
+        return UserRoleResponse.of(memberTeam.getRole());
+    }
+
+    /**
      * 팀의 팀원들 목록 조회
      */
     @Transactional(readOnly = true)
