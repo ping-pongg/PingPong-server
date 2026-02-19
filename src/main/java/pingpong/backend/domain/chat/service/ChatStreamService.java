@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -16,6 +19,7 @@ import pingpong.backend.global.exception.CustomException;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,6 +32,7 @@ import java.util.UUID;
 public class ChatStreamService {
 
     private final ChatClient chatClient;
+    private final VectorStore vectorStore;
     private final ChatStreamManager streamManager;
     private final MemberTeamRepository memberTeamRepository;
 
@@ -133,6 +138,12 @@ public class ChatStreamService {
 
             // RAG 필터 표현식 설정
             String filterExpression = "teamId == " + teamId;
+            log.info("STREAM-RAG: filter expression='{}' streamId={} teamId={}", filterExpression, streamId, teamId);
+
+            // [진단] QuestionAnswerAdvisor가 실제로 사용할 VectorStore 검색 결과를 미리 확인
+            diagnosVectorStoreContext(streamId, teamId, message, filterExpression);
+
+            log.info("STREAM-RAG: calling ChatClient (QuestionAnswerAdvisor + OpenAI streaming) — streamId={} teamId={}", streamId, teamId);
 
             // Spring AI ChatClient로 스트리밍 요청
             Flux<String> tokens = chatClient.prompt()
@@ -209,6 +220,42 @@ public class ChatStreamService {
             log.error("Failed to start streaming: streamId={}, teamId={}", streamId, teamId, e);
             streamManager.updateStatus(streamId, StreamStatus.ERROR);
             emitter.completeWithError(e);
+        }
+    }
+
+    /**
+     * [RAG 진단] QuestionAnswerAdvisor 내부에서 수행될 VectorStore 검색을 동일 조건으로 미리 실행하여
+     * 컨텍스트 주입 가능 여부를 로그로 확인합니다.
+     */
+    private void diagnosVectorStoreContext(String streamId, Long teamId, String message, String filterExpression) {
+        try {
+            List<Document> docs = vectorStore.similaritySearch(
+                    SearchRequest.builder()
+                            .query(message)
+                            .topK(5)
+                            .similarityThreshold(0.5)
+                            .filterExpression(filterExpression)
+                            .build()
+            );
+
+            if (docs == null || docs.isEmpty()) {
+                log.warn("STREAM-RAG: VectorStore 검색 결과 0건 — LLM 프롬프트에 컨텍스트가 주입되지 않습니다. " +
+                                "streamId={} teamId={} filter='{}' (가능한 원인: ①해당 teamId로 인덱싱된 데이터 없음 ②필터 타입 불일치 ③similarityThreshold=0.5 초과)",
+                        streamId, teamId, filterExpression);
+            } else {
+                log.info("STREAM-RAG: VectorStore 검색 결과 {}건 — LLM 프롬프트에 컨텍스트 주입 예정. streamId={} teamId={} filter='{}'",
+                        docs.size(), streamId, teamId, filterExpression);
+                for (int i = 0; i < docs.size(); i++) {
+                    Document doc = docs.get(i);
+                    log.debug("STREAM-RAG: context[{}] id={} score={} sourceKey={} contentLength={}",
+                            i, doc.getId(), doc.getScore(),
+                            doc.getMetadata().get("sourceKey"),
+                            doc.getText() != null ? doc.getText().length() : 0);
+                }
+            }
+        } catch (Exception e) {
+            log.error("STREAM-RAG: VectorStore 진단 쿼리 실패 — streamId={} teamId={} filter='{}' errorType={} message='{}'",
+                    streamId, teamId, filterExpression, e.getClass().getSimpleName(), e.getMessage(), e);
         }
     }
 
