@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
+import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.EndpointResponse;
 import pingpong.backend.domain.swagger.service.SwaggerService;
@@ -35,7 +36,7 @@ public class SwaggerController {
 		@PathVariable Long serverId,
 		@CurrentMember Member currentMember
 	) {
-		return SuccessResponse.ok(swaggerService.readSwaggerDocs(currentMember,serverId));
+		return SuccessResponse.ok(swaggerService.readSwaggerDocs(serverId));
 	}
 
 
@@ -59,6 +60,14 @@ public class SwaggerController {
 		@CurrentMember Member currentMember
 	){
 		return SuccessResponse.ok(swaggerService.syncSwagger(serverId,currentMember));
+	}
+
+	@GetMapping("/endpoint/sync/{endpointId}")
+	@Operation(summary="endpoint 상세 조회",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
+	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
+		@PathVariable Long endpointId
+	){
+		return SuccessResponse.ok(swaggerService.getEndpointDetails(endpointId));
 	}
 
 

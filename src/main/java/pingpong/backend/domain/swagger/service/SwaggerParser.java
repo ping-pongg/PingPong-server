@@ -161,11 +161,14 @@ public class SwaggerParser {
 			JsonNode schemaNode=mediaNode.get("schema");
 
 			String schemaHash=swaggerHashUtil.generateSchemaHash(schemaNode,root);
+			String canonical= swaggerHashUtil.generateCanonical(schemaNode,root);
+
 
 			SwaggerRequest request=SwaggerRequest.builder()
 				.mediaType(mediaType)
 				.required(required)
 				.schemaHash(schemaHash)
+				.schemaJson(canonical)
 				.endpoint(endpoint)
 				.build();
 			result.add(request);
@@ -220,6 +223,7 @@ public class SwaggerParser {
 				JsonNode schemaNode = mediaNode.get("schema");
 
 				String schemaHash = swaggerHashUtil.generateSchemaHash(schemaNode,root);
+				String canonical= swaggerHashUtil.generateCanonical(schemaNode,root);
 
 				SwaggerResponse response = SwaggerResponse.builder()
 					//statusCode는 String 강력 추천
@@ -227,6 +231,7 @@ public class SwaggerParser {
 					.mediaType(mediaType)
 					.description(description)
 					.schemaHash(schemaHash)
+					.schemaJson(canonical)
 					.endpoint(endpoint)
 					.build();
 

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -14,19 +13,28 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
+import pingpong.backend.domain.swagger.SwaggerErrorCode;
+import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
+import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.ParameterResponse;
+import pingpong.backend.domain.swagger.dto.ParameterSnapshotRes;
+import pingpong.backend.domain.swagger.dto.RequestBodyResponse;
+import pingpong.backend.domain.swagger.dto.ResponseBodyResponse;
 import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
@@ -34,6 +42,7 @@ import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.util.SwaggerHashUtil;
+import pingpong.backend.global.exception.CustomException;
 
 @Service
 @Slf4j
@@ -50,18 +59,84 @@ public class SwaggerService {
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
 	private final EndpointRepository endpointRepository;
 	private final SwaggerParameterRepository swaggerParameterRepository;
+	private final ObjectMapper objectMapper;
+	private final DiffService diffService;
 
-	public JsonNode readSwaggerDocs(Member member,Long serverId){
+	/**
+	 * swagger JSON Node 형태로 읽어오기
+	 * @param serverId
+	 * @return
+	 */
+	public JsonNode readSwaggerDocs(Long serverId){
 		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
-
-		//snapshot 해시 값 생성
-		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
-		// if(isSpecChanged(specHash,serverId,swaggerJson)){
-		// 	normalizeJson(swaggerJson);
-		// }
-
 		return swaggerJson;
+	}
+
+	/**
+	 * endpoint 단건 조회 시, parameters/request/response schema 변화 내용 조회
+	 * @param endpointId
+	 * @return
+	 */
+	public EndpointDetailResponse getEndpointDetails(Long endpointId) {
+		//현재 endpoint 조회
+		Endpoint curr=endpointRepository.findById(endpointId)
+			.orElseThrow(()->new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+
+		//이전 버전 endpoint 조회
+		Endpoint prev = endpointRepository
+			.findTopByPathAndMethodAndSnapshotCreatedAtLessThanOrderBySnapshotCreatedAtDesc(
+				curr.getPath(),
+				curr.getMethod(),
+				curr.getSnapshot().getCreatedAt()
+			);
+
+		//이전 버전 parameter 조회
+		List<SwaggerParameter> currParams=
+			swaggerParameterRepository.findByEndpointId(curr.getId());
+		//현재 버전 parameter 조회
+		List<SwaggerParameter> prevParams=
+			prev!=null
+				?swaggerParameterRepository.findByEndpointId(prev.getId())
+				:List.of();
+
+		//이전 버전 request 조회
+		List<SwaggerRequest> currRequests =
+			swaggerRequestRepository.findByEndpointId(curr.getId());
+		//현재 버전 request 조회
+		List<SwaggerRequest> prevRequests =
+			prev != null
+				? swaggerRequestRepository.findByEndpointId(prev.getId())
+				: List.of();
+
+		//이전 버전 response 조회
+		List<SwaggerResponse> currResponses =
+			swaggerResponseRepository.findByEndpointId(curr.getId());
+		//현재 버전 response 조회
+		List<SwaggerResponse> prevResponses =
+			prev != null
+				? swaggerResponseRepository.findByEndpointId(prev.getId())
+				: List.of();
+
+		//parameter diff
+		List<ParameterResponse> parameterDiff =
+			diffService.diffParameters(prevParams, currParams);
+
+		//request diff
+		List<RequestBodyResponse> requestDiff=
+			diffService.diffRequests(prevRequests,currRequests);
+
+		//response diff
+		List<ResponseBodyResponse> responseDiff =
+			diffService.diffResponses(prevResponses, currResponses);
+
+		return new EndpointDetailResponse(
+			curr.getPath(),
+			curr.getMethod(),
+			parameterDiff,
+			requestDiff,
+			responseDiff
+		);
 	}
 
 	/**
@@ -181,6 +256,13 @@ public class SwaggerService {
 		return savedEndpoints;
 	}
 
+	/**
+	 * 삭제된 endpoint 감지
+	 * @param prev
+	 * @param member
+	 * @param snapshot
+	 * @return
+	 */
 	public Endpoint markDeleted(
 		Endpoint prev,
 		Member member,

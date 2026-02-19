@@ -137,6 +137,19 @@ public class SwaggerHashUtil {
 	}
 
 	/**
+	 * canonical 생성
+	 * @param schemaNode
+	 * @param root
+	 * @return
+	 */
+	public String generateCanonical(JsonNode schemaNode,JsonNode root){
+		JsonNode resolved=resolveSchema(schemaNode,root);
+		JsonNode normalized=normalizeNode(resolved);
+		String canonical=writeCanonical(normalized);
+		return canonical;
+	}
+
+	/**
 	 * schema $ref 참조 해제
 	 * @param schemaNode
 	 * @param root

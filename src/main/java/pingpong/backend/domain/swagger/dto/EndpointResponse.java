@@ -7,6 +7,9 @@ import pingpong.backend.domain.swagger.enums.CrudMethod;
 @Schema(description = "endpoint 전부를 보여줍니다")
 public record EndpointResponse (
 
+	@Schema(description = "endpoint ID")
+	Long endpointId,
+
 	@Schema(description = "태그명")
 	String tag,
 
@@ -25,6 +28,6 @@ public record EndpointResponse (
 ){
 
 	public static EndpointResponse toDto(Endpoint e){
-		return new EndpointResponse(e.getTag(),e.getPath(), e.getMethod(), e.getSummary(), e.getIsChanged());
+		return new EndpointResponse(e.getId(),e.getTag(),e.getPath(), e.getMethod(), e.getSummary(), e.getIsChanged());
 	}
 }

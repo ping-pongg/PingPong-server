@@ -35,10 +35,16 @@ public class SwaggerParameter {
 	private String inType;    // header, query, path, cookie
 
 	@Column
-	private boolean required;
+	private Boolean required;
 
 	@Column
 	private String schemaHash;
+
+	@Column
+	private String description;
+
+	@Column(columnDefinition = "LONGTEXT")
+	private String schemaJson;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name="endpoint_id")

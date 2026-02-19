@@ -40,6 +40,9 @@ public class SwaggerResponse {
 	@Column
 	private String schemaHash;
 
+	@Column(columnDefinition = "LONGTEXT")
+	private String schemaJson;
+
 	@ManyToOne(fetch= FetchType.LAZY)
 	@JoinColumn(name="endpoint_id")
 	private Endpoint endpoint;
