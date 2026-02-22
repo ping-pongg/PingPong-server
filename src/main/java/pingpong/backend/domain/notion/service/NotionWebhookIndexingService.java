@@ -35,9 +35,13 @@ public class NotionWebhookIndexingService {
         log.info("WEBHOOK_INDEX: 페이지 재인덱싱 시작 teamId={} pageId={}", teamId, pageId);
         try {
             indexPage(teamId, pageId);
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: 페이지 인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
+        }
+        try {
             indexPrimaryDatabase(teamId);
         } catch (Exception e) {
-            log.error("WEBHOOK_INDEX: 재인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
+            log.error("WEBHOOK_INDEX: primary database 재인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
         }
     }
 
@@ -46,9 +50,13 @@ public class NotionWebhookIndexingService {
         log.info("WEBHOOK_INDEX: 페이지 삭제 처리 시작 teamId={} pageId={}", teamId, pageId);
         try {
             vectorStoreGateway.deleteByPageId(teamId, pageId);
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: 페이지 벡터 삭제 실패 teamId={} pageId={}", teamId, pageId, e);
+        }
+        try {
             indexPrimaryDatabase(teamId);
         } catch (Exception e) {
-            log.error("WEBHOOK_INDEX: 삭제 처리 실패 teamId={} pageId={}", teamId, pageId, e);
+            log.error("WEBHOOK_INDEX: primary database 재인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
         }
     }
 
