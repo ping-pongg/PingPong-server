@@ -39,6 +39,23 @@ public class ChatStreamConfig {
     }
 
     /**
+     * 평가 전용 ThreadPoolTaskExecutor.
+     * 응답 반환 후 비동기로 Judge 호출 및 DB INSERT 처리.
+     */
+    @Bean(name = "evalExecutor")
+    public Executor evalExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("eval-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * 스트림 메타데이터 저장을 위한 RedisTemplate
      * Jackson2JsonRedisSerializer를 사용하여 StreamMetadata 객체를 JSON으로 직렬화
      */
