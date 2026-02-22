@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -14,6 +15,7 @@ import pingpong.backend.domain.chat.ChatErrorCode;
 import pingpong.backend.domain.chat.stream.ChatStreamManager;
 import pingpong.backend.domain.chat.stream.StreamMetadata;
 import pingpong.backend.domain.chat.stream.StreamStatus;
+import pingpong.backend.domain.eval.service.LlmEvalAsyncService;
 import pingpong.backend.domain.team.repository.MemberTeamRepository;
 import pingpong.backend.global.exception.CustomException;
 import reactor.core.publisher.Flux;
@@ -21,6 +23,7 @@ import reactor.core.publisher.Flux;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 채팅 스트리밍 서비스
@@ -35,6 +38,7 @@ public class ChatStreamService {
     private final VectorStore vectorStore;
     private final ChatStreamManager streamManager;
     private final MemberTeamRepository memberTeamRepository;
+    private final LlmEvalAsyncService evalAsyncService;
 
     public void validateTeamAccess(Long teamId, Long memberId) {
         if (!memberTeamRepository.existsByTeamIdAndMemberId(teamId, memberId)) {
@@ -121,43 +125,55 @@ public class ChatStreamService {
     }
 
     /**
-     * 실제 채팅 응답 스트리밍 처리
-     * 비동기로 Spring AI ChatClient의 stream()을 호출하여 SSE로 토큰 전송
-     *
-     * @param streamId 스트림 ID
-     * @param teamId 팀 ID
-     * @param message 채팅 메시지
-     * @param emitter SSE Emitter
+     * 실제 채팅 응답 스트리밍 처리.
+     * 비동기로 Spring AI ChatClient의 stream()을 호출하여 SSE로 토큰 전송.
+     * 스트리밍 완료 후 LLM eval을 비동기로 저장.
      */
     @Async("chatStreamExecutor")
     public void streamChatResponse(String streamId, Long teamId, String message, SseEmitter emitter) {
         try {
-            // 스트림 상태를 STREAMING으로 변경
             streamManager.updateStatus(streamId, StreamStatus.STREAMING);
             log.info("Starting stream: streamId={}, teamId={}", streamId, teamId);
 
-            // RAG 필터 표현식 설정
             String filterExpression = "teamId == " + teamId;
             log.info("STREAM-RAG: filter expression='{}' streamId={} teamId={}", filterExpression, streamId, teamId);
 
-            // [진단] QuestionAnswerAdvisor가 실제로 사용할 VectorStore 검색 결과를 미리 확인
-            diagnosVectorStoreContext(streamId, teamId, message, filterExpression);
+            long totalStart = System.currentTimeMillis();
+
+            // RAG 진단 + docs 캡처
+            long retrievalStart = System.currentTimeMillis();
+            List<Document> retrievedDocs = diagnosVectorStoreContext(streamId, teamId, message, filterExpression);
+            int latencyRetrieval = (int) (System.currentTimeMillis() - retrievalStart);
 
             log.info("STREAM-RAG: calling ChatClient (QuestionAnswerAdvisor + OpenAI streaming) — streamId={} teamId={}", streamId, teamId);
 
-            // Spring AI ChatClient로 스트리밍 요청
-            Flux<String> tokens = chatClient.prompt()
+            long generationStart = System.currentTimeMillis();
+
+            // 스트리밍 중 텍스트 누적 및 마지막 ChatResponse(usage 포함) 캡처
+            StringBuilder accumulatedText = new StringBuilder();
+            AtomicReference<ChatResponse> lastChatResponse = new AtomicReference<>();
+
+            // .content() 대신 .chatResponse()로 변경 → usage 메타데이터(토큰/비용) 보존
+            Flux<ChatResponse> responseFlux = chatClient.prompt()
                     .user(message)
                     .advisors(a -> a.param(QuestionAnswerAdvisor.FILTER_EXPRESSION, filterExpression))
                     .stream()
-                    .content();
+                    .chatResponse();
 
-            // 토큰 스트리밍 구독
-            tokens.subscribe(
-                    token -> {
+            responseFlux.subscribe(
+                    chatResp -> {
                         try {
-                            // SSE 형식으로 토큰 전송
-                            emitter.send(SseEmitter.event().data(token));
+                            String token = chatResp.getResult() != null
+                                    && chatResp.getResult().getOutput() != null
+                                    ? chatResp.getResult().getOutput().getText()
+                                    : null;
+
+                            if (token != null && !token.isEmpty()) {
+                                accumulatedText.append(token);
+                                emitter.send(SseEmitter.event().data(token));
+                            }
+                            // 마지막 chunk에 usage 메타데이터가 담기므로 계속 갱신
+                            lastChatResponse.set(chatResp);
                         } catch (IOException e) {
                             if (isClientDisconnect(e)) {
                                 log.info("SSE client disconnected (ignore): streamId={}", streamId);
@@ -168,28 +184,30 @@ public class ChatStreamService {
                         }
                     },
                     error -> {
-                        // 에러 발생 시 처리
                         log.error("Stream error: streamId={}, teamId={}", streamId, teamId, error);
                         streamManager.updateStatus(streamId, StreamStatus.ERROR);
                         emitter.completeWithError(error);
                     },
                     () -> {
                         try {
-                            // 스트리밍 완료 시 명시적인 종료 이벤트 전송
                             log.info("Stream completed: streamId={}, teamId={}", streamId, teamId);
 
-                            // [DONE] 이벤트 전송 (SSE 표준 종료 신호)
                             emitter.send(SseEmitter.event()
                                     .name("done")
                                     .data("[DONE]"));
 
                             streamManager.updateStatus(streamId, StreamStatus.COMPLETED);
-
-                            // 연결 정상 종료
                             emitter.complete();
-
-                            // 완료 후 Redis 정리 (TTL에 의해 자동 삭제되지만 명시적으로 삭제)
                             streamManager.deleteStream(streamId);
+
+                            // 스트리밍 완료 후 비동기 eval 저장 (사용자 latency 무영향)
+                            int latencyGeneration = (int) (System.currentTimeMillis() - generationStart);
+                            int latencyTotal      = (int) (System.currentTimeMillis() - totalStart);
+                            evalAsyncService.evaluateAndSave(
+                                    teamId, message, accumulatedText.toString(),
+                                    retrievedDocs, lastChatResponse.get(),
+                                    latencyTotal, latencyRetrieval, latencyGeneration
+                            );
                         } catch (IOException e) {
                             if (isClientDisconnect(e)) {
                                 log.info("SSE client disconnected (ignore): streamId={}", streamId);
@@ -224,23 +242,27 @@ public class ChatStreamService {
     }
 
     /**
-     * [RAG 진단] QuestionAnswerAdvisor 내부에서 수행될 VectorStore 검색을 동일 조건으로 미리 실행하여
-     * 컨텍스트 주입 가능 여부를 로그로 확인합니다.
+     * [RAG 진단] QuestionAnswerAdvisor 내부에서 수행될 VectorStore 검색을 동일 조건으로 미리 실행.
+     * 컨텍스트 주입 가능 여부를 로그로 확인하고, Step 1 검색 결과를 eval용으로 반환.
+     *
+     * @return Step 1에서 검색된 문서 목록 (없으면 빈 리스트)
      */
-    private void diagnosVectorStoreContext(String streamId, Long teamId, String message, String filterExpression) {
-        // ── Step 1: 실제 필터 + threshold=0.5 로 검색 (QuestionAnswerAdvisor와 동일 조건)
+    private List<Document> diagnosVectorStoreContext(String streamId, Long teamId, String message, String filterExpression) {
+        List<Document> step1Docs = List.of();
+
+        // ── Step 1: 실제 필터 + threshold=0.3 로 검색 (QuestionAnswerAdvisor와 동일 조건)
         try {
             List<Document> docs = vectorStore.similaritySearch(
                     SearchRequest.builder()
                             .query(message)
                             .topK(5)
-                            .similarityThreshold(0.5)
+                            .similarityThreshold(0.3)
                             .filterExpression(filterExpression)
                             .build()
             );
 
             if (docs == null || docs.isEmpty()) {
-                log.warn("STREAM-RAG [Step1]: 필터+threshold=0.5 → 결과 0건. streamId={} teamId={} filter='{}'",
+                log.warn("STREAM-RAG [Step1]: 필터+threshold=0.3 → 결과 0건. streamId={} teamId={} filter='{}'",
                         streamId, teamId, filterExpression);
 
                 // ── Step 2: threshold=0.0 으로 낮춰서 재검색 (유사도 임계값 문제 여부 확인)
@@ -283,7 +305,7 @@ public class ChatStreamService {
                         }
 
                     } else {
-                        log.warn("STREAM-RAG [Step2]: 필터+threshold=0.0 → 결과 {}건 존재! → 원인 확정: similarityThreshold=0.5 가 너무 높음 (실제 최고 유사도가 0.5 미만). threshold 낮추는 것 검토 필요",
+                        log.warn("STREAM-RAG [Step2]: 필터+threshold=0.0 → 결과 {}건 존재! → 원인 확정: similarityThreshold=0.3 가 너무 높음 (실제 최고 유사도가 0.3 미만). threshold 낮추는 것 검토 필요",
                                 lowThresholdDocs.size());
                         log.warn("STREAM-RAG [Step2]: 가장 유사한 문서 score={} id={}",
                                 lowThresholdDocs.get(0).getScore(), lowThresholdDocs.get(0).getId());
@@ -303,11 +325,14 @@ public class ChatStreamService {
                             doc.getMetadata().get("sourceKey"),
                             doc.getText() != null ? doc.getText().length() : 0);
                 }
+                step1Docs = docs;
             }
         } catch (Exception e) {
             log.error("STREAM-RAG [Step1]: VectorStore 진단 쿼리 실패 — streamId={} teamId={} filter='{}' errorType={} message='{}'",
                     streamId, teamId, filterExpression, e.getClass().getSimpleName(), e.getMessage(), e);
         }
+
+        return step1Docs;
     }
 
     private boolean isClientDisconnect(IOException e) {

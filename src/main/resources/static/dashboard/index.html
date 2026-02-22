@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PingPong LLM Eval Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+    /* ── 로그인 화면 ── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; background: linear-gradient(135deg, #1a1a2e, #16213e);
+    }
+    .login-box {
+      background: #fff; border-radius: 12px; padding: 40px 48px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 360px;
+    }
+    .login-box h2 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
+    .login-box p  { font-size: 13px; color: #666; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 14px; margin-bottom: 12px; outline: none;
+    }
+    .login-box input:focus { border-color: #4f46e5; }
+    .login-box button {
+      width: 100%; padding: 11px; background: #4f46e5; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 4px;
+    }
+    .login-box button:hover { background: #4338ca; }
+    #login-error { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+    /* ── 메인 레이아웃 ── */
+    #main { display: none; }
+    header {
+      background: #1a1a2e; color: #fff; padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between; height: 56px;
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    .range-btns button {
+      background: transparent; color: #a0aec0; border: 1px solid #4a5568;
+      padding: 5px 13px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-left: 6px;
+    }
+    .range-btns button.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+    .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+    .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+
+    /* ── KPI 카드 ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-card {
+      background: #fff; border-radius: 10px; padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); border-left: 4px solid transparent;
+    }
+    .kpi-card.faith   { border-color: #4f46e5; }
+    .kpi-card.hallu   { border-color: #ef4444; }
+    .kpi-card.latency { border-color: #f59e0b; }
+    .kpi-card.tokens  { border-color: #10b981; }
+    .kpi-card.cost    { border-color: #8b5cf6; }
+    .kpi-label { font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+    .kpi-sub   { font-size: 11px; color: #9ca3af; }
+
+    /* ── 시계열 그래프 ── */
+    .chart-section {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px;
+    }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .chart-header h3 { font-size: 15px; font-weight: 700; }
+    .interval-btns button {
+      background: #f3f4f6; border: none; padding: 5px 12px; border-radius: 6px;
+      font-size: 12px; cursor: pointer; margin-left: 6px; color: #374151;
+    }
+    .interval-btns button.active { background: #4f46e5; color: #fff; }
+    .chart-wrap { position: relative; height: 240px; }
+
+    /* ── Worst 리스트 ── */
+    .worst-section {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px;
+    }
+    .metric-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .metric-tab {
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+      border: 1px solid #e5e7eb; cursor: pointer; background: #fff; color: #374151;
+      transition: all .15s;
+    }
+    .metric-tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700;
+      color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
+      border-bottom: 2px solid #f3f4f6;
+    }
+    tbody tr { border-bottom: 1px solid #f9fafb; cursor: pointer; transition: background .1s; }
+    tbody tr:hover { background: #f5f3ff; }
+    tbody td { padding: 10px 12px; color: #374151; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-done    { background: #d1fae5; color: #065f46; }
+    .badge-partial { background: #fef3c7; color: #92400e; }
+    .badge-failed  { background: #fee2e2; color: #991b1b; }
+    .score-good { color: #059669; font-weight: 600; }
+    .score-mid  { color: #d97706; font-weight: 600; }
+    .score-bad  { color: #dc2626; font-weight: 600; }
+    .detail-btn {
+      background: #ede9fe; color: #4f46e5; border: none; border-radius: 6px;
+      padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .detail-btn:hover { background: #ddd6fe; }
+
+    /* ── 상세 패널 ── */
+    #detail-panel {
+      background: #fff; border-radius: 10px; padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none;
+    }
+    #detail-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .close-btn {
+      margin-left: auto; background: #f3f4f6; border: none; border-radius: 6px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer; color: #374151;
+    }
+    .detail-meta { font-size: 12px; color: #9ca3af; margin-bottom: 16px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .detail-box { background: #f9fafb; border-radius: 8px; padding: 14px 16px; }
+    .detail-box label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 6px; }
+    .detail-box p { font-size: 13px; color: #111827; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
+    .scores-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .score-box { background: #f9fafb; border-radius: 8px; padding: 12px 14px; }
+    .score-box .s-label { font-size: 10px; color: #9ca3af; font-weight: 700; text-transform: uppercase; }
+    .score-box .s-val   { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+    .score-box .s-reason{ font-size: 11px; color: #6b7280; line-height: 1.4; }
+    .context-chunks { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+    .chunk-item { background: #f3f4f6; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #374151; }
+    .chunk-meta { font-size: 10px; color: #9ca3af; margin-bottom: 4px; }
+
+    /* ── 로딩 / 빈 상태 ── */
+    .loading { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
+    .empty   { text-align: center; padding: 32px; color: #d1d5db; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- ── 로그인 ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>🔒 Eval Dashboard</h2>
+    <p>내부 관리자만 접근 가능한 LLM 평가 대시보드입니다.</p>
+    <input type="text"     id="input-username" placeholder="Username" autocomplete="username" />
+    <input type="password" id="input-password" placeholder="Password" autocomplete="current-password" />
+    <button onclick="login()">로그인</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── 메인 ── -->
+<div id="main">
+  <header>
+    <h1>PingPong LLM Eval Dashboard</h1>
+    <div class="range-btns">
+      <button onclick="setRange('24h')" data-range="24h">24h</button>
+      <button onclick="setRange('7d')"  data-range="7d" class="active">7d</button>
+      <button onclick="setRange('30d')" data-range="30d">30d</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- KPI -->
+    <div class="section-title">KPI 요약</div>
+    <div class="kpi-grid">
+      <div class="kpi-card faith">
+        <div class="kpi-label">Faithfulness 평균</div>
+        <div class="kpi-value" id="kpi-faith">—</div>
+        <div class="kpi-sub" id="kpi-faith-range">min — / max —</div>
+      </div>
+      <div class="kpi-card hallu">
+        <div class="kpi-label">Hallucination 평균</div>
+        <div class="kpi-value" id="kpi-hallu">—</div>
+        <div class="kpi-sub" id="kpi-count">총 — 건</div>
+      </div>
+      <div class="kpi-card latency">
+        <div class="kpi-label">Latency 평균</div>
+        <div class="kpi-value" id="kpi-latency">—</div>
+        <div class="kpi-sub">ms</div>
+      </div>
+      <div class="kpi-card tokens">
+        <div class="kpi-label">Tokens 평균</div>
+        <div class="kpi-value" id="kpi-tokens">—</div>
+        <div class="kpi-sub">tokens/응답</div>
+      </div>
+      <div class="kpi-card cost">
+        <div class="kpi-label">Cost 평균</div>
+        <div class="kpi-value" id="kpi-cost">—</div>
+        <div class="kpi-sub" id="kpi-fail">실패율 —%</div>
+      </div>
+    </div>
+
+    <!-- 시계열 그래프 -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <h3>날짜별 지표 추이</h3>
+        <div class="interval-btns">
+          <button onclick="setInterval_('day')"  data-interval="day"  class="active">일별</button>
+          <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="timeseriesChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Worst 리스트 -->
+    <div class="worst-section">
+      <div class="section-title">Worst Case</div>
+      <div class="metric-tabs">
+        <button class="metric-tab active" onclick="setMetric('faithfulness')">Faithfulness ↓</button>
+        <button class="metric-tab" onclick="setMetric('hallucination')">Hallucination ↑</button>
+        <button class="metric-tab" onclick="setMetric('latency')">Latency ↑</button>
+        <button class="metric-tab" onclick="setMetric('cost')">Cost ↑</button>
+        <button class="metric-tab" onclick="setMetric('contradiction')">Contradiction</button>
+      </div>
+      <div id="worst-table-wrap">
+        <div class="loading">로딩 중...</div>
+      </div>
+    </div>
+
+    <!-- 상세 패널 -->
+    <div id="detail-panel">
+      <h3>
+        케이스 상세
+        <button class="close-btn" onclick="closeDetail()">✕ 닫기</button>
+      </h3>
+      <div class="detail-meta" id="detail-meta"></div>
+
+      <div class="detail-grid">
+        <div class="detail-box">
+          <label>질문</label>
+          <p id="detail-question"></p>
+        </div>
+        <div class="detail-box">
+          <label>AI 답변</label>
+          <p id="detail-answer"></p>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:10px">품질 지표 (0.0 ~ 1.0)</div>
+      <div class="scores-grid" id="scores-grid"></div>
+
+      <div class="section-title" style="margin-bottom:10px;margin-top:16px">검색된 컨텍스트 청크</div>
+      <div class="context-chunks" id="context-chunks"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── 상태 ───────────────────────────────────────────────────────────────────
+  let AUTH = '';
+  let RANGE = '7d';
+  let INTERVAL = 'day';
+  let METRIC = 'faithfulness';
+  let tsChart = null;
+
+  // ── 로그인 ─────────────────────────────────────────────────────────────────
+  function login() {
+    const u = document.getElementById('input-username').value.trim();
+    const p = document.getElementById('input-password').value;
+    if (!u || !p) { showLoginError('아이디와 비밀번호를 입력하세요.'); return; }
+    AUTH = 'Basic ' + btoa(u + ':' + p);
+    apiFetch('/internal/evals/summary?range=7d')
+      .then(() => {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        loadAll();
+      })
+      .catch(() => showLoginError('로그인 실패: 아이디 또는 비밀번호를 확인하세요.'));
+  }
+  function showLoginError(msg) { document.getElementById('login-error').textContent = msg; }
+  document.getElementById('input-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+  // ── API 유틸 ────────────────────────────────────────────────────────────────
+  async function apiFetch(path) {
+    const res = await fetch(path, { headers: { 'Authorization': AUTH } });
+    if (!res.ok) throw new Error(res.status);
+    const json = await res.json();
+    return json.result;
+  }
+
+  // ── 범위 / 인터벌 / 메트릭 전환 ────────────────────────────────────────────
+  function setRange(r) {
+    RANGE = r;
+    document.querySelectorAll('.range-btns button').forEach(b => b.classList.toggle('active', b.dataset.range === r));
+    loadAll();
+  }
+  function setInterval_(i) {
+    INTERVAL = i;
+    document.querySelectorAll('.interval-btns button').forEach(b => b.classList.toggle('active', b.dataset.interval === i));
+    loadTimeseries();
+  }
+  function setMetric(m) {
+    METRIC = m;
+    document.querySelectorAll('.metric-tab').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().startsWith(m)));
+    loadWorst();
+  }
+
+  // ── 전체 로드 ───────────────────────────────────────────────────────────────
+  function loadAll() {
+    loadSummary();
+    loadTimeseries();
+    loadWorst();
+    closeDetail();
+  }
+
+  // ── 요약 KPI ────────────────────────────────────────────────────────────────
+  async function loadSummary() {
+    try {
+      const d = await apiFetch(`/internal/evals/summary?range=${RANGE}`);
+      setText('kpi-faith',       fmt2(d.avgFaithfulness));
+      setText('kpi-faith-range', `min ${fmt2(d.minFaithfulness)} / max ${fmt2(d.maxFaithfulness)}`);
+      setText('kpi-hallu',       fmt2(d.avgHallucination));
+      setText('kpi-count',       `총 ${d.totalCount.toLocaleString()} 건`);
+      setText('kpi-latency',     d.avgLatencyMs ? Math.round(d.avgLatencyMs).toLocaleString() : '—');
+      setText('kpi-tokens',      d.avgTokensTotal ? Math.round(d.avgTokensTotal).toLocaleString() : '—');
+      setText('kpi-cost',        d.avgCostUsd ? '$' + d.avgCostUsd.toFixed(5) : '—');
+      setText('kpi-fail',        `실패율 ${(d.failureRate * 100).toFixed(1)}%`);
+    } catch(e) { console.error('summary load failed', e); }
+  }
+
+  // ── 시계열 그래프 ────────────────────────────────────────────────────────────
+  async function loadTimeseries() {
+    try {
+      const data = await apiFetch(`/internal/evals/timeseries?range=${RANGE}&interval=${INTERVAL}`);
+      renderTimeseriesChart(data);
+    } catch(e) { console.error('timeseries load failed', e); }
+  }
+
+  function renderTimeseriesChart(rows) {
+    const labels      = rows.map(r => r.bucket);
+    const faithData   = rows.map(r => r.avgFaithfulness  != null ? r.avgFaithfulness.toFixed(3)  : null);
+    const halluData   = rows.map(r => r.avgHallucination != null ? r.avgHallucination.toFixed(3) : null);
+    const latencyData = rows.map(r => r.avgLatencyMs     != null ? Math.round(r.avgLatencyMs)    : null);
+
+    if (tsChart) tsChart.destroy();
+
+    const ctx = document.getElementById('timeseriesChart').getContext('2d');
+    tsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Faithfulness',
+            data: faithData,
+            borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,.08)',
+            yAxisID: 'y', tension: .3, pointRadius: 3, fill: true,
+          },
+          {
+            label: 'Hallucination',
+            data: halluData,
+            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.05)',
+            yAxisID: 'y', tension: .3, pointRadius: 3, fill: true,
+          },
+          {
+            label: 'Latency (ms)',
+            data: latencyData,
+            borderColor: '#f59e0b', backgroundColor: 'transparent',
+            yAxisID: 'y2', tension: .3, pointRadius: 3, borderDash: [4, 3],
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (ctx.dataset.yAxisID === 'y2') return `Latency: ${v != null ? v.toLocaleString() + 'ms' : '—'}`;
+                return `${ctx.dataset.label}: ${v != null ? v : '—'}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y:  { position: 'left',  min: 0, max: 1, title: { display: true, text: 'Score (0~1)', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+          y2: { position: 'right', title: { display: true, text: 'ms', font: { size: 11 } }, grid: { drawOnChartArea: false } },
+          x:  { grid: { color: '#f9fafb' }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  // ── Worst 리스트 ─────────────────────────────────────────────────────────────
+  async function loadWorst() {
+    const wrap = document.getElementById('worst-table-wrap');
+    wrap.innerHTML = '<div class="loading">로딩 중...</div>';
+    try {
+      const rows = await apiFetch(`/internal/evals/worst?metric=${METRIC}&limit=20`);
+      if (!rows || rows.length === 0) { wrap.innerHTML = '<div class="empty">데이터가 없습니다.</div>'; return; }
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>날짜</th><th>Faithfulness</th><th>Hallucination</th>
+              <th>Contradiction</th><th>Latency</th><th>Tokens</th><th>Cost</th><th>상태</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="worst-tbody"></tbody>
+        </table>`;
+      const tbody = document.getElementById('worst-tbody');
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>#${r.id}</td>
+          <td>${fmtDate(r.createdAt)}</td>
+          <td class="${scoreClass(r.faithfulnessScore, false)}">${fmt2(r.faithfulnessScore)}</td>
+          <td class="${scoreClass(r.hallucinationRate, true)}">${fmt2(r.hallucinationRate)}</td>
+          <td>${r.contradictionFlag ? '⚠️ 있음' : '—'}</td>
+          <td>${r.latencyMsTotal != null ? r.latencyMsTotal.toLocaleString() + 'ms' : '—'}</td>
+          <td>${r.tokensTotal != null ? r.tokensTotal.toLocaleString() : '—'}</td>
+          <td>${r.costUsd != null ? '$' + r.costUsd.toFixed(5) : '—'}</td>
+          <td><span class="badge badge-${r.evalStatus.toLowerCase()}">${r.evalStatus}</span></td>
+          <td><button class="detail-btn" onclick="loadDetail(${r.id})">상세보기</button></td>`;
+        tbody.appendChild(tr);
+      });
+    } catch(e) { wrap.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+  }
+
+  // ── 상세 패널 ─────────────────────────────────────────────────────────────────
+  async function loadDetail(id) {
+    try {
+      const d = await apiFetch(`/internal/evals/${id}`);
+      document.getElementById('detail-panel').style.display = 'block';
+      document.getElementById('detail-meta').textContent =
+        `ID: ${d.id}  |  ${fmtDate(d.createdAt)}  |  팀: ${d.teamId ?? '—'}  |  모델: ${d.modelName ?? '—'}  |  상태: ${d.evalStatus}`;
+
+      document.getElementById('detail-question').textContent = d.questionText ?? '—';
+      document.getElementById('detail-answer').textContent   = d.answerText   ?? '—';
+
+      // 점수 카드
+      const judgeData = parseJudge(d.judgeReasonJson, d.evalStatus);
+      const scoresGrid = document.getElementById('scores-grid');
+      scoresGrid.innerHTML = '';
+      const metrics = [
+        { key: 'faithfulness',      label: 'Faithfulness',      val: d.faithfulnessScore,     inv: false },
+        { key: 'answer_relevance',  label: 'Answer Relevance',  val: d.answerRelevanceScore,  inv: false },
+        { key: 'instruction',       label: 'Instruction',       val: d.instructionScore,       inv: false },
+        { key: 'hallucination',     label: 'Hallucination',     val: d.hallucinationRate,      inv: true  },
+        { key: 'context_recall',    label: 'Context Recall',    val: d.contextRecall,          inv: false },
+        { key: 'context_precision', label: 'Context Precision', val: d.contextPrecision,       inv: false },
+        { key: 'contradiction',     label: 'Contradiction',     val: d.contradictionFlag != null ? (d.contradictionFlag ? 1 : 0) : null, inv: true, isFlag: true },
+      ];
+      metrics.forEach(m => {
+        const reason = judgeData[m.key]?.reason ?? '';
+        const displayVal = m.isFlag
+          ? (m.val === 1 ? '⚠️ 있음' : (m.val === 0 ? '✓ 없음' : '—'))
+          : fmt2(m.val);
+        const cls = m.isFlag ? (m.val === 1 ? 'score-bad' : 'score-good') : scoreClass(m.val, m.inv);
+        scoresGrid.innerHTML += `
+          <div class="score-box">
+            <div class="s-label">${m.label}</div>
+            <div class="s-val ${cls}">${displayVal}</div>
+            <div class="s-reason">${reason}</div>
+          </div>`;
+      });
+
+      // 컨텍스트 청크
+      const chunks = document.getElementById('context-chunks');
+      chunks.innerHTML = '';
+      try {
+        const ctx = JSON.parse(d.contextJson || '[]');
+        if (ctx.length === 0) { chunks.innerHTML = '<div class="empty">컨텍스트 없음</div>'; }
+        ctx.forEach((c, i) => {
+          chunks.innerHTML += `
+            <div class="chunk-item">
+              <div class="chunk-meta">[청크 ${i+1}] score: ${c.score?.toFixed(3) ?? '—'} | ${c.sourceKey ?? ''}</div>
+              ${escHtml(c.preview ?? '')}
+            </div>`;
+        });
+      } catch { chunks.innerHTML = '<div class="empty">컨텍스트 파싱 불가</div>'; }
+
+      document.getElementById('detail-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) { alert('상세 정보를 불러오지 못했습니다.'); }
+  }
+
+  function closeDetail() {
+    document.getElementById('detail-panel').style.display = 'none';
+  }
+
+  // ── 유틸 ──────────────────────────────────────────────────────────────────────
+  function parseJudge(raw, status) {
+    if (!raw || status === 'PARTIAL' || status === 'FAILED') return {};
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+
+  function fmt2(v) { return v != null ? Number(v).toFixed(2) : '—'; }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('ko-KR') + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function scoreClass(v, invert) {
+    if (v == null) return '';
+    const good = invert ? v < 0.3 : v >= 0.7;
+    const bad  = invert ? v >= 0.6 : v < 0.4;
+    if (good) return 'score-good';
+    if (bad)  return 'score-bad';
+    return 'score-mid';
+  }
+
+  function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
