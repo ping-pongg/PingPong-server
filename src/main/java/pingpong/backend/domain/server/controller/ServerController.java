@@ -25,7 +25,7 @@ public class ServerController {
 	private final ServerService serverService;
 
 	@PostMapping("/create/{teamId}")
-	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
+	@Operation(summary="server 생성",description = "해당 팀의 특정 server를 생성합니다.")
 	public SuccessResponse<ServerCreateResponse> createServer(
 		@PathVariable Long teamId,
 		@RequestBody ServerCreateRequest serverCreateRequest

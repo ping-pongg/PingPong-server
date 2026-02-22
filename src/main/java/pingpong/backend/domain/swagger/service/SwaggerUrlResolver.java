@@ -4,7 +4,10 @@ import java.net.URI;
 
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Component
+@Slf4j
 public class SwaggerUrlResolver {
 
 	/**
@@ -16,7 +19,7 @@ public class SwaggerUrlResolver {
 		URI uri=URI.create(swaggerUrl);
 		String baseUrl=uri.getScheme()+"://"+uri.getHost();
 
-		System.out.println(baseUrl);
+		log.debug("Base URL for swagger docs: {}", baseUrl);
 		return baseUrl+"/v3/api-docs";
 	}
 }

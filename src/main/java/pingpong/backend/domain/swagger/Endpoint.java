@@ -73,11 +73,11 @@ public class Endpoint {
 	@Column
 	private LocalDateTime updatedAt;
 
-	@JoinColumn(name="created_by",nullable=false)
+	@JoinColumn(name="created_by")
 	@ManyToOne(fetch= FetchType.LAZY)
 	private Member createdBy;
 
-	@JoinColumn(name="updated_by",nullable=false)
+	@JoinColumn(name="updated_by")
 	@ManyToOne(fetch= FetchType.LAZY)
 	private Member updatedBy;
 
@@ -87,7 +87,7 @@ public class Endpoint {
 	@Column(name="response_schema_hash")
 	private String responseSchemaHash;
 
-	@JoinColumn(name="snapshot_id",nullable=false)
+	@JoinColumn(name="snapshot_id")
 	@ManyToOne(fetch = FetchType.LAZY)
 	private SwaggerSnapshot snapshot;
 

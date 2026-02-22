@@ -62,7 +62,7 @@ public class SwaggerController {
 		return SuccessResponse.ok(swaggerService.syncSwagger(serverId,currentMember));
 	}
 
-	@GetMapping("/endpoint/sync/{endpointId}")
+	@GetMapping("/endpoint/{endpointId}")
 	@Operation(summary="endpoint 상세 조회",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
 	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
 		@PathVariable Long endpointId

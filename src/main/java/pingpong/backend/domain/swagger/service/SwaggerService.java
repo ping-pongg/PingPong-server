@@ -155,7 +155,7 @@ public class SwaggerService {
 		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByServerIdOrderByIdDesc(serverId);
 
 		if(latest.isPresent() && latest.get().getSpecHash().equals(specHash)){
-			return null;
+			return List.of();
 		}
 
 		//이전 endpoint map 준비

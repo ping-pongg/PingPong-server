@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.service.FlowService;
+import pingpong.backend.domain.member.Member;
+import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
 
 @RestController
@@ -26,9 +28,10 @@ public class FlowController {
 	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
 	public SuccessResponse<FlowCreateResponse> createFlow(
 		@PathVariable Long serverId,
+		@CurrentMember Member member,
 		@RequestBody FlowCreateRequest flowCreateRequest
 	){
-		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, serverId));
+		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, member,serverId));
 	}
 
 
