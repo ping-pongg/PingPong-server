@@ -3,6 +3,7 @@ package pingpong.backend.global.config;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
@@ -47,13 +48,27 @@ public class ChatClientConfig {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder, VectorStore vectorStore) {
         QuestionAnswerAdvisor qaAdvisor = QuestionAnswerAdvisor.builder(vectorStore)
-                .searchRequest(SearchRequest.builder().topK(5).similarityThreshold(0.5).build())
+                .searchRequest(SearchRequest.builder().topK(5).similarityThreshold(0.3).build())
                 .promptTemplate(new PromptTemplate(RAG_PROMPT_TEMPLATE))
                 .build();
 
         return builder
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(qaAdvisor)
+                .build();
+    }
+
+    /**
+     * Judge 전용 ChatClient.
+     * QuestionAnswerAdvisor 없이 순수 LLM 호출만 수행.
+     * temperature=0.0으로 채점 일관성 확보.
+     */
+    @Bean(name = "judgeClient")
+    public ChatClient judgeClient(ChatClient.Builder builder) {
+        return builder
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .temperature(0.0)
+                        .build())
                 .build();
     }
 }
