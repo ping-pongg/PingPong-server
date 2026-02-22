@@ -12,6 +12,8 @@ import pingpong.backend.domain.server.Server;
 import pingpong.backend.domain.server.ServerErrorCode;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.exception.CustomException;
 
 @Service
@@ -19,21 +21,22 @@ import pingpong.backend.global.exception.CustomException;
 @RequiredArgsConstructor
 public class FlowService {
 
-	private final ServerService serverService;
+	private final TeamService teamService;
 	private final FlowRepository flowRepository;
 
 	/**
 	 * flow 생성
 	 * @param request
-	 * @param serverId
+	 * @param teamId
 	 */
-	public FlowCreateResponse createFlow(FlowCreateRequest request,Member currentUser,Long serverId){
-		Server server=serverService.getServer(serverId);
-		if(serverService.hasMember(serverId,currentUser)){
-			throw new CustomException(ServerErrorCode.FORBIDDEN);
-		}
+	public FlowCreateResponse createFlow(FlowCreateRequest request,Long teamId){
+		// Server server=serverService.getServer(teamId);
+		// if(serverService.hasMember(teamId,currentUser)){
+		// 	throw new CustomException(ServerErrorCode.FORBIDDEN);
+		// }
 
-		Flow savedFlow=Flow.create(request,server);
+		Team team=teamService.getTeam(teamId);
+		Flow savedFlow=Flow.create(request,team);
 		flowRepository.save(savedFlow);
 		return new FlowCreateResponse(savedFlow.getId());
 	}
