@@ -42,6 +42,7 @@ import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.util.SwaggerHashUtil;
+import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.exception.CustomException;
 
 @Service
@@ -59,16 +60,16 @@ public class SwaggerService {
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
 	private final EndpointRepository endpointRepository;
 	private final SwaggerParameterRepository swaggerParameterRepository;
-	private final ObjectMapper objectMapper;
+	private final TeamService teamService;
 	private final DiffService diffService;
 
 	/**
 	 * swagger JSON Node 형태로 읽어오기
-	 * @param serverId
+	 * @param teamId
 	 * @return
 	 */
-	public JsonNode readSwaggerDocs(Long serverId){
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
+	public JsonNode readSwaggerDocs(Long teamId){
+		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		return swaggerJson;
 	}
@@ -141,18 +142,18 @@ public class SwaggerService {
 
 	/**
 	 * 가장 최신의 swagger를 업데이트해서 비교
-	 * @param serverId
+	 * @param teamId
 	 * @param member
 	 * @return
 	 */
-	public List<EndpointGroupResponse> syncSwagger(Long serverId,Member member){
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
+	public List<EndpointGroupResponse> syncSwagger(Long teamId,Member member){
+		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		//전체 스펙 해시 계산
 		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
 
 		//기존 최신 스냅샷 조회
-		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByServerIdOrderByIdDesc(serverId);
+		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
 
 		if(latest.isPresent() && latest.get().getSpecHash().equals(specHash)){
 			return List.of();
@@ -174,7 +175,7 @@ public class SwaggerService {
 
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
-			.server(serverService.getServer(serverId))
+			.team(teamService.getTeam(teamId))
 			.createdAt(LocalDateTime.now())
 			.specHash(specHash)
 			.endpointCount(aggregates.size())

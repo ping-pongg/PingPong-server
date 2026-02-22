@@ -30,17 +30,16 @@ public class SwaggerController {
 
 	private final SwaggerService swaggerService;
 
-	@GetMapping("/{serverId}")
+	@GetMapping("/{teamId}")
 	@Operation(summary="swagger JSON 읽어오기",description = "현재 서버의 swagger docs를 불러옵니다.")
 	public SuccessResponse<JsonNode> swaggerDiff(
-		@PathVariable Long serverId,
-		@CurrentMember Member currentMember
+		@PathVariable Long teamId
 	) {
-		return SuccessResponse.ok(swaggerService.readSwaggerDocs(serverId));
+		return SuccessResponse.ok(swaggerService.readSwaggerDocs(teamId));
 	}
 
 
-	@GetMapping("/sync/{serverId}")
+	@GetMapping("/sync/{teamId}")
 	@Operation(
 		summary = "swagger JSON 정규화해서 DB에 저장",
 		description = """
@@ -56,10 +55,10 @@ public class SwaggerController {
         """
 	)
 	public SuccessResponse<List<EndpointGroupResponse>> compareAndSaveSwagger(
-		@PathVariable Long serverId,
+		@PathVariable Long teamId,
 		@CurrentMember Member currentMember
 	){
-		return SuccessResponse.ok(swaggerService.syncSwagger(serverId,currentMember));
+		return SuccessResponse.ok(swaggerService.syncSwagger(teamId,currentMember));
 	}
 
 	@GetMapping("/endpoint/{endpointId}")
