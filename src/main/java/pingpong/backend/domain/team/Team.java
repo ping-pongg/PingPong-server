@@ -19,9 +19,6 @@ public class Team {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "notion")
-    private String notion;
-
     @Column(name = "figma")
     private String figma;
 
@@ -37,11 +34,10 @@ public class Team {
     @Column(name = "is_updated")
     private Boolean isUpdated;
 
-    public static Team create(String name, String notion, String figma, String discord,
+    public static Team create(String name, String figma, String discord,
                               String swagger, String github) {
         return Team.builder()
                 .name(name)
-                .notion(notion)
                 .figma(figma)
                 .discord(discord)
                 .swagger(swagger)

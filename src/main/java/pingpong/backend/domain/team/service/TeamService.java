@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.service.MemberService;
+import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.team.MemberTeam;
 import pingpong.backend.domain.team.Team;
 import pingpong.backend.domain.team.TeamErrorCode;
@@ -25,6 +26,7 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final MemberTeamRepository memberTeamRepository;
     private final MemberService memberService;
+    private final NotionRepository notionRepository;
 
     /**
      * 팀 생성 + 생성자 자동 참여 (요구사항 1 반영)
@@ -33,7 +35,6 @@ public class TeamService {
     public TeamCreateResponse createTeam(TeamCreateRequest req, Member creator) {
         Team team = Team.create(
                 req.name(),
-                req.notion(),
                 req.figma(),
                 req.discord(),
                 req.swagger(),
@@ -104,6 +105,36 @@ public class TeamService {
                 .sorted((a, b) -> Long.compare(a.getId(), b.getId()))
                 .map(MyTeamResponse::of)
                 .toList();
+    }
+
+    /**
+     * 팀 정보 조회
+     */
+    @Transactional(readOnly = true)
+    public TeamInfoResponse getTeamInfo(Long teamId, Member member) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+
+        if (!memberTeamRepository.existsByTeamIdAndMemberId(teamId, member.getId())) {
+            throw new CustomException(TeamErrorCode.TEAM_MEMBER_NOT_FOUND);
+        }
+
+        boolean notionConnected = notionRepository.findByTeamId(teamId).isPresent();
+        return TeamInfoResponse.of(team, notionConnected);
+    }
+
+    /**
+     * 특정 팀에서 현재 사용자의 역할 조회
+     */
+    @Transactional(readOnly = true)
+    public UserRoleResponse getUserRole(Long teamId, Member member) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+
+        MemberTeam memberTeam = memberTeamRepository.findByTeamIdAndMemberId(teamId, member.getId())
+                .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_MEMBER_NOT_FOUND));
+
+        return UserRoleResponse.of(memberTeam.getRole());
     }
 
     /**

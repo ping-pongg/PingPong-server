@@ -12,9 +12,6 @@ public record TeamCreateRequest(
         @Schema(description = "팀 이름", example = "PingPong Team", requiredMode = Schema.RequiredMode.REQUIRED)
         String name,
 
-        @Schema(description = "Notion 링크", example = "https://notion.so/xxxx", nullable = true)
-        String notion,
-
         @Schema(description = "Figma 링크", example = "https://figma.com/file/xxxx", nullable = true)
         String figma,
 
