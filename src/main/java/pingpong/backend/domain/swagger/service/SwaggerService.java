@@ -54,7 +54,6 @@ public class SwaggerService {
 	private final SwaggerUrlResolver swaggerUrlResolver;
 	private final SwaggerParser swaggerParser;
 	private final SwaggerHashUtil swaggerHashUtil;
-	private final ServerService serverService;
 	private final SwaggerRequestRepository swaggerRequestRepository;
 	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
