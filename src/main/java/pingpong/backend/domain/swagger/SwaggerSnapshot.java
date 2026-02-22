@@ -33,9 +33,13 @@ public class SwaggerSnapshot {
 	@Column
 	private Long id;
 
+	// @ManyToOne(fetch = FetchType.LAZY)
+	// @JoinColumn(name = "server_id")
+	// private Server server;
+
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "server_id")
-	private Server server;
+	@JoinColumn(name = "team_id")
+	private Team team;
 
 	@Column(name="created_at")
 	private LocalDateTime createdAt;
