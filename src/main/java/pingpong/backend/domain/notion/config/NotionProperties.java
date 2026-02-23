@@ -21,4 +21,6 @@ public class NotionProperties {
     private String oauthTokenPath;
     @NotBlank
     private String notionVersion;
+    @NotBlank
+    private String redirectUri;
 }
