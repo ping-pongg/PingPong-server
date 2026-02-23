@@ -47,12 +47,12 @@ public class NotionFacade {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public NotionOAuthExchangeResponse exchangeCodeAndPersist(Long teamId, Member member, String code, String redirectUri) {
+    public NotionOAuthExchangeResponse exchangeCodeAndPersist(Long teamId, Member member, String code) {
         notionConnectionService.assertTeamAccess(teamId, member);
 
         NotionOAuthTokenResponse tokenResponse;
         try {
-            tokenResponse = notionOauthClient.exchangeAuthorizationCode(code, redirectUri);
+            tokenResponse = notionOauthClient.exchangeAuthorizationCode(code);
         } catch (Exception e) {
             throw new CustomException(NotionErrorCode.NOTION_API_ERROR);
         }

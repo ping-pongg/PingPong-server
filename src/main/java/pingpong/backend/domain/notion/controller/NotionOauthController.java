@@ -26,9 +26,8 @@ public class NotionOauthController {
     @Operation(
             summary = "Notion OAuth 코드 교환",
             description = """
-                    - code/redirectUri로 토큰을 교환하고 팀에 저장합니다.
-                    - 대표 데이터베이스가 비어있으면 내부적으로 1회 resolve를 시도합니다.
-                    - https://api.notion.com/v1/oauth/authorize?client_id=2f5d872b-594c-80cc-a32b-003748ffcba9&response_type=code&owner=user&redirect_uri=https%3A%2F%2Fpingpong-team.vercel.app
+                    - code로 토큰을 교환하고 팀에 저장합니다.
+                    - https://api.notion.com/v1/oauth/authorize?client_id=2f5d872b-594c-80cc-a32b-003748ffcba9&response_type=code&owner=user&redirect_uri=https://pingpong-team.vercel.app/notion/callback
                     """
     )
     public SuccessResponse<NotionOAuthExchangeResponse> createConnection(
@@ -37,7 +36,7 @@ public class NotionOauthController {
             @RequestBody @Valid NotionOAuthExchangeRequest request
     ) {
         return SuccessResponse.ok(
-                notionFacade.exchangeCodeAndPersist(teamId, member, request.code(), request.redirectUri())
+                notionFacade.exchangeCodeAndPersist(teamId, member, request.code())
         );
     }
 

@@ -166,5 +166,11 @@ public class TeamService {
                 })
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public Team getTeam(Long teamId) {
+        return teamRepository.findById(teamId)
+            .orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+    }
 }
 
