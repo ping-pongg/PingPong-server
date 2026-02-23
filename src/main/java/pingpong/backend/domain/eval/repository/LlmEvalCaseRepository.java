@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pingpong.backend.domain.eval.LlmEvalCase;
+import pingpong.backend.domain.eval.enums.EvalStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,11 +43,14 @@ public interface LlmEvalCaseRepository extends JpaRepository<LlmEvalCase, Long> 
                 AVG(e.latencyMsTotal),
                 AVG(e.tokensTotal),
                 AVG(e.costUsd),
-                SUM(CASE WHEN e.evalStatus = pingpong.backend.domain.eval.entity.EvalStatus.FAILED THEN 1 ELSE 0 END)
+                SUM(CASE WHEN e.evalStatus = :failedStatus THEN 1 ELSE 0 END)
             FROM LlmEvalCase e
             WHERE e.createdAt >= :from
             """)
-    List<Object[]> findSummaryStats(@Param("from") LocalDateTime from);
+    List<Object[]> findSummaryStats(
+            @Param("from") LocalDateTime from,
+            @Param("failedStatus") EvalStatus failedStatus
+    );
 
     // ── 시계열 집계 (MySQL native — DATE_FORMAT 사용) ──────────────────────────
     // :fmt → day: '%Y-%m-%d', hour: '%Y-%m-%d %H:00'

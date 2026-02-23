@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import pingpong.backend.domain.eval.dto.*;
 import pingpong.backend.domain.eval.LlmEvalCase;
 import pingpong.backend.domain.eval.error.EvalErrorCode;
+import pingpong.backend.domain.eval.enums.EvalStatus;
 import pingpong.backend.domain.eval.repository.LlmEvalCaseRepository;
 import pingpong.backend.global.exception.CustomException;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -77,7 +78,7 @@ public class EvalController {
     public SuccessResponse<EvalSummaryResponse> getSummary(
             @RequestParam(defaultValue = "7d") String range
     ) {
-        List<Object[]> rows = repository.findSummaryStats(rangeToFrom(range));
+        List<Object[]> rows = repository.findSummaryStats(rangeToFrom(range), EvalStatus.FAILED);
         Object[] s = rows.isEmpty() ? new Object[9] : rows.get(0);
         long totalCount  = s[0] != null ? ((Number) s[0]).longValue() : 0L;
         long failedCount = s[8] != null ? ((Number) s[8]).longValue() : 0L;

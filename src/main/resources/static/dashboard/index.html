@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PingPong LLM Eval Dashboard</title>
+  <title>LLM Evaluation Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,7 +16,7 @@
     }
     .login-box {
       background: #fff; border-radius: 12px; padding: 40px 48px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 380px;
     }
     .login-box h2 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
     .login-box p  { font-size: 13px; color: #666; margin-bottom: 24px; }
@@ -147,8 +147,8 @@
 <!-- ── 로그인 ── -->
 <div id="login-screen">
   <div class="login-box">
-    <h2>🔒 Eval Dashboard</h2>
-    <p>내부 관리자만 접근 가능한 LLM 평가 대시보드입니다.</p>
+    <h2>LLM Evaluation Dashboard</h2>
+    <p>LLM 평가 대시보드입니다. 관리자 Username과 Password를 입력하여 접속해주세요.</p>
     <input type="text"     id="input-username" placeholder="Username" autocomplete="username" />
     <input type="password" id="input-password" placeholder="Password" autocomplete="current-password" />
     <button onclick="login()">로그인</button>
@@ -159,7 +159,7 @@
 <!-- ── 메인 ── -->
 <div id="main">
   <header>
-    <h1>PingPong LLM Eval Dashboard</h1>
+    <h1>LLM Evaluation Dashboard</h1>
     <div class="range-btns">
       <button onclick="setRange('24h')" data-range="24h">24h</button>
       <button onclick="setRange('7d')"  data-range="7d" class="active">7d</button>
