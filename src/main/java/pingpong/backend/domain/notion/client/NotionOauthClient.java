@@ -28,11 +28,11 @@ public class NotionOauthClient {
     private final NotionProperties properties;
     private final ObjectMapper objectMapper;
 
-    public NotionOAuthTokenResponse exchangeAuthorizationCode(String code, String redirectUri) {
+    public NotionOAuthTokenResponse exchangeAuthorizationCode(String code) {
         Map<String, Object> body = Map.of(
                 "grant_type", "authorization_code",
                 "code", code,
-                "redirect_uri", redirectUri
+                "redirect_uri", properties.getRedirectUri()
         );
         return callTokenEndpoint(body);
     }
