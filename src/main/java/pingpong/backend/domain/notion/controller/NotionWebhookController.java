@@ -28,7 +28,7 @@ public class NotionWebhookController {
      * - 일반 이벤트: 이벤트 처리
      */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
+    @Operation(hidden = true,
             summary = "Notion 웹훅 수신",
             description = """
                     Notion 서버로부터 웹훅 요청을 수신합니다.
