@@ -75,6 +75,7 @@ public class NotionPageService {
         String title = NotionPropertyExtractor.extractTitle(properties);
         PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
         String status = NotionPropertyExtractor.extractStatus(properties);
+        String parentDatabaseId = compactNotionId(pageNode.path("parent").path("database_id").asText(null));
 
         // 3. 페이지 블록(본문) 조회
         ResponseEntity<String> blocksResponse = callApi(teamId,
@@ -96,6 +97,7 @@ public class NotionPageService {
                 date,
                 status,
                 pageContent,
+                parentDatabaseId,
                 childDatabases
         );
     }
