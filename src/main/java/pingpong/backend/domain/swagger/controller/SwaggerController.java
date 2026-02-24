@@ -14,6 +14,7 @@ import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class SwaggerController {
 
 	private final SwaggerService swaggerService;
+	private final EndpointService endpointService;
 
 	@GetMapping("/{teamId}")
 	@Operation(summary="swagger JSON 읽어오기",description = "현재 서버의 swagger docs를 불러옵니다.")
@@ -67,6 +69,14 @@ public class SwaggerController {
 		@PathVariable Long endpointId
 	){
 		return SuccessResponse.ok(swaggerService.getEndpointDetails(endpointId));
+	}
+
+	@GetMapping("/endpoints/{teamId}")
+	@Operation(summary="해당 프로젝트에 속한 모든 엔드포인트 조회")
+	public SuccessResponse<List<EndpointResponse>> getEndpointList(
+		@PathVariable Long teamId
+	){
+		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
 	}
 
 

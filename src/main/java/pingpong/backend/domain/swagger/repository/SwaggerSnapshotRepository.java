@@ -9,6 +9,6 @@ import pingpong.backend.domain.swagger.SwaggerSnapshot;
 
 public interface SwaggerSnapshotRepository extends JpaRepository<SwaggerSnapshot, Long> {
 
-	Optional<SwaggerSnapshot> findTopByTeamIdOrderByIdDesc(Long serverId);
+	Optional<SwaggerSnapshot> findTopByTeamIdOrderByIdDesc(Long teamId);
 
 }
