@@ -94,7 +94,7 @@ public class NotionDatabaseQueryService {
             }
         }
 
-        return new DatabaseWithPagesResponse(databaseTitle, pages);
+        return new DatabaseWithPagesResponse(compactDatabaseId, databaseTitle, pages);
     }
 
     /**
@@ -110,6 +110,7 @@ public class NotionDatabaseQueryService {
                 () -> notionRestClient.get("/v1/databases/" + compactDatabaseId, notionTokenService.getAccessToken(teamId)));
         JsonNode databaseNode = notionJsonUtils.parseJson(databaseResponse);
         String databaseTitle = NotionPropertyExtractor.extractTitleFromArray(databaseNode.get("title"));
+        String parentPageId = compactNotionId(databaseNode.path("parent").path("page_id").asText(null));
 
         ObjectNode body = objectMapper.createObjectNode();
         body.put("page_size", DEFAULT_PAGE_SIZE);
@@ -138,7 +139,7 @@ public class NotionDatabaseQueryService {
             }
         }
 
-        return new ChildDatabaseWithPagesResponse(databaseTitle, pages);
+        return new ChildDatabaseWithPagesResponse(compactDatabaseId, parentPageId, databaseTitle, pages);
     }
 
     /**
