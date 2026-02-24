@@ -34,8 +34,11 @@ public class DocumentFactory {
         String lastEditedTime = extractLastEditedTime(payload);
         String firstBlockId = extractFirstBlockId(payload);
 
-        boolean isPageDoc = job.apiPath() != null && job.apiPath().contains("/notion/pages/");
-        boolean isDatabaseDoc = job.apiPath() != null && job.apiPath().contains("/databases/primary");
+        boolean isPageDoc = job.apiPath() != null && job.apiPath().contains("/notion/pages/")
+                && !job.apiPath().matches(".*\\/notion\\/pages\\/[^\\/]+\\/databases$");
+        boolean isDatabaseDoc = job.apiPath() != null &&
+                (job.apiPath().contains("/databases/primary") ||
+                 job.apiPath().matches(".*\\/notion\\/pages\\/[^\\/]+\\/databases$"));
 
         String status = extractStatus(payload);
         String startDate = extractStartDate(payload);
@@ -144,8 +147,10 @@ public class DocumentFactory {
     // -------------------------------------------------------------------------
 
     private String extractDatabaseId(JsonNode payload) {
-        // DTO 구조에는 databaseId 필드가 없음 — 빈 문자열 반환
-        return "";
+        if (payload == null || payload.isNull()) {
+            return "";
+        }
+        return payload.path("databaseId").asText("").trim();
     }
 
     private String extractPageId(IndexJob job, JsonNode payload) {

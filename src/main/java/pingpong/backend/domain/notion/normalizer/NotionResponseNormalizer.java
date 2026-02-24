@@ -37,6 +37,8 @@ public class NotionResponseNormalizer implements IndexingNormalizer {
 
         if (job.apiPath().contains("/databases/primary")) {
             normalizePrimaryDatabase(root, out);
+        } else if (job.apiPath().matches(".*\\/notion\\/pages\\/[^\\/]+\\/databases$")) {
+            normalizeChildDatabase(root, out);
         } else if (job.apiPath().contains("/notion/pages/")) {
             normalizePageDetail(root, out);
         } else {
@@ -70,6 +72,33 @@ public class NotionResponseNormalizer implements IndexingNormalizer {
                     + " | title=" + asText(page.path("title"))
                     + " | status=" + asText(page.path("status"))
                     + " | date=" + dateStr
+                    + " | url=" + asText(page.path("url")));
+            index++;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // ChildDatabaseWithPagesResponse JSON 구조:
+    //   { "databaseId": "...", "parentPageId": "...", "databaseTitle": "...",
+    //     "pages": [ { "id", "url", "title", "status" }, ... ] }
+    // -------------------------------------------------------------------------
+    private void normalizeChildDatabase(JsonNode root, NormalizeBuffer out) {
+        out.section("[Database]");
+        out.line("Title: " + asText(root.path("databaseTitle")));
+
+        out.section("[Pages]");
+        JsonNode pages = root.path("pages");
+        if (!pages.isArray() || pages.isEmpty()) {
+            out.line("No pages");
+            return;
+        }
+
+        int index = 1;
+        for (JsonNode page : pages) {
+            out.line("#" + index
+                    + " id=" + asText(page.path("id"))
+                    + " | title=" + asText(page.path("title"))
+                    + " | status=" + asText(page.path("status"))
                     + " | url=" + asText(page.path("url")));
             index++;
         }

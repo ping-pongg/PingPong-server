@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.global.rag.indexing.dto.IndexJob;
@@ -16,7 +17,7 @@ import pingpong.backend.global.rag.indexing.repository.VectorStoreGateway;
 /**
  * Notion 웹훅 이벤트 발생 시 VectorDB를 동기화합니다.
  *
- * - 페이지 변경 이벤트(page.content_updated 등): 해당 페이지 + primary database 재인덱싱
+ * - 페이지 변경 이벤트(page.content_updated 등): 해당 페이지 + (child DB page이면 child DB + task page) + primary database 재인덱싱
  * - page.deleted 이벤트: 해당 페이지 청크 삭제 + primary database 재인덱싱
  */
 @Slf4j
@@ -26,6 +27,7 @@ public class NotionWebhookIndexingService {
 
     private final NotionPageService notionPageService;
     private final NotionDatabaseQueryService notionDatabaseQueryService;
+    private final NotionConnectionService notionConnectionService;
     private final IndexJobPublisher indexJobPublisher;
     private final VectorStoreGateway vectorStoreGateway;
     private final ObjectMapper objectMapper;
@@ -33,10 +35,23 @@ public class NotionWebhookIndexingService {
     @Async("indexExecutor")
     public void triggerPageIndexing(Long teamId, String pageId) {
         log.info("WEBHOOK_INDEX: 페이지 재인덱싱 시작 teamId={} pageId={}", teamId, pageId);
+        PageDetailResponse pageResponse = null;
         try {
-            indexPage(teamId, pageId);
+            pageResponse = indexPage(teamId, pageId);
         } catch (Exception e) {
             log.error("WEBHOOK_INDEX: 페이지 인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
+        }
+        if (pageResponse != null) {
+            try {
+                String primaryDbId = resolveCompactPrimaryDatabaseId(teamId);
+                String parentDatabaseId = pageResponse.parentDatabaseId();
+                if (parentDatabaseId != null && !parentDatabaseId.isBlank()
+                        && !parentDatabaseId.equals(primaryDbId)) {
+                    indexChildDatabaseAndTaskPage(teamId, parentDatabaseId);
+                }
+            } catch (Exception e) {
+                log.error("WEBHOOK_INDEX: child database 인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
+            }
         }
         try {
             indexPrimaryDatabase(teamId);
@@ -60,11 +75,39 @@ public class NotionWebhookIndexingService {
         }
     }
 
-    private void indexPage(Long teamId, String pageId) {
+    @Async("indexExecutor")
+    public void triggerAfterPageCreate(Long teamId, PageDetailResponse pageResponse) {
+        log.info("WEBHOOK_INDEX: 페이지 생성 후 인덱싱 시작 teamId={} pageId={}", teamId, pageResponse.id());
+        try {
+            String apiPath = "GET /api/v1/teams/" + teamId + "/notion/pages/" + pageResponse.id();
+            JsonNode payload = objectMapper.valueToTree(pageResponse);
+            indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, apiPath, pageResponse.id(), payload));
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: 페이지 인덱싱 실패 teamId={} pageId={}", teamId, pageResponse.id(), e);
+        }
+        try {
+            indexPrimaryDatabase(teamId);
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: primary database 재인덱싱 실패 teamId={}", teamId, e);
+        }
+    }
+
+    @Async("indexExecutor")
+    public void triggerAfterDatabaseCreate(Long teamId, String databaseId, String parentPageId) {
+        log.info("WEBHOOK_INDEX: 데이터베이스 생성 후 인덱싱 시작 teamId={} databaseId={}", teamId, databaseId);
+        try {
+            indexChildDatabaseAndTaskPage(teamId, databaseId);
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: child database 인덱싱 실패 teamId={} databaseId={}", teamId, databaseId, e);
+        }
+    }
+
+    private PageDetailResponse indexPage(Long teamId, String pageId) {
         PageDetailResponse pageResponse = notionPageService.getPageBlocks(teamId, pageId);
         String apiPath = "GET /api/v1/teams/" + teamId + "/notion/pages/" + pageId;
         JsonNode payload = objectMapper.valueToTree(pageResponse);
         indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, apiPath, pageId, payload));
+        return pageResponse;
     }
 
     private void indexPrimaryDatabase(Long teamId) {
@@ -72,5 +115,18 @@ public class NotionWebhookIndexingService {
         String apiPath = "GET /api/v1/teams/" + teamId + "/notion/databases/primary";
         JsonNode payload = objectMapper.valueToTree(dbResponse);
         indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, apiPath, null, payload));
+    }
+
+    private void indexChildDatabaseAndTaskPage(Long teamId, String childDatabaseId) {
+        ChildDatabaseWithPagesResponse dbResponse = notionDatabaseQueryService.queryChildDatabase(teamId, childDatabaseId);
+        String apiPath = "GET /api/v1/teams/" + teamId + "/notion/pages/" + dbResponse.parentPageId() + "/databases";
+        JsonNode payload = objectMapper.valueToTree(dbResponse);
+        indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, apiPath, childDatabaseId, payload));
+        indexPage(teamId, dbResponse.parentPageId());
+    }
+
+    private String resolveCompactPrimaryDatabaseId(Long teamId) {
+        String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
+        return databaseId == null ? null : databaseId.replace("-", "");
     }
 }

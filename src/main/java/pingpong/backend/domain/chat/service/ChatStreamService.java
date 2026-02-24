@@ -3,6 +3,7 @@ package pingpong.backend.domain.chat.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
@@ -39,6 +40,12 @@ public class ChatStreamService {
     private final ChatStreamManager streamManager;
     private final MemberTeamRepository memberTeamRepository;
     private final LlmEvalAsyncService evalAsyncService;
+
+    @Value("${rag.chat.top-k}")
+    private int topK;
+
+    @Value("${rag.chat.similarity-threshold}")
+    private double similarityThreshold;
 
     public void validateTeamAccess(Long teamId, Long memberId) {
         if (!memberTeamRepository.existsByTeamIdAndMemberId(teamId, memberId)) {
@@ -255,8 +262,8 @@ public class ChatStreamService {
             List<Document> docs = vectorStore.similaritySearch(
                     SearchRequest.builder()
                             .query(message)
-                            .topK(5)
-                            .similarityThreshold(0.3)
+                            .topK(topK)
+                            .similarityThreshold(similarityThreshold)
                             .filterExpression(filterExpression)
                             .build()
             );
@@ -270,7 +277,7 @@ public class ChatStreamService {
                     List<Document> lowThresholdDocs = vectorStore.similaritySearch(
                             SearchRequest.builder()
                                     .query(message)
-                                    .topK(5)
+                                    .topK(topK)
                                     .similarityThreshold(0.0)
                                     .filterExpression(filterExpression)
                                     .build()
