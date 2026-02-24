@@ -6,11 +6,18 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ChatClientConfig {
+
+    @Value("${rag.chat.top-k}")
+    private int topK;
+
+    @Value("${rag.chat.similarity-threshold}")
+    private double similarityThreshold;
 
     private static final String SYSTEM_PROMPT = """
             당신은 팀의 WBS(업무분류체계) 노션 문서를 기반으로 질문에 답변하는 AI 어시스턴트입니다.
@@ -48,7 +55,7 @@ public class ChatClientConfig {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder, VectorStore vectorStore) {
         QuestionAnswerAdvisor qaAdvisor = QuestionAnswerAdvisor.builder(vectorStore)
-                .searchRequest(SearchRequest.builder().topK(5).similarityThreshold(0.3).build())
+                .searchRequest(SearchRequest.builder().topK(topK).similarityThreshold(similarityThreshold).build())
                 .promptTemplate(new PromptTemplate(RAG_PROMPT_TEMPLATE))
                 .build();
 
