@@ -21,9 +21,7 @@ import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.event.NotionInitialIndexEvent;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
-import pingpong.backend.global.annotation.IndexOnRead;
 import pingpong.backend.global.exception.CustomException;
-import pingpong.backend.global.rag.indexing.enums.IndexSourceType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +40,7 @@ public class NotionFacade {
     private final NotionDatabaseQueryService notionDatabaseQueryService;
     private final NotionPageService notionPageService;
     private final NotionDatabaseCreateService notionDatabaseCreateService;
+    private final NotionWebhookIndexingService notionWebhookIndexingService;
     private final NotionRepository notionRepository;
     private final NotionJsonUtils notionJsonUtils;
     private final ApplicationEventPublisher eventPublisher;
@@ -89,13 +88,6 @@ public class NotionFacade {
         eventPublisher.publishEvent(new NotionInitialIndexEvent(teamId));
     }
 
-    @IndexOnRead(
-            sourceType = IndexSourceType.NOTION,
-            teamId = "#p0",
-            apiPath = "'GET /api/v1/teams/' + #p0 + '/notion/databases/primary'",
-            skipIfPageSizePresent = false,
-            skipIfStartCursorPresent = false
-    )
     public DatabaseWithPagesResponse queryPrimaryDatabase(Long teamId, Member member) {
         notionConnectionService.assertTeamAccess(teamId, member);
         return notionDatabaseQueryService.queryPrimaryDatabase(teamId);
@@ -104,7 +96,9 @@ public class NotionFacade {
     public PageDetailResponse createPageInPrimaryDatabase(Long teamId, Member member, NotionCreatePageRequest request) {
         notionConnectionService.assertTeamAccess(teamId, member);
         String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
-        return notionPageService.createPage(teamId, databaseId, request);
+        PageDetailResponse result = notionPageService.createPage(teamId, databaseId, request);
+        notionWebhookIndexingService.triggerAfterPageCreate(teamId, result);
+        return result;
     }
 
     public PageDetailResponse updatePage(Long teamId, Member member, String pageId, NotionPageUpdateRequest request) {
@@ -112,14 +106,6 @@ public class NotionFacade {
         return notionPageService.updatePage(teamId, pageId, request);
     }
 
-    @IndexOnRead(
-            sourceType = IndexSourceType.NOTION,
-            teamId = "#p0",
-            apiPath = "'GET /api/v1/teams/' + #p0 + '/notion/pages/' + #p2",
-            resourceId = "#p2",
-            skipIfPageSizePresent = false,
-            skipIfStartCursorPresent = false
-    )
     public PageDetailResponse getPageBlocks(Long teamId, Member member, String pageId) {
         notionConnectionService.assertTeamAccess(teamId, member);
         return notionPageService.getPageBlocks(teamId, pageId);
@@ -127,7 +113,9 @@ public class NotionFacade {
 
     public DatabaseCreatedResponse createDatabase(Long teamId, Member member, String parentPageId) {
         notionConnectionService.assertTeamAccess(teamId, member);
-        return notionDatabaseCreateService.createDatabase(teamId, parentPageId);
+        DatabaseCreatedResponse result = notionDatabaseCreateService.createDatabase(teamId, parentPageId);
+        notionWebhookIndexingService.triggerAfterDatabaseCreate(teamId, result.id(), parentPageId);
+        return result;
     }
 
     private Notion resolveAndPersistDatabaseId(Long teamId) {

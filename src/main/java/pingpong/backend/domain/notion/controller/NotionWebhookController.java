@@ -3,6 +3,8 @@ package pingpong.backend.domain.notion.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +21,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Tag(name = "Notion Webhook API", description = "Notion 웹훅 구독 검증 및 이벤트 수신 API 입니다.")
 public class NotionWebhookController {
+
+    private static final Logger log = LoggerFactory.getLogger(NotionWebhookController.class);
 
     private final NotionWebhookService notionWebhookService;
 
@@ -39,8 +43,12 @@ public class NotionWebhookController {
     public ResponseEntity<?> handleWebhook(
             @RequestBody String rawBody
     ) {
-        return notionWebhookService.handle(rawBody)
-                .map(challenge -> ResponseEntity.ok((Object) Map.of("challenge", challenge)))
-                .orElseGet(() -> ResponseEntity.ok(SuccessResponse.ok(null)));
+        java.util.Optional<String> challenge = notionWebhookService.handle(rawBody);
+        if (challenge.isPresent()) {
+            log.info("WEBHOOK_RESPONSE: challenge={}", challenge.get());
+            return ResponseEntity.ok(Map.of("challenge", challenge.get()));
+        }
+        log.info("WEBHOOK_RESPONSE: ok");
+        return ResponseEntity.ok(SuccessResponse.ok(null));
     }
 }
