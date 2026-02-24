@@ -1,11 +1,9 @@
 package pingpong.backend.domain.flow;
 
-import static java.util.Objects.*;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,9 +16,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.server.Server;
 import pingpong.backend.domain.team.Team;
 
 @Getter
@@ -29,33 +25,33 @@ import pingpong.backend.domain.team.Team;
 @Table
 @NoArgsConstructor(access= AccessLevel.PROTECTED)
 @AllArgsConstructor(access= AccessLevel.PRIVATE)
-public class Flow {
+public class FlowImage {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column
-	private Long id;
+	private long id;
 
-	// @ManyToOne(fetch = FetchType.LAZY)
-	// @JoinColumn(name = "server_id")
-	// private Server server;
+	@ManyToOne(fetch= FetchType.LAZY)
+	@JoinColumn(name="flow_id")
+	private Flow flow;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "team_id")
-	private Team team;
+	@Column(nullable = false)
+	private String objectKey;
 
-	@Column
-	private String title;
+	// 업로드 상태 관리
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private UploadStatus status;
 
-	@Column
-	private String description;
-
-
-	public static Flow create(FlowCreateRequest req,Team team) {
-		return Flow.builder()
-			.title(req.title())
-			.description(req.description())
-			.team(team)
+	public static FlowImage create(Flow flow, String objectKey) {
+		return FlowImage.builder()
+			.flow(flow)
+			.objectKey(objectKey)
+			.status(UploadStatus.PENDING)
 			.build();
+	}
+
+	public void markComplete() {
+		this.status = UploadStatus.COMPLETE;
 	}
 }
