@@ -7,6 +7,8 @@ import java.util.List;
  * 페이지 상세 응답의 childDatabases에서 사용
  */
 public record ChildDatabaseWithPagesResponse(
+        String databaseId,     // 데이터베이스 ID (dashes removed)
+        String parentPageId,   // 부모 페이지 ID (dashes removed)
         String databaseTitle,  // 데이터베이스 제목
         List<ChildPageSummary> pages  // 페이지 목록
 ) {
