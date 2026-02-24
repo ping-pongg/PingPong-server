@@ -7,6 +7,7 @@ import java.util.List;
  * GET /databases/primary endpoint에서 사용
  */
 public record DatabaseWithPagesResponse(
+        String databaseId,     // 데이터베이스 ID (dashes removed)
         String databaseTitle,  // 데이터베이스 제목
         List<PageSummary> pages  // 페이지 목록
 ) {
