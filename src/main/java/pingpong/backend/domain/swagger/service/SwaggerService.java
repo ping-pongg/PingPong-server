@@ -61,6 +61,7 @@ public class SwaggerService {
 	private final SwaggerParameterRepository swaggerParameterRepository;
 	private final TeamService teamService;
 	private final DiffService diffService;
+	private final EndpointService endpointService;
 
 	/**
 	 * swagger JSON Node 형태로 읽어오기
@@ -175,7 +176,6 @@ public class SwaggerService {
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
 			.team(teamService.getTeam(teamId))
-			.createdAt(LocalDateTime.now())
 			.specHash(specHash)
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
@@ -206,6 +206,8 @@ public class SwaggerService {
 			endpoints.stream(),
 			deletedEndpoints.stream()
 		).toList();
+
+		endpointService.unlinkChangedEndpoints(allEndpoints);
 
 		// endpoint diff
 		Map<String, List<EndpointResponse>> grouped =
@@ -280,5 +282,7 @@ public class SwaggerService {
 			.snapshot(snapshot)
 			.build();
 	}
+
+
 
 }

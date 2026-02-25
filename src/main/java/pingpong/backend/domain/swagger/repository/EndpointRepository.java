@@ -1,6 +1,7 @@
 package pingpong.backend.domain.swagger.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +18,7 @@ public interface EndpointRepository extends JpaRepository<Endpoint, Long> {
  	Endpoint findTopByPathAndMethodAndSnapshotCreatedAtLessThanOrderBySnapshotCreatedAtDesc(
 		 String path, CrudMethod method, LocalDateTime createdAt
 	);
-
+	List<Endpoint> findAllByIdIn(Collection<Long> ids);
 
 
 }

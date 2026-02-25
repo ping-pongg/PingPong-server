@@ -9,12 +9,14 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
@@ -29,6 +31,7 @@ import pingpong.backend.global.exception.CustomException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SwaggerParser {
 
 	private final RestClient restClient;
@@ -116,20 +119,71 @@ public class SwaggerParser {
 	 * @param operationNode
 	 * @return
 	 */
-	private Endpoint buildEndpoint(String path,
-		String method,
-		JsonNode operationNode){
-		Endpoint endpoint=Endpoint.builder()
+
+	private Endpoint buildEndpoint(String path, String method, JsonNode operationNode) {
+
+		// ====== 1) description 노드 타입/길이 확인 ======
+		JsonNode descNode = operationNode.get("description");
+		String description = null;
+
+		if (descNode == null || descNode.isNull()) {
+			log.info("[Swagger][Endpoint] {} {} descNode=null", method, path);
+		} else {
+			log.info("[Swagger][Endpoint] {} {} descNodeType={}", method, path, descNode.getNodeType());
+
+			if (descNode.isTextual()) {
+				description = descNode.asText();
+				log.info("[Swagger][Endpoint] {} {} description.length={}", method, path, description.length());
+			} else {
+				// textual이 아닌데 description이 들어온 경우: 그대로 저장하면 매우 길어질 수 있음
+				String descJson = safeJson(descNode);
+				log.warn("[Swagger][Endpoint] {} {} description is NOT text. json.length={}", method, path, descJson.length());
+				// 필요하면 임시로 저장하지 않거나(null), 요약해서 저장하세요.
+				// description = null;
+				// 또는 description = descJson; // (주의: 길이 매우 큼)
+			}
+		}
+
+		// ====== 2) summary / operationId 길이도 같이 확인 ======
+		String summary = operationNode.path("summary").asText(null);
+		String operationId = operationNode.path("operationId").asText(null);
+
+		log.info("[Swagger][Endpoint] {} {} summary.length={}, operationId.length={}",
+			method,
+			path,
+			summary == null ? 0 : summary.length(),
+			operationId == null ? 0 : operationId.length()
+		);
+
+		// ====== 3) request/response hash도 확인(혹시 긴 값이면) ======
+		String reqHash = swaggerHashUtil.generateRequestHash(operationNode);
+		String resHash = swaggerHashUtil.generateResponseHash(operationNode);
+
+		log.info("[Swagger][Endpoint] {} {} reqHash.len={}, resHash.len={}",
+			method, path,
+			reqHash == null ? 0 : reqHash.length(),
+			resHash == null ? 0 : resHash.length()
+		);
+
+		return Endpoint.builder()
 			.path(path)
 			.method(CrudMethod.valueOf(method.toUpperCase()))
-			.summary(operationNode.path("summary").asText(null))
-			.description(operationNode.path("description").asText(null))
-			.operationId(operationNode.path("operationId").asText(null))
-			.requestSchemaHash(swaggerHashUtil.generateRequestHash(operationNode))
-			.responseSchemaHash(swaggerHashUtil.generateResponseHash(operationNode))
+			.summary(summary)
+			.description(description)  // 위에서 만든 description 사용
+			.operationId(operationId)
+			.requestSchemaHash(reqHash)
+			.responseSchemaHash(resHash)
 			.build();
-		return endpoint;
 	}
+
+	private String safeJson(JsonNode node) {
+		try {
+			return objectMapper.writeValueAsString(node);
+		} catch (JsonProcessingException e) {
+			return node.toString();
+		}
+	}
+
 
 	/**
 	 * swagger Request JSON에서 추출해서 객체 생성
@@ -299,6 +353,7 @@ public class SwaggerParser {
 				.required(required)
 				.schemaHash(schemaHash)
 				.endpoint(endpoint)
+
 				.build();
 
 			result.add(parameter);

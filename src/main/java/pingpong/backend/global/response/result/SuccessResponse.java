@@ -31,5 +31,10 @@ public class SuccessResponse<T> {
     public static <T> SuccessResponse<T> ok(T data) {
         return of(ResponseState.SUCCESS.getCode(), ResponseState.SUCCESS.getMessage(), data);
     }
+
+    public static <T> SuccessResponse<T> ok() {
+        return of(ResponseState.SUCCESS.getCode(), ResponseState.SUCCESS.getMessage(), null);
+    }
+
 }
 
