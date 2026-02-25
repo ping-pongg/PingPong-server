@@ -79,14 +79,15 @@ public class EvalController {
             @RequestParam(defaultValue = "7d") String range
     ) {
         List<Object[]> rows = repository.findSummaryStats(rangeToFrom(range), EvalStatus.FAILED);
-        Object[] s = rows.isEmpty() ? new Object[9] : rows.get(0);
+        Object[] s = rows.isEmpty() ? new Object[12] : rows.get(0);
         long totalCount  = s[0] != null ? ((Number) s[0]).longValue() : 0L;
         long failedCount = s[8] != null ? ((Number) s[8]).longValue() : 0L;
         return SuccessResponse.ok(new EvalSummaryResponse(
                 range, totalCount, failedCount,
                 totalCount > 0 ? (double) failedCount / totalCount : 0.0,
                 nullableDouble(s[1]), nullableDouble(s[2]), nullableDouble(s[3]),
-                nullableDouble(s[4]), nullableDouble(s[5]), nullableDouble(s[6]), nullableDouble(s[7])
+                nullableDouble(s[4]), nullableDouble(s[5]), nullableDouble(s[6]), nullableDouble(s[7]),
+                nullableDouble(s[9]), nullableDouble(s[10]), nullableDouble(s[11])
         ));
     }
 
@@ -113,7 +114,27 @@ public class EvalController {
                         nullableDouble(row[2]),
                         nullableDouble(row[3]),
                         nullableDouble(row[4]),
-                        nullableDouble(row[5])
+                        nullableDouble(row[5]),
+                        nullableDouble(row[6])
+                ))
+                .toList();
+        return SuccessResponse.ok(result);
+    }
+
+    /**
+     * GET /internal/evals/similarity-histogram?range=7d
+     * 전체 retrieved doc의 similarity score 구간별 분포 (0.1 단위 버킷)
+     */
+    @GetMapping("/similarity-histogram")
+    public SuccessResponse<List<EvalSimilarityHistogramResponse>> getSimilarityHistogram(
+            @RequestParam(defaultValue = "7d") String range
+    ) {
+        List<EvalSimilarityHistogramResponse> result = repository.findSimilarityHistogram(rangeToFrom(range))
+                .stream()
+                .map(row -> new EvalSimilarityHistogramResponse(
+                        ((Number) row[0]).doubleValue(),
+                        ((Number) row[1]).doubleValue(),
+                        ((Number) row[2]).longValue()
                 ))
                 .toList();
         return SuccessResponse.ok(result);
