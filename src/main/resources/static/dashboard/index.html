@@ -46,6 +46,7 @@
       padding: 5px 13px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-left: 6px;
     }
     .range-btns button.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    #refresh-btn { font-size: 15px; padding: 4px 10px; margin-left: 10px; border-left: 1px solid #4a5568; }
 
     .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
     .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
@@ -67,16 +68,17 @@
     .kpi-sub   { font-size: 11px; color: #9ca3af; }
 
     /* ── Similarity 상세 패널 내 ── */
-    .simil-summary {
-      display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
-    }
+    .simil-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
     .simil-stat {
-      background: #f0f9ff; border-radius: 8px; padding: 10px 16px;
-      border-left: 3px solid #0ea5e9; min-width: 100px;
+      background: #f9fafb; border-radius: 10px; padding: 14px 16px;
+      border-left: 3px solid #e5e7eb;
     }
-    .simil-stat .s-label { font-size: 10px; color: #0369a1; font-weight: 700; text-transform: uppercase; }
-    .simil-stat .s-val   { font-size: 20px; font-weight: 700; color: #0c4a6e; margin-top: 2px; }
-    .simil-chart-wrap { position: relative; height: 140px; margin-bottom: 16px; }
+    .simil-stat.box-good { border-left-color: #10b981; background: #f0fdf4; }
+    .simil-stat.box-mid  { border-left-color: #f59e0b; background: #fffbeb; }
+    .simil-stat.box-bad  { border-left-color: #ef4444; background: #fef2f2; }
+    .simil-stat .s-label { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .simil-stat .s-val   { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; }
+    .simil-chart-wrap { position: relative; height: 180px; margin-bottom: 20px; }
 
     /* ── 시계열 그래프 ── */
     .chart-section {
@@ -128,25 +130,56 @@
 
     /* ── 상세 패널 ── */
     #detail-panel {
-      background: #fff; border-radius: 10px; padding: 24px;
+      background: #fff; border-radius: 10px; padding: 28px 32px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none;
     }
-    #detail-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    #detail-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
     .close-btn {
       margin-left: auto; background: #f3f4f6; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; cursor: pointer; color: #374151;
     }
-    .detail-meta { font-size: 12px; color: #9ca3af; margin-bottom: 16px; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .detail-meta { font-size: 12px; color: #9ca3af; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
     .detail-box { background: #f9fafb; border-radius: 8px; padding: 14px 16px; }
     .detail-box label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 6px; }
     .detail-box p { font-size: 13px; color: #111827; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
-    .scores-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-    .score-box { background: #f9fafb; border-radius: 8px; padding: 12px 14px; }
-    .score-box .s-label { font-size: 10px; color: #9ca3af; font-weight: 700; text-transform: uppercase; }
-    .score-box .s-val   { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
-    .score-box .s-reason{ font-size: 11px; color: #6b7280; line-height: 1.4; }
-    .context-chunks { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+
+    /* ── 품질 지표 카드 ── */
+    .metrics-group { margin-bottom: 14px; }
+    .metrics-group-label { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+    .scores-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .scores-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    /* ── 품질 지표 2컬럼 테이블 ── */
+    .metrics-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .metrics-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .metrics-tbl thead th {
+      text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 700;
+      color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
+      border-bottom: 2px solid #f3f4f6;
+    }
+    .metrics-tbl tbody tr { border-bottom: 1px solid #f3f4f6; cursor: default; }
+    .metrics-tbl tbody tr:hover { background: #f9fafb; }
+    .metrics-tbl tbody td { padding: 8px 10px; vertical-align: middle; }
+    .metrics-tbl .m-name { font-weight: 700; font-size: 12px; color: #374151; white-space: nowrap; }
+    .metrics-tbl .m-desc { font-size: 12px; color: #6b7280; }
+    .metrics-tbl .m-score-val { font-size: 14px; font-weight: 700; }
+    .score-box {
+      background: #f9fafb; border-radius: 10px; padding: 14px 16px;
+      border-left: 3px solid #e5e7eb;
+    }
+    .score-box.box-good { border-left-color: #10b981; background: #f0fdf4; }
+    .score-box.box-mid  { border-left-color: #f59e0b; background: #fffbeb; }
+    .score-box.box-bad  { border-left-color: #ef4444; background: #fef2f2; }
+    .score-box .s-label  { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .score-box .s-val    { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; }
+    .s-bar-track { height: 4px; background: rgba(0,0,0,.08); border-radius: 2px; margin: 4px 0 8px; }
+    .s-bar { height: 4px; border-radius: 2px; }
+    .s-bar.bar-good { background: #10b981; }
+    .s-bar.bar-mid  { background: #f59e0b; }
+    .s-bar.bar-bad  { background: #ef4444; }
+    .score-box .s-reason { font-size: 11px; color: #6b7280; line-height: 1.5; }
+    .context-chunks { display: flex; flex-direction: column; gap: 8px; }
     .chunk-item { background: #f3f4f6; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #374151; }
     .chunk-meta { font-size: 10px; color: #9ca3af; margin-bottom: 4px; }
 
@@ -177,6 +210,7 @@
       <button onclick="setRange('24h')" data-range="24h">24h</button>
       <button onclick="setRange('7d')"  data-range="7d" class="active">7d</button>
       <button onclick="setRange('30d')" data-range="30d">30d</button>
+      <button onclick="loadAll()" id="refresh-btn" title="데이터 새로고침">⟲</button>
     </div>
   </header>
 
@@ -231,7 +265,7 @@
     <!-- 시계열 그래프 -->
     <div class="chart-section">
       <div class="chart-header">
-        <h3>날짜별 지표 추이</h3>
+        <h3>지표 추이</h3>
         <div class="interval-btns">
           <button onclick="setInterval_('day')"  data-interval="day"  class="active">일별</button>
           <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
@@ -244,7 +278,7 @@
 
     <!-- Worst 리스트 -->
     <div class="worst-section">
-      <div class="section-title">Worst Case</div>
+      <div class="section-title">채팅 단건 내역</div>
       <div class="metric-tabs">
         <button class="metric-tab active" onclick="setMetric('faithfulness')">Faithfulness ↓</button>
         <button class="metric-tab" onclick="setMetric('hallucination')">Hallucination ↑</button>
@@ -276,8 +310,23 @@
         </div>
       </div>
 
-      <div class="section-title" style="margin-bottom:10px">품질 지표 (0.0 ~ 1.0)</div>
-      <div class="scores-grid" id="scores-grid"></div>
+      <div class="section-title" style="margin-bottom:12px">품질 지표 (0.0 ~ 1.0)</div>
+      <div class="metrics-two-col">
+        <div class="metrics-group">
+          <div class="metrics-group-label">생성 품질</div>
+          <table class="metrics-tbl">
+            <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+            <tbody id="gen-scores-tbody"></tbody>
+          </table>
+        </div>
+        <div class="metrics-group">
+          <div class="metrics-group-label">검색 품질 &amp; 일관성</div>
+          <table class="metrics-tbl">
+            <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+            <tbody id="ret-scores-tbody"></tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="section-title" style="margin-bottom:10px;margin-top:16px">Similarity Score (이 요청)</div>
       <div class="simil-summary" id="simil-summary"></div>
@@ -463,26 +512,22 @@
 
     setText('hist-total-label', total > 0 ? `총 ${total.toLocaleString()}개 doc` : '');
 
-    // 구간별 색상: 낮을수록 빨강, 높을수록 초록
-    const colors = allBuckets.map(b => {
-      const v = +b;
-      if (v < 0.3) return 'rgba(239,68,68,.7)';
-      if (v < 0.6) return 'rgba(245,158,11,.7)';
-      return 'rgba(16,185,129,.7)';
-    });
-
     if (histChart) histChart.destroy();
     const ctx = document.getElementById('histogramChart').getContext('2d');
     histChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [{
           label: 'Doc 수',
           data: counts,
-          backgroundColor: colors,
-          borderWidth: 0,
-          borderRadius: 4,
+          borderColor: 'rgba(100,100,110,.85)',
+          backgroundColor: 'rgba(100,100,110,.08)',
+          pointBackgroundColor: 'rgba(100,100,110,.85)',
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: .3,
+          fill: true,
         }],
       },
       options: {
@@ -492,7 +537,7 @@
           tooltip: { callbacks: { label: c => `${c.parsed.y.toLocaleString()}개` } },
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          x: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
           y: { beginAtZero: true, title: { display: true, text: 'doc 수', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
         },
       },
@@ -546,42 +591,60 @@
       document.getElementById('detail-question').textContent = d.questionText ?? '—';
       document.getElementById('detail-answer').textContent   = d.answerText   ?? '—';
 
-      // 점수 카드
+      // 점수 테이블
       const judgeData = parseJudge(d.judgeReasonJson, d.evalStatus);
-      const scoresGrid = document.getElementById('scores-grid');
-      scoresGrid.innerHTML = '';
-      const metrics = [
-        { key: 'faithfulness',      label: 'Faithfulness',      val: d.faithfulnessScore,     inv: false },
-        { key: 'answer_relevance',  label: 'Answer Relevance',  val: d.answerRelevanceScore,  inv: false },
-        { key: 'instruction',       label: 'Instruction',       val: d.instructionScore,       inv: false },
-        { key: 'hallucination',     label: 'Hallucination',     val: d.hallucinationRate,      inv: true  },
-        { key: 'context_recall',    label: 'Context Recall',    val: d.contextRecall,          inv: false },
-        { key: 'context_precision', label: 'Context Precision', val: d.contextPrecision,       inv: false },
-        { key: 'contradiction',     label: 'Contradiction',     val: d.contradictionFlag != null ? (d.contradictionFlag ? 1 : 0) : null, inv: true, isFlag: true },
+      const genTbody = document.getElementById('gen-scores-tbody');
+      const retTbody = document.getElementById('ret-scores-tbody');
+      genTbody.innerHTML = '';
+      retTbody.innerHTML = '';
+
+      const genMetrics = [
+        { key: 'faithfulness',     label: 'Faithfulness',     desc: '모든 내용이 컨텍스트에 근거함', val: d.faithfulnessScore,    inv: false },
+        { key: 'answer_relevance', label: 'Answer Relevance', desc: '질문에 정확히 답변함',          val: d.answerRelevanceScore, inv: false },
+        { key: 'instruction',      label: 'Instruction',      desc: '한국어 및 지시사항 준수',        val: d.instructionScore,     inv: false },
+        { key: 'hallucination',    label: 'Hallucination',    desc: '컨텍스트 외 정보 없음',          val: d.hallucinationRate,    inv: true  },
       ];
-      metrics.forEach(m => {
+      const retMetrics = [
+        { key: 'context_recall',    label: 'Context Recall',    desc: '필요 정보 모두 포함됨',     val: d.contextRecall,    inv: false },
+        { key: 'context_precision', label: 'Context Precision', desc: '모든 청크가 답변에 기여함', val: d.contextPrecision, inv: false },
+        { key: 'contradiction', label: 'Contradiction', desc: '컨텍스트와 모순 없음', val: d.contradictionFlag != null ? (d.contradictionFlag ? 1 : 0) : null, inv: true, isFlag: true },
+      ];
+
+      const renderMetricRow = m => {
         const reason = judgeData[m.key]?.reason ?? '';
+        const cls = m.isFlag ? (m.val === 1 ? 'score-bad' : 'score-good') : scoreClass(m.val, m.inv);
         const displayVal = m.isFlag
           ? (m.val === 1 ? '⚠️ 있음' : (m.val === 0 ? '✓ 없음' : '—'))
           : fmt2(m.val);
-        const cls = m.isFlag ? (m.val === 1 ? 'score-bad' : 'score-good') : scoreClass(m.val, m.inv);
-        scoresGrid.innerHTML += `
-          <div class="score-box">
-            <div class="s-label">${m.label}</div>
-            <div class="s-val ${cls}">${displayVal}</div>
-            <div class="s-reason">${reason}</div>
-          </div>`;
-      });
+        const barHtml = (!m.isFlag && m.val != null)
+          ? `<div class="s-bar-track"><div class="s-bar ${cls.replace('score-', 'bar-')}" style="width:${Math.round(m.val * 100)}%"></div></div>`
+          : '';
+        return `<tr>
+            <td class="m-name">${m.label}</td>
+            <td class="m-desc">${m.desc}</td>
+            <td><span class="m-score-val ${cls}">${displayVal}</span>${barHtml}</td>
+          </tr>`;
+      };
+
+      genMetrics.forEach(m => { genTbody.innerHTML += renderMetricRow(m); });
+      retMetrics.forEach(m => { retTbody.innerHTML += renderMetricRow(m); });
 
       // Similarity stats + per-request bar chart
       const similSummary = document.getElementById('simil-summary');
-      similSummary.innerHTML = '';
       const docCount = d.retrievedDocCount ?? 0;
+      const similStatHtml = (label, val) => {
+        const cls = scoreClass(val, false);
+        const bxCls = boxClass(val, false);
+        const barHtml = val != null
+          ? `<div class="s-bar-track"><div class="s-bar ${cls.replace('score-', 'bar-')}" style="width:${Math.round(val * 100)}%"></div></div>`
+          : '';
+        return `<div class="simil-stat ${bxCls}"><div class="s-label">${label}</div><div class="s-val ${cls}">${fmt2(val)}</div>${barHtml}</div>`;
+      };
       similSummary.innerHTML = `
         <div class="simil-stat"><div class="s-label">Retrieved Docs</div><div class="s-val">${docCount}</div></div>
-        <div class="simil-stat"><div class="s-label">Avg Score</div><div class="s-val">${fmt2(d.avgSimilarityScore)}</div></div>
-        <div class="simil-stat"><div class="s-label">Max Score</div><div class="s-val">${fmt2(d.maxSimilarityScore)}</div></div>
-        <div class="simil-stat"><div class="s-label">Min Score</div><div class="s-val">${fmt2(d.minSimilarityScore)}</div></div>`;
+        ${similStatHtml('Avg Score', d.avgSimilarityScore)}
+        ${similStatHtml('Max Score', d.maxSimilarityScore)}
+        ${similStatHtml('Min Score', d.minSimilarityScore)}`;
 
       // per-request bar chart
       if (docScoreChart) { docScoreChart.destroy(); docScoreChart = null; }
@@ -590,7 +653,7 @@
         if (ctxDocs.length > 0) {
           const docLabels = ctxDocs.map((_, i) => `청크 ${i + 1}`);
           const docScores = ctxDocs.map(c => c.score != null ? +c.score.toFixed(4) : 0);
-          const docColors = docScores.map(s => s < 0.3 ? 'rgba(239,68,68,.75)' : s < 0.6 ? 'rgba(245,158,11,.75)' : 'rgba(16,185,129,.75)');
+          const docColors = docScores.map(s => s < 0.3 ? 'rgba(180,180,185,.85)' : s < 0.6 ? 'rgba(120,120,128,.85)' : 'rgba(70,70,80,.85)');
           const dcCtx = document.getElementById('docScoreChart').getContext('2d');
           docScoreChart = new Chart(dcCtx, {
             type: 'bar',
@@ -663,6 +726,15 @@
     if (good) return 'score-good';
     if (bad)  return 'score-bad';
     return 'score-mid';
+  }
+
+  function boxClass(v, invert) {
+    if (v == null) return '';
+    const good = invert ? v < 0.3 : v >= 0.7;
+    const bad  = invert ? v >= 0.6 : v < 0.4;
+    if (good) return 'box-good';
+    if (bad)  return 'box-bad';
+    return 'box-mid';
   }
 
   function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
