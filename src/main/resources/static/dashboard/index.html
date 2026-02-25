@@ -139,7 +139,8 @@
       margin-left: auto; background: #f3f4f6; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; cursor: pointer; color: #374151;
     }
-    .detail-meta { font-size: 12px; color: #9ca3af; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
+    .meta-tag { font-size: 12px; color: #9ca3af; border: 1px solid #9ca3af; border-radius: 6px; background: transparent; padding: 3px 10px; }
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
     .detail-box { background: #f9fafb; border-radius: 8px; padding: 14px 16px; }
     .detail-box label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 6px; }
@@ -294,10 +295,10 @@
 
     <!-- 상세 패널 -->
     <div id="detail-panel">
-      <h3>
+      <div class="section-title" style="display:flex; align-items:center; margin-bottom:4px;">
         케이스 상세
         <button class="close-btn" onclick="closeDetail()">✕ 닫기</button>
-      </h3>
+      </div>
       <div class="detail-meta" id="detail-meta"></div>
 
       <div class="detail-grid">
@@ -586,8 +587,13 @@
     try {
       const d = await apiFetch(`/internal/evals/${id}`);
       document.getElementById('detail-panel').style.display = 'block';
-      document.getElementById('detail-meta').textContent =
-        `ID: ${d.id}  |  ${fmtDate(d.createdAt)}  |  팀: ${d.teamId ?? '—'}  |  모델: ${d.modelName ?? '—'}  |  상태: ${d.evalStatus}`;
+      document.getElementById('detail-meta').innerHTML = [
+        `ID: ${d.id}`,
+        fmtDate(d.createdAt),
+        `팀: ${d.teamId ?? '—'}`,
+        `모델: ${d.modelName ?? '—'}`,
+        `상태: ${d.evalStatus}`,
+      ].map(t => `<div class="meta-tag">${t}</div>`).join('');
 
       document.getElementById('detail-question').textContent = d.questionText ?? '—';
       document.getElementById('detail-answer').textContent   = d.answerText   ?? '—';
