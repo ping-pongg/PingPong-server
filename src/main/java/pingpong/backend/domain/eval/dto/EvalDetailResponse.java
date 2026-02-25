@@ -33,6 +33,11 @@ public record EvalDetailResponse(
         Integer tokensCached,
         Integer tokensTotal,
         Double costUsd,
+        // Similarity
+        Integer retrievedDocCount,
+        Double avgSimilarityScore,
+        Double minSimilarityScore,
+        Double maxSimilarityScore,
         String evalStatus,
         String evalError
 ) {
@@ -45,7 +50,9 @@ public record EvalDetailResponse(
                 e.getHallucinationRate(), e.getContradictionFlag(),
                 e.getLatencyMsTotal(), e.getLatencyMsRetrieval(), e.getLatencyMsGeneration(), e.getLatencyMsEval(),
                 e.getTokensIn(), e.getTokensOut(), e.getTokensCached(), e.getTokensTotal(),
-                e.getCostUsd(), e.getEvalStatus().name(), e.getEvalError()
+                e.getCostUsd(),
+                e.getRetrievedDocCount(), e.getAvgSimilarityScore(), e.getMinSimilarityScore(), e.getMaxSimilarityScore(),
+                e.getEvalStatus().name(), e.getEvalError()
         );
     }
 }

@@ -6,5 +6,6 @@ public record EvalTimeseriesResponse(
         Double avgFaithfulness,
         Double avgHallucination,
         Double avgLatencyMs,
-        Double avgCostUsd
+        Double avgCostUsd,
+        Double avgSimilarityScore
 ) {}

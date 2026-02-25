@@ -11,5 +11,9 @@ public record EvalSummaryResponse(
         Double avgHallucination,
         Double avgLatencyMs,
         Double avgTokensTotal,
-        Double avgCostUsd
+        Double avgCostUsd,
+        // Similarity
+        Double avgSimilarityScore,
+        Double minSimilarityScore,
+        Double maxSimilarityScore
 ) {}
