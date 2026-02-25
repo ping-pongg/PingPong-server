@@ -51,7 +51,7 @@
     .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
 
     /* ── KPI 카드 ── */
-    .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
     .kpi-card {
       background: #fff; border-radius: 10px; padding: 18px 20px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); border-left: 4px solid transparent;
@@ -61,9 +61,22 @@
     .kpi-card.latency { border-color: #f59e0b; }
     .kpi-card.tokens  { border-color: #10b981; }
     .kpi-card.cost    { border-color: #8b5cf6; }
+    .kpi-card.simil   { border-color: #0ea5e9; }
     .kpi-label { font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
     .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
     .kpi-sub   { font-size: 11px; color: #9ca3af; }
+
+    /* ── Similarity 상세 패널 내 ── */
+    .simil-summary {
+      display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .simil-stat {
+      background: #f0f9ff; border-radius: 8px; padding: 10px 16px;
+      border-left: 3px solid #0ea5e9; min-width: 100px;
+    }
+    .simil-stat .s-label { font-size: 10px; color: #0369a1; font-weight: 700; text-transform: uppercase; }
+    .simil-stat .s-val   { font-size: 20px; font-weight: 700; color: #0c4a6e; margin-top: 2px; }
+    .simil-chart-wrap { position: relative; height: 140px; margin-bottom: 16px; }
 
     /* ── 시계열 그래프 ── */
     .chart-section {
@@ -197,6 +210,22 @@
         <div class="kpi-value" id="kpi-cost">—</div>
         <div class="kpi-sub" id="kpi-fail">실패율 —%</div>
       </div>
+      <div class="kpi-card simil">
+        <div class="kpi-label">Similarity 평균</div>
+        <div class="kpi-value" id="kpi-simil">—</div>
+        <div class="kpi-sub" id="kpi-simil-range">min — / max —</div>
+      </div>
+    </div>
+
+    <!-- 전체 Similarity Score 히스토그램 -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <h3>Similarity Score 분포 (전체 retrieved docs)</h3>
+        <span id="hist-total-label" style="font-size:12px;color:#9ca3af;"></span>
+      </div>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="histogramChart"></canvas>
+      </div>
     </div>
 
     <!-- 시계열 그래프 -->
@@ -250,6 +279,12 @@
       <div class="section-title" style="margin-bottom:10px">품질 지표 (0.0 ~ 1.0)</div>
       <div class="scores-grid" id="scores-grid"></div>
 
+      <div class="section-title" style="margin-bottom:10px;margin-top:16px">Similarity Score (이 요청)</div>
+      <div class="simil-summary" id="simil-summary"></div>
+      <div class="simil-chart-wrap">
+        <canvas id="docScoreChart"></canvas>
+      </div>
+
       <div class="section-title" style="margin-bottom:10px;margin-top:16px">검색된 컨텍스트 청크</div>
       <div class="context-chunks" id="context-chunks"></div>
     </div>
@@ -264,6 +299,8 @@
   let INTERVAL = 'day';
   let METRIC = 'faithfulness';
   let tsChart = null;
+  let histChart = null;
+  let docScoreChart = null;
 
   // ── 로그인 ─────────────────────────────────────────────────────────────────
   function login() {
@@ -310,6 +347,7 @@
   // ── 전체 로드 ───────────────────────────────────────────────────────────────
   function loadAll() {
     loadSummary();
+    loadHistogram();
     loadTimeseries();
     loadWorst();
     closeDetail();
@@ -327,6 +365,8 @@
       setText('kpi-tokens',      d.avgTokensTotal ? Math.round(d.avgTokensTotal).toLocaleString() : '—');
       setText('kpi-cost',        d.avgCostUsd ? '$' + d.avgCostUsd.toFixed(5) : '—');
       setText('kpi-fail',        `실패율 ${(d.failureRate * 100).toFixed(1)}%`);
+      setText('kpi-simil',       fmt2(d.avgSimilarityScore));
+      setText('kpi-simil-range', `min ${fmt2(d.minSimilarityScore)} / max ${fmt2(d.maxSimilarityScore)}`);
     } catch(e) { console.error('summary load failed', e); }
   }
 
@@ -340,9 +380,10 @@
 
   function renderTimeseriesChart(rows) {
     const labels      = rows.map(r => r.bucket);
-    const faithData   = rows.map(r => r.avgFaithfulness  != null ? r.avgFaithfulness.toFixed(3)  : null);
-    const halluData   = rows.map(r => r.avgHallucination != null ? r.avgHallucination.toFixed(3) : null);
-    const latencyData = rows.map(r => r.avgLatencyMs     != null ? Math.round(r.avgLatencyMs)    : null);
+    const faithData   = rows.map(r => r.avgFaithfulness    != null ? r.avgFaithfulness.toFixed(3)    : null);
+    const halluData   = rows.map(r => r.avgHallucination   != null ? r.avgHallucination.toFixed(3)   : null);
+    const similData   = rows.map(r => r.avgSimilarityScore != null ? r.avgSimilarityScore.toFixed(3) : null);
+    const latencyData = rows.map(r => r.avgLatencyMs       != null ? Math.round(r.avgLatencyMs)      : null);
 
     if (tsChart) tsChart.destroy();
 
@@ -363,6 +404,12 @@
             data: halluData,
             borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.05)',
             yAxisID: 'y', tension: .3, pointRadius: 3, fill: true,
+          },
+          {
+            label: 'Avg Similarity',
+            data: similData,
+            borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.05)',
+            yAxisID: 'y', tension: .3, pointRadius: 3, fill: true, borderDash: [3, 2],
           },
           {
             label: 'Latency (ms)',
@@ -391,6 +438,62 @@
           y:  { position: 'left',  min: 0, max: 1, title: { display: true, text: 'Score (0~1)', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
           y2: { position: 'right', title: { display: true, text: 'ms', font: { size: 11 } }, grid: { drawOnChartArea: false } },
           x:  { grid: { color: '#f9fafb' }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  // ── Similarity 히스토그램 (전체 집계) ───────────────────────────────────────
+  async function loadHistogram() {
+    try {
+      const data = await apiFetch(`/internal/evals/similarity-histogram?range=${RANGE}`);
+      renderHistogramChart(data);
+    } catch(e) { console.error('histogram load failed', e); }
+  }
+
+  function renderHistogramChart(rows) {
+    // 0.0~1.0 전체 버킷 초기화 (데이터 없는 구간도 0으로 표시)
+    const allBuckets = Array.from({length: 10}, (_, i) => (i / 10).toFixed(1));
+    const countMap = {};
+    rows.forEach(r => { countMap[r.lowerBound.toFixed(1)] = r.docCount; });
+
+    const labels = allBuckets.map(b => `${b}~${(+b + 0.1).toFixed(1)}`);
+    const counts = allBuckets.map(b => countMap[b] ?? 0);
+    const total  = counts.reduce((a, b) => a + b, 0);
+
+    setText('hist-total-label', total > 0 ? `총 ${total.toLocaleString()}개 doc` : '');
+
+    // 구간별 색상: 낮을수록 빨강, 높을수록 초록
+    const colors = allBuckets.map(b => {
+      const v = +b;
+      if (v < 0.3) return 'rgba(239,68,68,.7)';
+      if (v < 0.6) return 'rgba(245,158,11,.7)';
+      return 'rgba(16,185,129,.7)';
+    });
+
+    if (histChart) histChart.destroy();
+    const ctx = document.getElementById('histogramChart').getContext('2d');
+    histChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Doc 수',
+          data: counts,
+          backgroundColor: colors,
+          borderWidth: 0,
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => `${c.parsed.y.toLocaleString()}개` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, title: { display: true, text: 'doc 수', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
         },
       },
     });
@@ -469,6 +572,52 @@
             <div class="s-reason">${reason}</div>
           </div>`;
       });
+
+      // Similarity stats + per-request bar chart
+      const similSummary = document.getElementById('simil-summary');
+      similSummary.innerHTML = '';
+      const docCount = d.retrievedDocCount ?? 0;
+      similSummary.innerHTML = `
+        <div class="simil-stat"><div class="s-label">Retrieved Docs</div><div class="s-val">${docCount}</div></div>
+        <div class="simil-stat"><div class="s-label">Avg Score</div><div class="s-val">${fmt2(d.avgSimilarityScore)}</div></div>
+        <div class="simil-stat"><div class="s-label">Max Score</div><div class="s-val">${fmt2(d.maxSimilarityScore)}</div></div>
+        <div class="simil-stat"><div class="s-label">Min Score</div><div class="s-val">${fmt2(d.minSimilarityScore)}</div></div>`;
+
+      // per-request bar chart
+      if (docScoreChart) { docScoreChart.destroy(); docScoreChart = null; }
+      try {
+        const ctxDocs = JSON.parse(d.contextJson || '[]');
+        if (ctxDocs.length > 0) {
+          const docLabels = ctxDocs.map((_, i) => `청크 ${i + 1}`);
+          const docScores = ctxDocs.map(c => c.score != null ? +c.score.toFixed(4) : 0);
+          const docColors = docScores.map(s => s < 0.3 ? 'rgba(239,68,68,.75)' : s < 0.6 ? 'rgba(245,158,11,.75)' : 'rgba(16,185,129,.75)');
+          const dcCtx = document.getElementById('docScoreChart').getContext('2d');
+          docScoreChart = new Chart(dcCtx, {
+            type: 'bar',
+            data: {
+              labels: docLabels,
+              datasets: [{
+                label: 'Similarity Score',
+                data: docScores,
+                backgroundColor: docColors,
+                borderWidth: 0,
+                borderRadius: 4,
+              }],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => `score: ${c.parsed.y.toFixed(4)}` } },
+              },
+              scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 12 } } },
+                y: { beginAtZero: true, max: 1, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+              },
+            },
+          });
+        }
+      } catch { /* contextJson 파싱 실패 시 차트 생략 */ }
 
       // 컨텍스트 청크
       const chunks = document.getElementById('context-chunks');
