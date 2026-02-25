@@ -36,17 +36,18 @@
     /* ── 메인 레이아웃 ── */
     #main { display: none; }
     header {
-      background: #1a1a2e; color: #fff; padding: 0 28px;
+      background: #f3f4f6; color: #1f2937; padding: 0 28px;
       display: flex; align-items: center; justify-content: space-between; height: 56px;
-      position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,.1);
     }
-    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: #1f2937; }
     .range-btns button {
-      background: transparent; color: #a0aec0; border: 1px solid #4a5568;
+      background: transparent; color: #6b7280; border: 1px solid #d1d5db;
       padding: 5px 13px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-left: 6px;
     }
-    .range-btns button.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-    #refresh-btn { font-size: 15px; padding: 4px 10px; margin-left: 10px; border-left: 1px solid #4a5568; }
+    .range-btns button:hover { background: #e5e7eb; color: #374151; }
+    .range-btns button.active { background: #374151; color: #fff; border-color: #374151; }
+    #refresh-btn { font-size: 15px; padding: 4px 10px; margin-left: 10px; border-left: 1px solid #d1d5db; color: #6b7280; }
 
     .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
     .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
@@ -91,7 +92,7 @@
       background: #f3f4f6; border: none; padding: 5px 12px; border-radius: 6px;
       font-size: 12px; cursor: pointer; margin-left: 6px; color: #374151;
     }
-    .interval-btns button.active { background: #4f46e5; color: #fff; }
+    .interval-btns button.active { background: #374151; color: #fff; }
     .chart-wrap { position: relative; height: 240px; }
 
     /* ── Worst 리스트 ── */
@@ -105,7 +106,7 @@
       border: 1px solid #e5e7eb; cursor: pointer; background: #fff; color: #374151;
       transition: all .15s;
     }
-    .metric-tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .metric-tab.active { background: #374151; color: #fff; border-color: #374151; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th {
       text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700;
@@ -113,7 +114,7 @@
       border-bottom: 2px solid #f3f4f6;
     }
     tbody tr { border-bottom: 1px solid #f9fafb; cursor: pointer; transition: background .1s; }
-    tbody tr:hover { background: #f5f3ff; }
+    tbody tr:hover { background: #f3f4f6; }
     tbody td { padding: 10px 12px; color: #374151; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
     .badge-done    { background: #d1fae5; color: #065f46; }
@@ -123,10 +124,10 @@
     .score-mid  { color: #d97706; font-weight: 600; }
     .score-bad  { color: #dc2626; font-weight: 600; }
     .detail-btn {
-      background: #ede9fe; color: #4f46e5; border: none; border-radius: 6px;
+      background: #d1d5db; color: #374151; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
     }
-    .detail-btn:hover { background: #ddd6fe; }
+    .detail-btn:hover { background: #c4c9d0; }
 
     /* ── 상세 패널 ── */
     #detail-panel {
@@ -254,7 +255,7 @@
     <!-- 전체 Similarity Score 히스토그램 -->
     <div class="chart-section">
       <div class="chart-header">
-        <h3>Similarity Score 분포 (전체 retrieved docs)</h3>
+        <div class="section-title" style="margin-bottom:0">Similarity Score 분포 (전체 retrieved docs)</div>
         <span id="hist-total-label" style="font-size:12px;color:#9ca3af;"></span>
       </div>
       <div class="chart-wrap" style="height:200px;">
@@ -265,7 +266,7 @@
     <!-- 시계열 그래프 -->
     <div class="chart-section">
       <div class="chart-header">
-        <h3>지표 추이</h3>
+        <div class="section-title" style="margin-bottom:0">지표 추이</div>
         <div class="interval-btns">
           <button onclick="setInterval_('day')"  data-interval="day"  class="active">일별</button>
           <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
