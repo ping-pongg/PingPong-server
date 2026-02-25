@@ -51,7 +51,7 @@ public class ServerService {
 	/**
 	 * 특정 유저가 해당 server에 접근할 권한이 있는지 판단
 	 * @param serverId
-	 * @param teamId
+	 * @param currentUser
 	 * @return
 	 */
 	public boolean hasMember(Long serverId,Member currentUser){

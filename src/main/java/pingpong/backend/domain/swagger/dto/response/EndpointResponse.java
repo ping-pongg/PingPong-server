@@ -1,4 +1,4 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pingpong.backend.domain.swagger.Endpoint;
@@ -22,7 +22,7 @@ public record EndpointResponse (
 	@Schema(description = "엔드포인트 요약")
 	String summary,
 
-	@Schema(description="연동 여부")
+	@Schema(description="endpoint 변화 여부")
 	Boolean isChanged
 
 ){

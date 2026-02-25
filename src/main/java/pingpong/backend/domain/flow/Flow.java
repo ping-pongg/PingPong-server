@@ -36,9 +36,13 @@ public class Flow {
 	@Column
 	private Long id;
 
+	// @ManyToOne(fetch = FetchType.LAZY)
+	// @JoinColumn(name = "server_id")
+	// private Server server;
+
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "server_id")
-	private Server server;
+	@JoinColumn(name = "team_id")
+	private Team team;
 
 	@Column
 	private String title;
@@ -46,13 +50,12 @@ public class Flow {
 	@Column
 	private String description;
 
-	//이미지 추가
 
-	public static Flow create(FlowCreateRequest req,Server server) {
+	public static Flow create(FlowCreateRequest req,Team team) {
 		return Flow.builder()
 			.title(req.title())
 			.description(req.description())
-			.server(server)
+			.team(team)
 			.build();
 	}
 }

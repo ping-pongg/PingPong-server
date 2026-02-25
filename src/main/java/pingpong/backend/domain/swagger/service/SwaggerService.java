@@ -13,14 +13,11 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
@@ -28,13 +25,12 @@ import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
-import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
-import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
-import pingpong.backend.domain.swagger.dto.ParameterResponse;
-import pingpong.backend.domain.swagger.dto.ParameterSnapshotRes;
-import pingpong.backend.domain.swagger.dto.RequestBodyResponse;
-import pingpong.backend.domain.swagger.dto.ResponseBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.ParameterResponse;
+import pingpong.backend.domain.swagger.dto.response.RequestBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.ResponseBodyResponse;
 import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
@@ -42,6 +38,7 @@ import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.util.SwaggerHashUtil;
+import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.exception.CustomException;
 
 @Service
@@ -53,22 +50,22 @@ public class SwaggerService {
 	private final SwaggerUrlResolver swaggerUrlResolver;
 	private final SwaggerParser swaggerParser;
 	private final SwaggerHashUtil swaggerHashUtil;
-	private final ServerService serverService;
 	private final SwaggerRequestRepository swaggerRequestRepository;
 	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
 	private final EndpointRepository endpointRepository;
 	private final SwaggerParameterRepository swaggerParameterRepository;
-	private final ObjectMapper objectMapper;
+	private final TeamService teamService;
 	private final DiffService diffService;
+	private final EndpointService endpointService;
 
 	/**
 	 * swagger JSON Node 형태로 읽어오기
-	 * @param serverId
+	 * @param teamId
 	 * @return
 	 */
-	public JsonNode readSwaggerDocs(Long serverId){
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
+	public JsonNode readSwaggerDocs(Long teamId){
+		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		return swaggerJson;
 	}
@@ -141,18 +138,18 @@ public class SwaggerService {
 
 	/**
 	 * 가장 최신의 swagger를 업데이트해서 비교
-	 * @param serverId
+	 * @param teamId
 	 * @param member
 	 * @return
 	 */
-	public List<EndpointGroupResponse> syncSwagger(Long serverId,Member member){
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(serverService.getServer(serverId).getSwaggerURI());
+	public List<EndpointGroupResponse> syncSwagger(Long teamId,Member member){
+		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		//전체 스펙 해시 계산
 		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
 
 		//기존 최신 스냅샷 조회
-		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByServerIdOrderByIdDesc(serverId);
+		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
 
 		if(latest.isPresent() && latest.get().getSpecHash().equals(specHash)){
 			return List.of();
@@ -174,9 +171,9 @@ public class SwaggerService {
 
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
-			.server(serverService.getServer(serverId))
-			.createdAt(LocalDateTime.now())
+			.team(teamService.getTeam(teamId))
 			.specHash(specHash)
+			.createdAt(LocalDateTime.now())
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
 			.build();
@@ -207,6 +204,8 @@ public class SwaggerService {
 			deletedEndpoints.stream()
 		).toList();
 
+		endpointService.unlinkChangedEndpoints(allEndpoints);
+
 		// endpoint diff
 		Map<String, List<EndpointResponse>> grouped =
 			allEndpoints.stream()
@@ -235,13 +234,12 @@ public class SwaggerService {
 		Member member,
 		SwaggerSnapshot snapshot,
 		Map<String,Endpoint> prevMap) {
-		List<Endpoint> savedEndpoints=new ArrayList<>();
 
+		List<Endpoint> savedEndpoints=new ArrayList<>();
 		for(EndpointAggregate aggregate:aggregates){
 			Endpoint endpoint=aggregate.endpoint();
 
 			endpoint.markCreated(aggregate.createdAt(),member,snapshot);
-
 			String key=endpoint.getPath()+"|"+endpoint.getMethod();
 			Endpoint prev=prevMap.get(key);
 			endpoint.applyDiff(prev);
@@ -280,5 +278,7 @@ public class SwaggerService {
 			.snapshot(snapshot)
 			.build();
 	}
+
+
 
 }

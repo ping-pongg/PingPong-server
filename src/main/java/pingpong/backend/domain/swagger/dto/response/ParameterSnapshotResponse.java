@@ -1,4 +1,4 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -7,11 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.media.Schema;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
-import pingpong.backend.domain.swagger.enums.DiffType;
 import pingpong.backend.global.exception.CustomException;
 
 @Schema(description = "parameter diff 응답")
-public record ParameterSnapshotRes(
+public record ParameterSnapshotResponse(
 
 	String name,
 	
@@ -27,7 +26,7 @@ public record ParameterSnapshotRes(
 	String description
 
 ){
-	public static ParameterSnapshotRes from(
+	public static ParameterSnapshotResponse from(
 		SwaggerParameter p,
 		ObjectMapper mapper
 	) {
@@ -48,7 +47,7 @@ public record ParameterSnapshotRes(
 			);
 		}
 
-		return new ParameterSnapshotRes(
+		return new ParameterSnapshotResponse(
 			p.getName(),
 			p.getInType(),
 			extractType(schemaNode),

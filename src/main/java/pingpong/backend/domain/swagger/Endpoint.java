@@ -1,8 +1,11 @@
 package pingpong.backend.domain.swagger;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +16,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -20,6 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import pingpong.backend.domain.flow.FlowImageEndpoint;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.enums.CrudMethod;
@@ -46,7 +51,7 @@ public class Endpoint {
 	@Column
 	private String summary;
 
-	@Column
+	@Column(columnDefinition = "TEXT")
 	private String description;
 
 	@Column
@@ -54,10 +59,6 @@ public class Endpoint {
 
 	@Column
 	private String tag;
-
-	//연동 여부
-	@Column(name="is_linked")
-	private Boolean isLinked;
 
 	@Column
 	private Boolean isChanged;
@@ -87,6 +88,9 @@ public class Endpoint {
 	@Column(name="response_schema_hash")
 	private String responseSchemaHash;
 
+	@OneToMany(mappedBy = "endpoint", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<FlowImageEndpoint> imageEndpoints = new ArrayList<>();
+
 	@JoinColumn(name="snapshot_id")
 	@ManyToOne(fetch = FetchType.LAZY)
 	private SwaggerSnapshot snapshot;
@@ -96,6 +100,7 @@ public class Endpoint {
 		this.createdAt = createdAt;
 		this.createdBy = createdBy;
 		this.snapshot = snapshot;
+
 	}
 
 

@@ -4,16 +4,14 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.swagger.SwaggerSnapshot;
-import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
-import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -30,17 +28,16 @@ public class SwaggerController {
 
 	private final SwaggerService swaggerService;
 
-	@GetMapping("/{serverId}")
+	@GetMapping("/{teamId}")
 	@Operation(summary="swagger JSON 읽어오기",description = "현재 서버의 swagger docs를 불러옵니다.")
 	public SuccessResponse<JsonNode> swaggerDiff(
-		@PathVariable Long serverId,
-		@CurrentMember Member currentMember
+		@PathVariable Long teamId
 	) {
-		return SuccessResponse.ok(swaggerService.readSwaggerDocs(serverId));
+		return SuccessResponse.ok(swaggerService.readSwaggerDocs(teamId));
 	}
 
 
-	@GetMapping("/sync/{serverId}")
+	@PostMapping("/sync/{teamId}")
 	@Operation(
 		summary = "swagger JSON 정규화해서 DB에 저장",
 		description = """
@@ -56,20 +53,10 @@ public class SwaggerController {
         """
 	)
 	public SuccessResponse<List<EndpointGroupResponse>> compareAndSaveSwagger(
-		@PathVariable Long serverId,
+		@PathVariable Long teamId,
 		@CurrentMember Member currentMember
 	){
-		return SuccessResponse.ok(swaggerService.syncSwagger(serverId,currentMember));
+		return SuccessResponse.ok(swaggerService.syncSwagger(teamId,currentMember));
 	}
-
-	@GetMapping("/endpoint/{endpointId}")
-	@Operation(summary="endpoint 상세 조회",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
-	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
-		@PathVariable Long endpointId
-	){
-		return SuccessResponse.ok(swaggerService.getEndpointDetails(endpointId));
-	}
-
-
 
 }
