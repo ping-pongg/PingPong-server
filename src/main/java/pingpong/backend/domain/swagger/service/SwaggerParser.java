@@ -353,7 +353,6 @@ public class SwaggerParser {
 				.required(required)
 				.schemaHash(schemaHash)
 				.endpoint(endpoint)
-
 				.build();
 
 			result.add(parameter);

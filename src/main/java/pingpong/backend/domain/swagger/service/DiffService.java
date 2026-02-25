@@ -18,10 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
-import pingpong.backend.domain.swagger.dto.ParameterResponse;
-import pingpong.backend.domain.swagger.dto.ParameterSnapshotRes;
-import pingpong.backend.domain.swagger.dto.RequestBodyResponse;
-import pingpong.backend.domain.swagger.dto.ResponseBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.ParameterResponse;
+import pingpong.backend.domain.swagger.dto.response.RequestBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.ResponseBodyResponse;
 import pingpong.backend.domain.swagger.enums.DiffType;
 
 @Service

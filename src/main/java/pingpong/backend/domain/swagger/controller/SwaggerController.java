@@ -4,18 +4,13 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.swagger.SwaggerSnapshot;
-import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
-import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
-import pingpong.backend.domain.swagger.service.EndpointService;
+import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;

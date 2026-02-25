@@ -20,7 +20,6 @@ import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.service.FlowService;
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -51,7 +50,7 @@ public class FlowController {
 		return SuccessResponse.ok(flowService.assignEndpoints(request,imageId,currentMember));
 	}
 
-	@GetMapping("endpoints/{flowImageId}")
+	@GetMapping("/endpoints/{flowImageId}")
 	@Operation(summary="flow 내의 이미지에 할당된 엔드포인트들 조회")
 	public SuccessResponse<List<ImageEndpointsResponse>> getImageEndpoints(
 		@PathVariable Long flowImageId,

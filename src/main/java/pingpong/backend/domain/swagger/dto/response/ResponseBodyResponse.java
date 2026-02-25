@@ -1,6 +1,5 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import pingpong.backend.domain.swagger.SwaggerResponse;
@@ -8,8 +7,8 @@ import pingpong.backend.domain.swagger.enums.DiffType;
 
 public record ResponseBodyResponse(
 	DiffType diffType,
-	ResponseSnapshot before,
-	ResponseSnapshot after
+	SnapshotResponse before,
+	SnapshotResponse after
 ) {
 
 	public static ResponseBodyResponse of(
@@ -20,8 +19,8 @@ public record ResponseBodyResponse(
 	) {
 		return new ResponseBodyResponse(
 			diff,
-			ResponseSnapshot.from(prev, mapper),
-			ResponseSnapshot.from(curr, mapper)
+			SnapshotResponse.from(prev, mapper),
+			SnapshotResponse.from(curr, mapper)
 		);
 	}
 }

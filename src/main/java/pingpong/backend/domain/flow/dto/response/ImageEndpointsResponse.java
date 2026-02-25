@@ -23,8 +23,11 @@ public record ImageEndpointsResponse (
 	@Schema(description = "엔드포인트 요약")
 	String summary,
 
-	@Schema(description="연동 여부")
+	@Schema(description="변화 여부")
 	Boolean isChanged,
+
+	@Schema(description="연동 여부")
+	Boolean isLinked,
 
 	@Schema(description = "이미지 내 X 좌표")
 	Float x,
@@ -42,6 +45,7 @@ public record ImageEndpointsResponse (
 			e.getMethod(),
 			e.getSummary(),
 			mapping.getIsChanged(),   // 또는 mapping.isChanged() 등 실제 필드명에 맞게
+			mapping.getIsLinked(),
 			mapping.getX(),
 			mapping.getY()
 		);

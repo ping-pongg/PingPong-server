@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.flow.FlowErrorCode;
-import pingpong.backend.domain.flow.FlowImage;
 import pingpong.backend.domain.flow.FlowImageEndpoint;
 import pingpong.backend.domain.flow.repository.FlowImageEndpointRepository;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
@@ -18,11 +17,9 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
-import pingpong.backend.domain.team.Team;
-import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.exception.CustomException;
 
 @Service

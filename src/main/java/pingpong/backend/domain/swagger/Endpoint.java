@@ -100,6 +100,7 @@ public class Endpoint {
 		this.createdAt = createdAt;
 		this.createdBy = createdBy;
 		this.snapshot = snapshot;
+
 	}
 
 

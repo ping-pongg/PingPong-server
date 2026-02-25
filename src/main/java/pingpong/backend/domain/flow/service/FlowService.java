@@ -29,7 +29,7 @@ import pingpong.backend.domain.flow.FlowImage;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.team.Team;
 import pingpong.backend.domain.team.service.TeamService;
@@ -117,11 +117,9 @@ public class FlowService {
 				.map(image -> {
 
 					String imageUrl = null;
-
 					if (image.getStatus() == UploadStatus.COMPLETE) {
-
 						imageUrl = presignedUrlService
-							.getGetS3Url(image.getObjectKey())
+							.getGetS3Url(image.getObjectKey()) //조회용 presignedURL
 							.presignedUrl();
 					}
 
@@ -190,6 +188,10 @@ public class FlowService {
 		for (FlowEndpointAssignRequest r : request) {
 			Long endpointId = r.endpointId();
 			Endpoint endpoint = endpointMap.get(endpointId);
+
+			if (endpoint == null) {
+				throw new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND);
+			}
 
 			FlowImageEndpoint mapping = flowImageEndpointRepository
 				.findByImageIdAndEndpointId(flowImageId, endpointId)
