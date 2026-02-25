@@ -114,6 +114,19 @@ public class LlmEvalCase {
     @Column(name = "cost_usd")
     private Double costUsd;
 
+    // ── Similarity 지표 ───────────────────────────────────
+    @Column(name = "retrieved_doc_count")
+    private Integer retrievedDocCount;
+
+    @Column(name = "avg_similarity_score")
+    private Double avgSimilarityScore;
+
+    @Column(name = "min_similarity_score")
+    private Double minSimilarityScore;
+
+    @Column(name = "max_similarity_score")
+    private Double maxSimilarityScore;
+
     // ── 상태 ──────────────────────────────────────────────
     @Enumerated(EnumType.STRING)
     @Column(name = "eval_status", nullable = false, length = 16)

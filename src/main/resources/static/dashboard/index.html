@@ -12,7 +12,7 @@
     /* ── 로그인 화면 ── */
     #login-screen {
       display: flex; align-items: center; justify-content: center;
-      height: 100vh; background: linear-gradient(135deg, #1a1a2e, #16213e);
+      height: 100vh; background: #f0f2f5;
     }
     .login-box {
       background: #fff; border-radius: 12px; padding: 40px 48px;
@@ -24,34 +24,37 @@
       width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;
       font-size: 14px; margin-bottom: 12px; outline: none;
     }
-    .login-box input:focus { border-color: #4f46e5; }
+    .login-box input:focus { border-color: #374151; }
     .login-box button {
-      width: 100%; padding: 11px; background: #4f46e5; color: #fff;
+      width: 100%; padding: 11px; background: #374151; color: #fff;
       border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
       cursor: pointer; margin-top: 4px;
     }
-    .login-box button:hover { background: #4338ca; }
+    .login-box button:hover { background: #1f2937; }
     #login-error { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
 
     /* ── 메인 레이아웃 ── */
     #main { display: none; }
     header {
-      background: #1a1a2e; color: #fff; padding: 0 28px;
+      background: #f3f4f6; color: #1f2937; padding: 0 28px;
       display: flex; align-items: center; justify-content: space-between; height: 56px;
-      position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,.1);
     }
-    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: #1f2937; }
     .range-btns button {
-      background: transparent; color: #a0aec0; border: 1px solid #4a5568;
+      background: transparent; color: #6b7280; border: 1px solid #d1d5db;
       padding: 5px 13px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-left: 6px;
     }
-    .range-btns button.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .range-btns button:hover { background: #e5e7eb; color: #374151; }
+    .range-btns button.active { background: #374151; color: #fff; border-color: #374151; }
+    #refresh-btn { font-size: 15px; padding: 4px 10px; margin-left: 10px; border-left: 1px solid #d1d5db; color: #6b7280; }
 
     .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
     .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+    .section-desc  { font-size: 12px; color: #9ca3af; line-height: 1.6; margin-bottom: 14px; }
 
     /* ── KPI 카드 ── */
-    .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
     .kpi-card {
       background: #fff; border-radius: 10px; padding: 18px 20px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); border-left: 4px solid transparent;
@@ -61,22 +64,33 @@
     .kpi-card.latency { border-color: #f59e0b; }
     .kpi-card.tokens  { border-color: #10b981; }
     .kpi-card.cost    { border-color: #8b5cf6; }
+    .kpi-card.simil   { border-color: #0ea5e9; }
     .kpi-label { font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
     .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
     .kpi-sub   { font-size: 11px; color: #9ca3af; }
+
+    /* ── Similarity 상세 패널 내 ── */
+    .simil-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .simil-stat {
+      background: #f9fafb; border-radius: 10px; padding: 14px 16px;
+      border-left: 3px solid #e5e7eb;
+    }
+    .simil-stat .s-label { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .simil-stat .s-val   { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; color: #374151; }
+    .simil-chart-wrap { position: relative; height: 180px; margin-bottom: 20px; }
 
     /* ── 시계열 그래프 ── */
     .chart-section {
       background: #fff; border-radius: 10px; padding: 20px 24px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px;
     }
-    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .chart-header h3 { font-size: 15px; font-weight: 700; }
     .interval-btns button {
       background: #f3f4f6; border: none; padding: 5px 12px; border-radius: 6px;
       font-size: 12px; cursor: pointer; margin-left: 6px; color: #374151;
     }
-    .interval-btns button.active { background: #4f46e5; color: #fff; }
+    .interval-btns button.active { background: #374151; color: #fff; }
     .chart-wrap { position: relative; height: 240px; }
 
     /* ── Worst 리스트 ── */
@@ -90,7 +104,7 @@
       border: 1px solid #e5e7eb; cursor: pointer; background: #fff; color: #374151;
       transition: all .15s;
     }
-    .metric-tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .metric-tab.active { background: #374151; color: #fff; border-color: #374151; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th {
       text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700;
@@ -98,7 +112,7 @@
       border-bottom: 2px solid #f3f4f6;
     }
     tbody tr { border-bottom: 1px solid #f9fafb; cursor: pointer; transition: background .1s; }
-    tbody tr:hover { background: #f5f3ff; }
+    tbody tr:hover { background: #f3f4f6; }
     tbody td { padding: 10px 12px; color: #374151; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
     .badge-done    { background: #d1fae5; color: #065f46; }
@@ -108,32 +122,66 @@
     .score-mid  { color: #d97706; font-weight: 600; }
     .score-bad  { color: #dc2626; font-weight: 600; }
     .detail-btn {
-      background: #ede9fe; color: #4f46e5; border: none; border-radius: 6px;
+      background: #d1d5db; color: #374151; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
     }
-    .detail-btn:hover { background: #ddd6fe; }
+    .detail-btn:hover { background: #c4c9d0; }
 
     /* ── 상세 패널 ── */
     #detail-panel {
-      background: #fff; border-radius: 10px; padding: 24px;
+      background: #fff; border-radius: 10px; padding: 28px 32px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); display: none;
     }
-    #detail-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    #detail-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
     .close-btn {
       margin-left: auto; background: #f3f4f6; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; cursor: pointer; color: #374151;
     }
-    .detail-meta { font-size: 12px; color: #9ca3af; margin-bottom: 16px; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .detail-box { background: #f9fafb; border-radius: 8px; padding: 14px 16px; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
+    .meta-tag { font-size: 12px; color: #9ca3af; border: 1px solid #9ca3af; border-radius: 6px; background: transparent; padding: 3px 10px; }
+    .detail-sections { display: flex; flex-direction: column; gap: 16px; }
+    .detail-section { background: #fff; border-radius: 10px; padding: 20px 24px; border: 1px solid #e5e7eb; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .detail-box { background: #f3f4f6; border-radius: 8px; padding: 14px 16px; }
     .detail-box label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 6px; }
     .detail-box p { font-size: 13px; color: #111827; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
-    .scores-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-    .score-box { background: #f9fafb; border-radius: 8px; padding: 12px 14px; }
-    .score-box .s-label { font-size: 10px; color: #9ca3af; font-weight: 700; text-transform: uppercase; }
-    .score-box .s-val   { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
-    .score-box .s-reason{ font-size: 11px; color: #6b7280; line-height: 1.4; }
-    .context-chunks { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+
+    /* ── 품질 지표 카드 ── */
+    .metrics-group { margin-bottom: 14px; }
+    .metrics-group-label { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+    .scores-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .scores-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    /* ── 품질 지표 2컬럼 테이블 ── */
+    .metrics-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .metrics-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .metrics-tbl thead th {
+      text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 700;
+      color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
+      border-bottom: 2px solid #f3f4f6;
+    }
+    .metrics-tbl tbody tr { border-bottom: 1px solid #f3f4f6; cursor: default; }
+    .metrics-tbl tbody tr:hover { background: #f9fafb; }
+    .metrics-tbl tbody td { padding: 8px 10px; vertical-align: middle; }
+    .metrics-tbl .m-name { font-weight: 700; font-size: 12px; color: #374151; white-space: nowrap; }
+    .metrics-tbl .m-desc { font-size: 12px; color: #6b7280; }
+    .metrics-tbl .m-score-val { font-size: 14px; font-weight: 700; }
+    .score-box {
+      background: #f9fafb; border-radius: 10px; padding: 14px 16px;
+      border-left: 3px solid #e5e7eb;
+    }
+    .score-box.box-good { border-left-color: #10b981; background: #f0fdf4; }
+    .score-box.box-mid  { border-left-color: #f59e0b; background: #fffbeb; }
+    .score-box.box-bad  { border-left-color: #ef4444; background: #fef2f2; }
+    .score-box .s-label  { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+    .score-box .s-val    { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; }
+    .s-bar-track { height: 4px; background: rgba(0,0,0,.08); border-radius: 2px; margin: 4px 0 8px; }
+    .s-bar { height: 4px; border-radius: 2px; }
+    .s-bar.bar-good { background: #10b981; }
+    .s-bar.bar-mid  { background: #f59e0b; }
+    .s-bar.bar-bad  { background: #ef4444; }
+    .score-box .s-reason { font-size: 11px; color: #6b7280; line-height: 1.5; }
+    .context-chunks { display: flex; flex-direction: column; gap: 8px; }
     .chunk-item { background: #f3f4f6; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #374151; }
     .chunk-meta { font-size: 10px; color: #9ca3af; margin-bottom: 4px; }
 
@@ -164,13 +212,15 @@
       <button onclick="setRange('24h')" data-range="24h">24h</button>
       <button onclick="setRange('7d')"  data-range="7d" class="active">7d</button>
       <button onclick="setRange('30d')" data-range="30d">30d</button>
+      <button onclick="loadAll()" id="refresh-btn" title="데이터 새로고침">⟲</button>
     </div>
   </header>
 
   <div class="content">
 
     <!-- KPI -->
-    <div class="section-title">KPI 요약</div>
+    <div class="section-title" style="margin-bottom:4px">KPI 요약</div>
+    <div class="section-desc">선택한 기간의 LLM 응답 전반에 걸친 핵심 지표 평균을 요약합니다.</div>
     <div class="kpi-grid">
       <div class="kpi-card faith">
         <div class="kpi-label">Faithfulness 평균</div>
@@ -197,17 +247,35 @@
         <div class="kpi-value" id="kpi-cost">—</div>
         <div class="kpi-sub" id="kpi-fail">실패율 —%</div>
       </div>
+      <div class="kpi-card simil">
+        <div class="kpi-label">Similarity 평균</div>
+        <div class="kpi-value" id="kpi-simil">—</div>
+        <div class="kpi-sub" id="kpi-simil-range">min — / max —</div>
+      </div>
+    </div>
+
+    <!-- 전체 Similarity Score 히스토그램 -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <div class="section-title" style="margin-bottom:0">전체 Similarity Score 분포</div>
+        <span id="hist-total-label" style="font-size:12px;color:#9ca3af;"></span>
+      </div>
+      <div class="section-desc">선택한 기간 내 RAG로 검색된 모든 문서의 유사도 점수 구간별 분포를 나타냅니다.</div>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="histogramChart"></canvas>
+      </div>
     </div>
 
     <!-- 시계열 그래프 -->
     <div class="chart-section">
       <div class="chart-header">
-        <h3>날짜별 지표 추이</h3>
+        <div class="section-title" style="margin-bottom:0">지표 변화</div>
         <div class="interval-btns">
           <button onclick="setInterval_('day')"  data-interval="day"  class="active">일별</button>
           <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
         </div>
       </div>
+      <div class="section-desc">Faithfulness, Hallucination, Similarity, Latency 등 주요 평가 지표의 시간 흐름에 따른 변화를 추적합니다.</div>
       <div class="chart-wrap">
         <canvas id="timeseriesChart"></canvas>
       </div>
@@ -215,7 +283,8 @@
 
     <!-- Worst 리스트 -->
     <div class="worst-section">
-      <div class="section-title">Worst Case</div>
+      <div class="section-title" style="margin-bottom:4px">채팅 단건 내역</div>
+      <div class="section-desc">개별 LLM 요청의 평가 결과 목록입니다. 탭으로 정렬 기준을 변경하고, 상세보기 버튼으로 단건 내용을 확인할 수 있습니다.</div>
       <div class="metric-tabs">
         <button class="metric-tab active" onclick="setMetric('faithfulness')">Faithfulness ↓</button>
         <button class="metric-tab" onclick="setMetric('hallucination')">Hallucination ↑</button>
@@ -230,28 +299,67 @@
 
     <!-- 상세 패널 -->
     <div id="detail-panel">
-      <h3>
+      <div class="section-title" style="display:flex; align-items:center; margin-bottom:4px;">
         케이스 상세
         <button class="close-btn" onclick="closeDetail()">✕ 닫기</button>
-      </h3>
+      </div>
+      <div class="section-desc" style="margin-bottom:10px">선택한 단건 요청에 대한 입력·출력·평가 결과 전체를 확인합니다.</div>
       <div class="detail-meta" id="detail-meta"></div>
 
-      <div class="detail-grid">
-        <div class="detail-box">
-          <label>질문</label>
-          <p id="detail-question"></p>
+      <div class="detail-sections">
+
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:4px">질문 &amp; AI 답변</div>
+          <div class="section-desc">사용자가 입력한 질문과 LLM이 생성한 답변 원문입니다.</div>
+          <div class="detail-grid">
+            <div class="detail-box">
+              <label>질문</label>
+              <p id="detail-question"></p>
+            </div>
+            <div class="detail-box">
+              <label>AI 답변</label>
+              <p id="detail-answer"></p>
+            </div>
+          </div>
         </div>
-        <div class="detail-box">
-          <label>AI 답변</label>
-          <p id="detail-answer"></p>
+
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:4px">LLM 품질 지표</div>
+          <div class="section-desc">LLM Judge가 산출한 생성 품질 및 검색 품질 지표입니다. 각 지표는 0.0~1.0 범위로 평가됩니다.</div>
+          <div class="metrics-two-col">
+            <div class="metrics-group">
+              <div class="metrics-group-label">생성 품질</div>
+              <table class="metrics-tbl">
+                <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+                <tbody id="gen-scores-tbody"></tbody>
+              </table>
+            </div>
+            <div class="metrics-group">
+              <div class="metrics-group-label">검색 품질 &amp; 일관성</div>
+              <table class="metrics-tbl">
+                <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+                <tbody id="ret-scores-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
+
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:4px">Similarity Score</div>
+          <div class="section-desc">이 요청에서 검색된 각 문서 청크의 유사도 점수 통계 및 분포입니다.</div>
+          <div class="simil-summary" id="simil-summary"></div>
+          <div class="simil-chart-wrap">
+            <canvas id="docScoreChart"></canvas>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:4px">참조된 RAG Context Chunck 목록</div>
+          <div class="section-desc">LLM 답변 생성 시 참조된 RAG 컨텍스트 청크 목록과 각 청크의 유사도 점수입니다.</div>
+          <div class="context-chunks" id="context-chunks"></div>
+        </div>
+
       </div>
-
-      <div class="section-title" style="margin-bottom:10px">품질 지표 (0.0 ~ 1.0)</div>
-      <div class="scores-grid" id="scores-grid"></div>
-
-      <div class="section-title" style="margin-bottom:10px;margin-top:16px">검색된 컨텍스트 청크</div>
-      <div class="context-chunks" id="context-chunks"></div>
     </div>
 
   </div>
@@ -264,6 +372,8 @@
   let INTERVAL = 'day';
   let METRIC = 'faithfulness';
   let tsChart = null;
+  let histChart = null;
+  let docScoreChart = null;
 
   // ── 로그인 ─────────────────────────────────────────────────────────────────
   function login() {
@@ -310,6 +420,7 @@
   // ── 전체 로드 ───────────────────────────────────────────────────────────────
   function loadAll() {
     loadSummary();
+    loadHistogram();
     loadTimeseries();
     loadWorst();
     closeDetail();
@@ -327,6 +438,8 @@
       setText('kpi-tokens',      d.avgTokensTotal ? Math.round(d.avgTokensTotal).toLocaleString() : '—');
       setText('kpi-cost',        d.avgCostUsd ? '$' + d.avgCostUsd.toFixed(5) : '—');
       setText('kpi-fail',        `실패율 ${(d.failureRate * 100).toFixed(1)}%`);
+      setText('kpi-simil',       fmt2(d.avgSimilarityScore));
+      setText('kpi-simil-range', `min ${fmt2(d.minSimilarityScore)} / max ${fmt2(d.maxSimilarityScore)}`);
     } catch(e) { console.error('summary load failed', e); }
   }
 
@@ -340,9 +453,10 @@
 
   function renderTimeseriesChart(rows) {
     const labels      = rows.map(r => r.bucket);
-    const faithData   = rows.map(r => r.avgFaithfulness  != null ? r.avgFaithfulness.toFixed(3)  : null);
-    const halluData   = rows.map(r => r.avgHallucination != null ? r.avgHallucination.toFixed(3) : null);
-    const latencyData = rows.map(r => r.avgLatencyMs     != null ? Math.round(r.avgLatencyMs)    : null);
+    const faithData   = rows.map(r => r.avgFaithfulness    != null ? r.avgFaithfulness.toFixed(3)    : null);
+    const halluData   = rows.map(r => r.avgHallucination   != null ? r.avgHallucination.toFixed(3)   : null);
+    const similData   = rows.map(r => r.avgSimilarityScore != null ? r.avgSimilarityScore.toFixed(3) : null);
+    const latencyData = rows.map(r => r.avgLatencyMs       != null ? Math.round(r.avgLatencyMs)      : null);
 
     if (tsChart) tsChart.destroy();
 
@@ -363,6 +477,12 @@
             data: halluData,
             borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.05)',
             yAxisID: 'y', tension: .3, pointRadius: 3, fill: true,
+          },
+          {
+            label: 'Avg Similarity',
+            data: similData,
+            borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.05)',
+            yAxisID: 'y', tension: .3, pointRadius: 3, fill: true, borderDash: [3, 2],
           },
           {
             label: 'Latency (ms)',
@@ -391,6 +511,58 @@
           y:  { position: 'left',  min: 0, max: 1, title: { display: true, text: 'Score (0~1)', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
           y2: { position: 'right', title: { display: true, text: 'ms', font: { size: 11 } }, grid: { drawOnChartArea: false } },
           x:  { grid: { color: '#f9fafb' }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  // ── Similarity 히스토그램 (전체 집계) ───────────────────────────────────────
+  async function loadHistogram() {
+    try {
+      const data = await apiFetch(`/internal/evals/similarity-histogram?range=${RANGE}`);
+      renderHistogramChart(data);
+    } catch(e) { console.error('histogram load failed', e); }
+  }
+
+  function renderHistogramChart(rows) {
+    // 0.0~1.0 전체 버킷 초기화 (데이터 없는 구간도 0으로 표시)
+    const allBuckets = Array.from({length: 10}, (_, i) => (i / 10).toFixed(1));
+    const countMap = {};
+    rows.forEach(r => { countMap[r.lowerBound.toFixed(1)] = r.docCount; });
+
+    const labels = allBuckets.map(b => `${b}~${(+b + 0.1).toFixed(1)}`);
+    const counts = allBuckets.map(b => countMap[b] ?? 0);
+    const total  = counts.reduce((a, b) => a + b, 0);
+
+    setText('hist-total-label', total > 0 ? `총 ${total.toLocaleString()}개 doc` : '');
+
+    if (histChart) histChart.destroy();
+    const ctx = document.getElementById('histogramChart').getContext('2d');
+    histChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Doc 수',
+          data: counts,
+          borderColor: 'rgba(100,100,110,.85)',
+          backgroundColor: 'rgba(100,100,110,.08)',
+          pointBackgroundColor: 'rgba(100,100,110,.85)',
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: .3,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => `${c.parsed.y.toLocaleString()}개` } },
+        },
+        scales: {
+          x: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, title: { display: true, text: 'doc 수', font: { size: 11 } }, grid: { color: '#f3f4f6' } },
         },
       },
     });
@@ -437,38 +609,105 @@
     try {
       const d = await apiFetch(`/internal/evals/${id}`);
       document.getElementById('detail-panel').style.display = 'block';
-      document.getElementById('detail-meta').textContent =
-        `ID: ${d.id}  |  ${fmtDate(d.createdAt)}  |  팀: ${d.teamId ?? '—'}  |  모델: ${d.modelName ?? '—'}  |  상태: ${d.evalStatus}`;
+      document.getElementById('detail-meta').innerHTML = [
+        `ID: ${d.id}`,
+        fmtDate(d.createdAt),
+        `팀: ${d.teamId ?? '—'}`,
+        `모델: ${d.modelName ?? '—'}`,
+        `상태: ${d.evalStatus}`,
+      ].map(t => `<div class="meta-tag">${t}</div>`).join('');
 
       document.getElementById('detail-question').textContent = d.questionText ?? '—';
       document.getElementById('detail-answer').textContent   = d.answerText   ?? '—';
 
-      // 점수 카드
+      // 점수 테이블
       const judgeData = parseJudge(d.judgeReasonJson, d.evalStatus);
-      const scoresGrid = document.getElementById('scores-grid');
-      scoresGrid.innerHTML = '';
-      const metrics = [
-        { key: 'faithfulness',      label: 'Faithfulness',      val: d.faithfulnessScore,     inv: false },
-        { key: 'answer_relevance',  label: 'Answer Relevance',  val: d.answerRelevanceScore,  inv: false },
-        { key: 'instruction',       label: 'Instruction',       val: d.instructionScore,       inv: false },
-        { key: 'hallucination',     label: 'Hallucination',     val: d.hallucinationRate,      inv: true  },
-        { key: 'context_recall',    label: 'Context Recall',    val: d.contextRecall,          inv: false },
-        { key: 'context_precision', label: 'Context Precision', val: d.contextPrecision,       inv: false },
-        { key: 'contradiction',     label: 'Contradiction',     val: d.contradictionFlag != null ? (d.contradictionFlag ? 1 : 0) : null, inv: true, isFlag: true },
+      const genTbody = document.getElementById('gen-scores-tbody');
+      const retTbody = document.getElementById('ret-scores-tbody');
+      genTbody.innerHTML = '';
+      retTbody.innerHTML = '';
+
+      const genMetrics = [
+        { key: 'faithfulness',     label: 'Faithfulness',     desc: '모든 내용이 컨텍스트에 근거함', val: d.faithfulnessScore,    inv: false },
+        { key: 'answer_relevance', label: 'Answer Relevance', desc: '질문에 정확히 답변함',          val: d.answerRelevanceScore, inv: false },
+        { key: 'instruction',      label: 'Instruction',      desc: '한국어 및 지시사항 준수',        val: d.instructionScore,     inv: false },
+        { key: 'hallucination',    label: 'Hallucination',    desc: '컨텍스트 외 정보 없음',          val: d.hallucinationRate,    inv: true  },
       ];
-      metrics.forEach(m => {
+      const retMetrics = [
+        { key: 'context_recall',    label: 'Context Recall',    desc: '필요 정보 모두 포함됨',     val: d.contextRecall,    inv: false },
+        { key: 'context_precision', label: 'Context Precision', desc: '모든 청크가 답변에 기여함', val: d.contextPrecision, inv: false },
+        { key: 'contradiction', label: 'Contradiction', desc: '컨텍스트와 모순 없음', val: d.contradictionFlag != null ? (d.contradictionFlag ? 1 : 0) : null, inv: true, isFlag: true },
+      ];
+
+      const renderMetricRow = m => {
         const reason = judgeData[m.key]?.reason ?? '';
+        const cls = m.isFlag ? (m.val === 1 ? 'score-bad' : 'score-good') : scoreClass(m.val, m.inv);
         const displayVal = m.isFlag
           ? (m.val === 1 ? '⚠️ 있음' : (m.val === 0 ? '✓ 없음' : '—'))
           : fmt2(m.val);
-        const cls = m.isFlag ? (m.val === 1 ? 'score-bad' : 'score-good') : scoreClass(m.val, m.inv);
-        scoresGrid.innerHTML += `
-          <div class="score-box">
-            <div class="s-label">${m.label}</div>
-            <div class="s-val ${cls}">${displayVal}</div>
-            <div class="s-reason">${reason}</div>
-          </div>`;
-      });
+        const barHtml = (!m.isFlag && m.val != null)
+          ? `<div class="s-bar-track"><div class="s-bar ${cls.replace('score-', 'bar-')}" style="width:${Math.round(m.val * 100)}%"></div></div>`
+          : '';
+        return `<tr>
+            <td class="m-name">${m.label}</td>
+            <td class="m-desc">${m.desc}</td>
+            <td><span class="m-score-val ${cls}">${displayVal}</span>${barHtml}</td>
+          </tr>`;
+      };
+
+      genMetrics.forEach(m => { genTbody.innerHTML += renderMetricRow(m); });
+      retMetrics.forEach(m => { retTbody.innerHTML += renderMetricRow(m); });
+
+      // Similarity stats + per-request bar chart
+      const similSummary = document.getElementById('simil-summary');
+      const docCount = d.retrievedDocCount ?? 0;
+      const similStatHtml = (label, val) => {
+        const barHtml = val != null
+          ? `<div class="s-bar-track"><div class="s-bar" style="width:${Math.round(val * 100)}%;background:#9ca3af;"></div></div>`
+          : '';
+        return `<div class="simil-stat"><div class="s-label">${label}</div><div class="s-val">${fmt2(val)}</div>${barHtml}</div>`;
+      };
+      similSummary.innerHTML = `
+        <div class="simil-stat"><div class="s-label">Retrieved Docs</div><div class="s-val">${docCount}</div></div>
+        ${similStatHtml('Avg Score', d.avgSimilarityScore)}
+        ${similStatHtml('Max Score', d.maxSimilarityScore)}
+        ${similStatHtml('Min Score', d.minSimilarityScore)}`;
+
+      // per-request bar chart
+      if (docScoreChart) { docScoreChart.destroy(); docScoreChart = null; }
+      try {
+        const ctxDocs = JSON.parse(d.contextJson || '[]');
+        if (ctxDocs.length > 0) {
+          const docLabels = ctxDocs.map((_, i) => `청크 ${i + 1}`);
+          const docScores = ctxDocs.map(c => c.score != null ? +c.score.toFixed(4) : 0);
+          const docColors = docScores.map(s => s < 0.3 ? 'rgba(180,180,185,.85)' : s < 0.6 ? 'rgba(120,120,128,.85)' : 'rgba(70,70,80,.85)');
+          const dcCtx = document.getElementById('docScoreChart').getContext('2d');
+          docScoreChart = new Chart(dcCtx, {
+            type: 'bar',
+            data: {
+              labels: docLabels,
+              datasets: [{
+                label: 'Similarity Score',
+                data: docScores,
+                backgroundColor: docColors,
+                borderWidth: 0,
+                borderRadius: 4,
+              }],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => `score: ${c.parsed.y.toFixed(4)}` } },
+              },
+              scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 12 } } },
+                y: { beginAtZero: true, max: 1, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+              },
+            },
+          });
+        }
+      } catch { /* contextJson 파싱 실패 시 차트 생략 */ }
 
       // 컨텍스트 청크
       const chunks = document.getElementById('context-chunks');
@@ -514,6 +753,15 @@
     if (good) return 'score-good';
     if (bad)  return 'score-bad';
     return 'score-mid';
+  }
+
+  function boxClass(v, invert) {
+    if (v == null) return '';
+    const good = invert ? v < 0.3 : v >= 0.7;
+    const bad  = invert ? v >= 0.6 : v < 0.4;
+    if (good) return 'box-good';
+    if (bad)  return 'box-bad';
+    return 'box-mid';
   }
 
   function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }

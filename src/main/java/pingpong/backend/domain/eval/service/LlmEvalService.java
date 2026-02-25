@@ -15,6 +15,7 @@ import pingpong.backend.domain.eval.service.LlmJudgeService.JudgeOutcome;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -85,6 +86,22 @@ public class LlmEvalService {
 
         // ── context JSON ─────────────────────────────────────────────────────────
         builder.contextJson(buildContextJson(retrievedDocs));
+
+        // ── Similarity stats ──────────────────────────────────────────────────
+        if (retrievedDocs != null && !retrievedDocs.isEmpty()) {
+            List<Double> scores = retrievedDocs.stream()
+                    .map(Document::getScore)
+                    .filter(Objects::nonNull)
+                    .toList();
+            builder.retrievedDocCount(retrievedDocs.size());
+            if (!scores.isEmpty()) {
+                builder.avgSimilarityScore(scores.stream().mapToDouble(d -> d).average().orElseThrow())
+                       .minSimilarityScore(scores.stream().mapToDouble(d -> d).min().orElseThrow())
+                       .maxSimilarityScore(scores.stream().mapToDouble(d -> d).max().orElseThrow());
+            }
+        } else {
+            builder.retrievedDocCount(0);
+        }
 
         // ── Judge 호출 (단일 호출로 raw + result 동시 획득) ───────────────────────
         String contextSummary = buildContextSummary(retrievedDocs);
