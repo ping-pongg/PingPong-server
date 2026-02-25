@@ -118,6 +118,21 @@ public class NotionFacade {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public NotionOAuthExchangeResponse getNotionStatus(Long teamId, Member member) {
+        notionConnectionService.assertTeamAccess(teamId, member);
+        return notionRepository.findByTeamId(teamId)
+                .filter(n -> n.getAccessToken() != null)
+                .map(n -> new NotionOAuthExchangeResponse(
+                        true,
+                        n.getWorkspaceId(),
+                        n.getWorkspaceName(),
+                        n.getDatabaseId(),
+                        n.getDatabaseId() != null
+                ))
+                .orElse(new NotionOAuthExchangeResponse(false, null, null, null, false));
+    }
+
     private Notion resolveAndPersistDatabaseId(Long teamId) {
         Notion notion = notionTokenService.getNotionOrThrow(teamId);
 
