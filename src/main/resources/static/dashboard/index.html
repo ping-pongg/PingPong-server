@@ -51,6 +51,7 @@
 
     .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
     .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+    .section-desc  { font-size: 12px; color: #9ca3af; line-height: 1.6; margin-bottom: 14px; }
 
     /* ── KPI 카드 ── */
     .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
@@ -83,7 +84,7 @@
       background: #fff; border-radius: 10px; padding: 20px 24px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px;
     }
-    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .chart-header h3 { font-size: 15px; font-weight: 700; }
     .interval-btns button {
       background: #f3f4f6; border: none; padding: 5px 12px; border-radius: 6px;
@@ -218,7 +219,8 @@
   <div class="content">
 
     <!-- KPI -->
-    <div class="section-title">KPI 요약</div>
+    <div class="section-title" style="margin-bottom:4px">KPI 요약</div>
+    <div class="section-desc">선택한 기간의 LLM 응답 전반에 걸친 핵심 지표 평균을 요약합니다.</div>
     <div class="kpi-grid">
       <div class="kpi-card faith">
         <div class="kpi-label">Faithfulness 평균</div>
@@ -258,6 +260,7 @@
         <div class="section-title" style="margin-bottom:0">전체 Similarity Score 분포</div>
         <span id="hist-total-label" style="font-size:12px;color:#9ca3af;"></span>
       </div>
+      <div class="section-desc">선택한 기간 내 RAG로 검색된 모든 문서의 유사도 점수 구간별 분포를 나타냅니다.</div>
       <div class="chart-wrap" style="height:200px;">
         <canvas id="histogramChart"></canvas>
       </div>
@@ -272,6 +275,7 @@
           <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
         </div>
       </div>
+      <div class="section-desc">Faithfulness, Hallucination, Similarity, Latency 등 주요 평가 지표의 시간 흐름에 따른 변화를 추적합니다.</div>
       <div class="chart-wrap">
         <canvas id="timeseriesChart"></canvas>
       </div>
@@ -279,7 +283,8 @@
 
     <!-- Worst 리스트 -->
     <div class="worst-section">
-      <div class="section-title">채팅 단건 내역</div>
+      <div class="section-title" style="margin-bottom:4px">채팅 단건 내역</div>
+      <div class="section-desc">개별 LLM 요청의 평가 결과 목록입니다. 탭으로 정렬 기준을 변경하고, 상세보기 버튼으로 단건 내용을 확인할 수 있습니다.</div>
       <div class="metric-tabs">
         <button class="metric-tab active" onclick="setMetric('faithfulness')">Faithfulness ↓</button>
         <button class="metric-tab" onclick="setMetric('hallucination')">Hallucination ↑</button>
@@ -298,12 +303,14 @@
         케이스 상세
         <button class="close-btn" onclick="closeDetail()">✕ 닫기</button>
       </div>
+      <div class="section-desc" style="margin-bottom:10px">선택한 단건 요청에 대한 입력·출력·평가 결과 전체를 확인합니다.</div>
       <div class="detail-meta" id="detail-meta"></div>
 
       <div class="detail-sections">
 
         <div class="detail-section">
-          <div class="section-title" style="margin-bottom:12px">질문 &amp; AI 답변</div>
+          <div class="section-title" style="margin-bottom:4px">질문 &amp; AI 답변</div>
+          <div class="section-desc">사용자가 입력한 질문과 LLM이 생성한 답변 원문입니다.</div>
           <div class="detail-grid">
             <div class="detail-box">
               <label>질문</label>
@@ -317,7 +324,8 @@
         </div>
 
         <div class="detail-section">
-          <div class="section-title" style="margin-bottom:12px">LLM 품질 지표</div>
+          <div class="section-title" style="margin-bottom:4px">LLM 품질 지표</div>
+          <div class="section-desc">LLM Judge가 산출한 생성 품질 및 검색 품질 지표입니다. 각 지표는 0.0~1.0 범위로 평가됩니다.</div>
           <div class="metrics-two-col">
             <div class="metrics-group">
               <div class="metrics-group-label">생성 품질</div>
@@ -337,7 +345,8 @@
         </div>
 
         <div class="detail-section">
-          <div class="section-title" style="margin-bottom:10px">Similarity Score</div>
+          <div class="section-title" style="margin-bottom:4px">Similarity Score</div>
+          <div class="section-desc">이 요청에서 검색된 각 문서 청크의 유사도 점수 통계 및 분포입니다.</div>
           <div class="simil-summary" id="simil-summary"></div>
           <div class="simil-chart-wrap">
             <canvas id="docScoreChart"></canvas>
@@ -345,7 +354,8 @@
         </div>
 
         <div class="detail-section">
-          <div class="section-title" style="margin-bottom:10px">참조된 RAG Context Chunck 목록</div>
+          <div class="section-title" style="margin-bottom:4px">참조된 RAG Context Chunck 목록</div>
+          <div class="section-desc">LLM 답변 생성 시 참조된 RAG 컨텍스트 청크 목록과 각 청크의 유사도 점수입니다.</div>
           <div class="context-chunks" id="context-chunks"></div>
         </div>
 
