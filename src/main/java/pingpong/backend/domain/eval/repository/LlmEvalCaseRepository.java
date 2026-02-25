@@ -92,7 +92,7 @@ public interface LlmEvalCaseRepository extends JpaRepository<LlmEvalCase, Long> 
               AND c.eval_status != 'FAILED'
               AND c.context_json IS NOT NULL
               AND c.context_json != '[]'
-            GROUP BY FLOOR(jt.score_value * 10)
+            GROUP BY FLOOR(jt.score_value * 10) / 10, FLOOR(jt.score_value * 10) / 10 + 0.1
             ORDER BY lower_bound ASC
             """, nativeQuery = true)
     List<Object[]> findSimilarityHistogram(@Param("from") LocalDateTime from);
