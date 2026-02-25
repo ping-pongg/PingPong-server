@@ -43,7 +43,10 @@ public interface LlmEvalCaseRepository extends JpaRepository<LlmEvalCase, Long> 
                 AVG(e.latencyMsTotal),
                 AVG(e.tokensTotal),
                 AVG(e.costUsd),
-                SUM(CASE WHEN e.evalStatus = :failedStatus THEN 1 ELSE 0 END)
+                SUM(CASE WHEN e.evalStatus = :failedStatus THEN 1 ELSE 0 END),
+                AVG(e.avgSimilarityScore),
+                MIN(e.minSimilarityScore),
+                MAX(e.maxSimilarityScore)
             FROM LlmEvalCase e
             WHERE e.createdAt >= :from
             """)
@@ -61,7 +64,8 @@ public interface LlmEvalCaseRepository extends JpaRepository<LlmEvalCase, Long> 
                 AVG(faithfulness_score)          AS avg_faithfulness,
                 AVG(hallucination_rate)          AS avg_hallucination,
                 AVG(latency_ms_total)            AS avg_latency_ms,
-                AVG(cost_usd)                    AS avg_cost_usd
+                AVG(cost_usd)                    AS avg_cost_usd,
+                AVG(avg_similarity_score)        AS avg_similarity_score
             FROM llm_eval_case
             WHERE created_at >= :from
             GROUP BY bucket
@@ -71,4 +75,25 @@ public interface LlmEvalCaseRepository extends JpaRepository<LlmEvalCase, Long> 
             @Param("from") LocalDateTime from,
             @Param("fmt")  String fmt
     );
+
+    // ── Similarity score 구간별 분포 (전체 집계 히스토그램) ────────────────────
+    // context_json 내 개별 doc score를 JSON_TABLE로 펼쳐 0.1 단위 구간으로 집계
+    @Query(value = """
+            SELECT
+                FLOOR(jt.score_value * 10) / 10        AS lower_bound,
+                FLOOR(jt.score_value * 10) / 10 + 0.1  AS upper_bound,
+                COUNT(*)                                AS doc_count
+            FROM llm_eval_case c
+            CROSS JOIN JSON_TABLE(
+                c.context_json, '$[*]'
+                COLUMNS (score_value DOUBLE PATH '$.score')
+            ) AS jt
+            WHERE c.created_at >= :from
+              AND c.eval_status != 'FAILED'
+              AND c.context_json IS NOT NULL
+              AND c.context_json != '[]'
+            GROUP BY FLOOR(jt.score_value * 10)
+            ORDER BY lower_bound ASC
+            """, nativeQuery = true)
+    List<Object[]> findSimilarityHistogram(@Param("from") LocalDateTime from);
 }
