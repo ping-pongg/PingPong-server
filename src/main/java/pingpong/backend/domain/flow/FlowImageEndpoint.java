@@ -62,7 +62,7 @@ public class FlowImageEndpoint {
 		m.endpoint = ep;
 		m.x = x;
 		m.y = y;
-		m.isChanged = false;
+		m.isChanged = ep.getIsChanged();
 		m.isLinked = false;
 		return m;
 	}

@@ -12,8 +12,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
 import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
@@ -30,7 +30,7 @@ public class EndpointController {
 	private final SwaggerService swaggerService;
 
 	@GetMapping("/{endpointId}")
-	@Operation(summary="endpoint 상세 조회",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
+	@Operation(summary="endpoint 상세 조회 (미완성)",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
 	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
 		@PathVariable Long endpointId
 	){
@@ -46,7 +46,7 @@ public class EndpointController {
 	}
 
 	@PostMapping("{flowImageId}/endpoint/{endpointId}/complete")
-	@Operation(summary = "연동 완료", description = "해당 API를 연동 완료시 요청해주시면 됩니다.")
+	@Operation(summary = "엔드포인트 연동 상태 완료로 변경", description = "해당 API를 연동 완료시 요청해주시면 됩니다.")
 	public SuccessResponse<Boolean> completeEndpoint(
 		@PathVariable Long flowImageId,
 		@PathVariable Long endpointId,

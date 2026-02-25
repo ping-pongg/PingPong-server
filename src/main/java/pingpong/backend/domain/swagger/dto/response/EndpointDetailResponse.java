@@ -1,8 +1,6 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
 import java.util.List;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pingpong.backend.domain.swagger.enums.CrudMethod;

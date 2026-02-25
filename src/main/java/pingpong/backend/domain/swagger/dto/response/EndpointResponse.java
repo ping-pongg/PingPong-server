@@ -1,4 +1,4 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import pingpong.backend.domain.swagger.Endpoint;

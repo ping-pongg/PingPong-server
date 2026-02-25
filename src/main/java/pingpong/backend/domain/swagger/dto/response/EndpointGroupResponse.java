@@ -1,4 +1,4 @@
-package pingpong.backend.domain.swagger.dto;
+package pingpong.backend.domain.swagger.dto.response;
 
 import java.util.List;
 

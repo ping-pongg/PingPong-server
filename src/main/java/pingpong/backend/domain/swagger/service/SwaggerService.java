@@ -13,14 +13,11 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.member.Member;
-import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
@@ -28,13 +25,12 @@ import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
-import pingpong.backend.domain.swagger.dto.EndpointDetailResponse;
-import pingpong.backend.domain.swagger.dto.EndpointGroupResponse;
-import pingpong.backend.domain.swagger.dto.EndpointResponse;
-import pingpong.backend.domain.swagger.dto.ParameterResponse;
-import pingpong.backend.domain.swagger.dto.ParameterSnapshotRes;
-import pingpong.backend.domain.swagger.dto.RequestBodyResponse;
-import pingpong.backend.domain.swagger.dto.ResponseBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.ParameterResponse;
+import pingpong.backend.domain.swagger.dto.response.RequestBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.ResponseBodyResponse;
 import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
@@ -177,6 +173,7 @@ public class SwaggerService {
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
 			.team(teamService.getTeam(teamId))
 			.specHash(specHash)
+			.createdAt(LocalDateTime.now())
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
 			.build();
@@ -237,13 +234,12 @@ public class SwaggerService {
 		Member member,
 		SwaggerSnapshot snapshot,
 		Map<String,Endpoint> prevMap) {
-		List<Endpoint> savedEndpoints=new ArrayList<>();
 
+		List<Endpoint> savedEndpoints=new ArrayList<>();
 		for(EndpointAggregate aggregate:aggregates){
 			Endpoint endpoint=aggregate.endpoint();
 
 			endpoint.markCreated(aggregate.createdAt(),member,snapshot);
-
 			String key=endpoint.getPath()+"|"+endpoint.getMethod();
 			Endpoint prev=prevMap.get(key);
 			endpoint.applyDiff(prev);
