@@ -22,7 +22,7 @@ public record EndpointResponse (
 	@Schema(description = "엔드포인트 요약")
 	String summary,
 
-	@Schema(description="연동 여부")
+	@Schema(description="endpoint 변화 여부")
 	Boolean isChanged
 
 ){

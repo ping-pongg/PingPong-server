@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,7 +31,6 @@ import lombok.RequiredArgsConstructor;
 public class SwaggerController {
 
 	private final SwaggerService swaggerService;
-	private final EndpointService endpointService;
 
 	@GetMapping("/{teamId}")
 	@Operation(summary="swagger JSON 읽어오기",description = "현재 서버의 swagger docs를 불러옵니다.")
@@ -62,23 +62,5 @@ public class SwaggerController {
 	){
 		return SuccessResponse.ok(swaggerService.syncSwagger(teamId,currentMember));
 	}
-
-	@GetMapping("/endpoint/{endpointId}")
-	@Operation(summary="endpoint 상세 조회",description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
-	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
-		@PathVariable Long endpointId
-	){
-		return SuccessResponse.ok(swaggerService.getEndpointDetails(endpointId));
-	}
-
-	@GetMapping("/endpoints/{teamId}")
-	@Operation(summary="해당 프로젝트에 속한 모든 엔드포인트 조회")
-	public SuccessResponse<List<EndpointResponse>> getEndpointList(
-		@PathVariable Long teamId
-	){
-		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
-	}
-
-
 
 }

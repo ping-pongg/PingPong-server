@@ -16,6 +16,8 @@ import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
 import pingpong.backend.domain.flow.dto.request.FlowEndpointAssignRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowEndpointAssignResponse;
+import pingpong.backend.domain.flow.dto.response.FlowResponse;
+import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.service.FlowService;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.dto.EndpointResponse;
@@ -39,16 +41,33 @@ public class FlowController {
 		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest,teamId));
 	}
 
-	@PostMapping("/api-endpoint/{teamId}")
+	@PostMapping("/api-endpoint/{imageId}")
 	@Operation(summary="api endpoint를 해당 flow에 할당")
 	public SuccessResponse<FlowEndpointAssignResponse> assignEndpoints(
-		@PathVariable Long teamId,
-		@CurrentMember Member currentMember,
-		@RequestBody List<FlowEndpointAssignRequest> request
+		@PathVariable Long imageId,
+		@RequestBody List<FlowEndpointAssignRequest> request,
+		@CurrentMember Member currentMember
 	){
-		return SuccessResponse.ok(flowService.assignEndpoints(request,teamId));
+		return SuccessResponse.ok(flowService.assignEndpoints(request,imageId,currentMember));
 	}
 
+	@GetMapping("endpoints/{flowImageId}")
+	@Operation(summary="flow 내의 이미지에 할당된 엔드포인트들 조회")
+	public SuccessResponse<List<ImageEndpointsResponse>> getImageEndpoints(
+		@PathVariable Long flowImageId,
+		@CurrentMember Member currentMember
+	){
+		return SuccessResponse.ok(flowService.getImageEndpoints(flowImageId,currentMember));
+	}
+
+	@GetMapping("/{flowId}")
+	@Operation(summary="flow 단일 조회")
+	public SuccessResponse<FlowResponse> getFlow(
+		@PathVariable Long flowId,
+		@CurrentMember Member currentMember
+	){
+		return SuccessResponse.ok(flowService.getFlow(flowId,currentMember));
+	}
 
 
 
