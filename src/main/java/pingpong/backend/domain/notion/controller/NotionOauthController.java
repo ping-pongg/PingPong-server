@@ -62,6 +62,15 @@ public class NotionOauthController {
         return SuccessResponse.ok(notionFacade.listCandidateDatabases(teamId, member));
     }
 
+    @GetMapping("/status")
+    @Operation(summary = "Notion 연결 상태 조회", description = "팀의 Notion 연결 상태 및 워크스페이스, 데이터베이스 정보를 조회합니다.")
+    public SuccessResponse<NotionOAuthExchangeResponse> getNotionStatus(
+            @PathVariable Long teamId,
+            @CurrentMember Member member
+    ) {
+        return SuccessResponse.ok(notionFacade.getNotionStatus(teamId, member));
+    }
+
     @PutMapping("/databases/primary")
     @Operation(summary = "팀 데이터베이스 선택", description = "팀의 대표 Notion 데이터베이스를 설정합니다.")
     public SuccessResponse<Void> setPrimaryDatabase(
