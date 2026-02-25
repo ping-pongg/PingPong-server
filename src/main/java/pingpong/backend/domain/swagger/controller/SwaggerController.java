@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,7 +37,7 @@ public class SwaggerController {
 	}
 
 
-	@GetMapping("/sync/{teamId}")
+	@PostMapping("/sync/{teamId}")
 	@Operation(
 		summary = "swagger JSON 정규화해서 DB에 저장",
 		description = """

@@ -38,8 +38,25 @@ public class EndpointController {
 	}
 
 	@GetMapping("/list/{teamId}")
-	@Operation(summary="해당 프로젝트에 속한 모든 엔드포인트 조회")
+	@Operation(
+		summary = "팀에 속한 전체 엔드포인트 조회",
+		description = "지정한 팀(프로젝트)에 등록된 모든 엔드포인트를 조회합니다. " +
+			"엔드포인트 매칭 화면 및 검색 화면에서 전체(ALL) 목록을 표시할 때 사용됩니다. " +
+			"각 엔드포인트의 태그, 경로, HTTP 메서드, 요약 정보 및 변경 여부를 포함하여 반환합니다."
+	)
 	public SuccessResponse<List<EndpointResponse>> getEndpointList(
+		@PathVariable Long teamId
+	){
+		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
+	}
+
+	@GetMapping("/{teamId}/changed")
+	@Operation(
+		summary = "팀에 속한 전체 엔드포인트들 중 이번에 바뀐 엔드포인트만 조회(미완성)",
+		description = "지정한 팀(프로젝트)에서 변경된 엔드포인트를 조회합니다. " +
+			"엔드포인트 매칭 화면에서 NEW 목록을 표시할 때 사용됩니다. "
+	)
+	public SuccessResponse<List<EndpointResponse>> getChangedEndpointList(
 		@PathVariable Long teamId
 	){
 		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
