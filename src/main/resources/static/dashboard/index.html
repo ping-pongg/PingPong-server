@@ -74,11 +74,8 @@
       background: #f9fafb; border-radius: 10px; padding: 14px 16px;
       border-left: 3px solid #e5e7eb;
     }
-    .simil-stat.box-good { border-left-color: #10b981; background: #f0fdf4; }
-    .simil-stat.box-mid  { border-left-color: #f59e0b; background: #fffbeb; }
-    .simil-stat.box-bad  { border-left-color: #ef4444; background: #fef2f2; }
     .simil-stat .s-label { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
-    .simil-stat .s-val   { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; }
+    .simil-stat .s-val   { font-size: 26px; font-weight: 800; margin: 6px 0 2px; line-height: 1; color: #374151; }
     .simil-chart-wrap { position: relative; height: 180px; margin-bottom: 20px; }
 
     /* ── 시계열 그래프 ── */
@@ -139,10 +136,12 @@
       margin-left: auto; background: #f3f4f6; border: none; border-radius: 6px;
       padding: 4px 10px; font-size: 12px; cursor: pointer; color: #374151;
     }
-    .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid #f3f4f6; }
     .meta-tag { font-size: 12px; color: #9ca3af; border: 1px solid #9ca3af; border-radius: 6px; background: transparent; padding: 3px 10px; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-    .detail-box { background: #f9fafb; border-radius: 8px; padding: 14px 16px; }
+    .detail-sections { display: flex; flex-direction: column; gap: 16px; }
+    .detail-section { background: #fff; border-radius: 10px; padding: 20px 24px; border: 1px solid #e5e7eb; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .detail-box { background: #f3f4f6; border-radius: 8px; padding: 14px 16px; }
     .detail-box label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 6px; }
     .detail-box p { font-size: 13px; color: #111827; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto; }
 
@@ -153,7 +152,7 @@
     .scores-grid-3 { grid-template-columns: repeat(3, 1fr); }
 
     /* ── 품질 지표 2컬럼 테이블 ── */
-    .metrics-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .metrics-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .metrics-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .metrics-tbl thead th {
       text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 700;
@@ -256,7 +255,7 @@
     <!-- 전체 Similarity Score 히스토그램 -->
     <div class="chart-section">
       <div class="chart-header">
-        <div class="section-title" style="margin-bottom:0">Similarity Score 분포 (전체 retrieved docs)</div>
+        <div class="section-title" style="margin-bottom:0">전체 Similarity Score 분포</div>
         <span id="hist-total-label" style="font-size:12px;color:#9ca3af;"></span>
       </div>
       <div class="chart-wrap" style="height:200px;">
@@ -267,7 +266,7 @@
     <!-- 시계열 그래프 -->
     <div class="chart-section">
       <div class="chart-header">
-        <div class="section-title" style="margin-bottom:0">지표 추이</div>
+        <div class="section-title" style="margin-bottom:0">지표 변화</div>
         <div class="interval-btns">
           <button onclick="setInterval_('day')"  data-interval="day"  class="active">일별</button>
           <button onclick="setInterval_('hour')" data-interval="hour">시간별</button>
@@ -301,43 +300,56 @@
       </div>
       <div class="detail-meta" id="detail-meta"></div>
 
-      <div class="detail-grid">
-        <div class="detail-box">
-          <label>질문</label>
-          <p id="detail-question"></p>
-        </div>
-        <div class="detail-box">
-          <label>AI 답변</label>
-          <p id="detail-answer"></p>
-        </div>
-      </div>
+      <div class="detail-sections">
 
-      <div class="section-title" style="margin-bottom:12px">품질 지표 (0.0 ~ 1.0)</div>
-      <div class="metrics-two-col">
-        <div class="metrics-group">
-          <div class="metrics-group-label">생성 품질</div>
-          <table class="metrics-tbl">
-            <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
-            <tbody id="gen-scores-tbody"></tbody>
-          </table>
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:12px">질문 &amp; AI 답변</div>
+          <div class="detail-grid">
+            <div class="detail-box">
+              <label>질문</label>
+              <p id="detail-question"></p>
+            </div>
+            <div class="detail-box">
+              <label>AI 답변</label>
+              <p id="detail-answer"></p>
+            </div>
+          </div>
         </div>
-        <div class="metrics-group">
-          <div class="metrics-group-label">검색 품질 &amp; 일관성</div>
-          <table class="metrics-tbl">
-            <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
-            <tbody id="ret-scores-tbody"></tbody>
-          </table>
+
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:12px">LLM 품질 지표</div>
+          <div class="metrics-two-col">
+            <div class="metrics-group">
+              <div class="metrics-group-label">생성 품질</div>
+              <table class="metrics-tbl">
+                <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+                <tbody id="gen-scores-tbody"></tbody>
+              </table>
+            </div>
+            <div class="metrics-group">
+              <div class="metrics-group-label">검색 품질 &amp; 일관성</div>
+              <table class="metrics-tbl">
+                <thead><tr><th>평가 지표</th><th>설명</th><th>점수</th></tr></thead>
+                <tbody id="ret-scores-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="section-title" style="margin-bottom:10px;margin-top:16px">Similarity Score (이 요청)</div>
-      <div class="simil-summary" id="simil-summary"></div>
-      <div class="simil-chart-wrap">
-        <canvas id="docScoreChart"></canvas>
-      </div>
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:10px">Similarity Score</div>
+          <div class="simil-summary" id="simil-summary"></div>
+          <div class="simil-chart-wrap">
+            <canvas id="docScoreChart"></canvas>
+          </div>
+        </div>
 
-      <div class="section-title" style="margin-bottom:10px;margin-top:16px">검색된 컨텍스트 청크</div>
-      <div class="context-chunks" id="context-chunks"></div>
+        <div class="detail-section">
+          <div class="section-title" style="margin-bottom:10px">참조된 RAG Context Chunck 목록</div>
+          <div class="context-chunks" id="context-chunks"></div>
+        </div>
+
+      </div>
     </div>
 
   </div>
@@ -640,12 +652,10 @@
       const similSummary = document.getElementById('simil-summary');
       const docCount = d.retrievedDocCount ?? 0;
       const similStatHtml = (label, val) => {
-        const cls = scoreClass(val, false);
-        const bxCls = boxClass(val, false);
         const barHtml = val != null
-          ? `<div class="s-bar-track"><div class="s-bar ${cls.replace('score-', 'bar-')}" style="width:${Math.round(val * 100)}%"></div></div>`
+          ? `<div class="s-bar-track"><div class="s-bar" style="width:${Math.round(val * 100)}%;background:#9ca3af;"></div></div>`
           : '';
-        return `<div class="simil-stat ${bxCls}"><div class="s-label">${label}</div><div class="s-val ${cls}">${fmt2(val)}</div>${barHtml}</div>`;
+        return `<div class="simil-stat"><div class="s-label">${label}</div><div class="s-val">${fmt2(val)}</div>${barHtml}</div>`;
       };
       similSummary.innerHTML = `
         <div class="simil-stat"><div class="s-label">Retrieved Docs</div><div class="s-val">${docCount}</div></div>
