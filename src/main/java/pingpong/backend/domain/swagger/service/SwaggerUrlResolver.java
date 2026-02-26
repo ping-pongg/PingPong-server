@@ -22,4 +22,18 @@ public class SwaggerUrlResolver {
 		log.debug("Base URL for swagger docs: {}", baseUrl);
 		return baseUrl+"/v3/api-docs";
 	}
+
+	/**
+	 * 팀 서버 base URL 추출 (포트 포함)
+	 * @param swaggerUrl
+	 * @return scheme://host[:port]
+	 */
+	public String resolveBaseUrl(String swaggerUrl) {
+		URI uri = URI.create(swaggerUrl);
+		String base = uri.getScheme() + "://" + uri.getHost();
+		if (uri.getPort() != -1) {
+			base = base + ":" + uri.getPort();
+		}
+		return base;
+	}
 }
