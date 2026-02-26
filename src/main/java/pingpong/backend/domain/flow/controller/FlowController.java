@@ -25,13 +25,13 @@ import pingpong.backend.global.response.result.SuccessResponse;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/flow")
-@Tag(name="flow 관련 API",description = "flow를 생성/수정/삭제 조회하는 API입니다.")
+@RequestMapping("/api/v1/flows")
+@Tag(name="Flow API",description = "flow를 생성/수정/삭제 조회하는 API입니다.")
 public class FlowController {
 
 	private final FlowService flowService;
 
-	@PostMapping("/create/{teamId}")
+	@PostMapping("/{teamId}")
 	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
 	public SuccessResponse<FlowCreateResponse> createFlow(
 		@PathVariable Long teamId,
@@ -40,7 +40,7 @@ public class FlowController {
 		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest,teamId));
 	}
 
-	@PostMapping("/api-endpoint/{imageId}")
+	@PostMapping("/images/{imageId}/endpoints")
 	@Operation(
 		summary = "Flow 이미지에 엔드포인트 매핑",
 		description = "지정한 Flow 이미지에 하나 이상의 엔드포인트를 할당(매핑)합니다. " +
@@ -56,7 +56,7 @@ public class FlowController {
 		return SuccessResponse.ok(flowService.assignEndpoints(request,imageId,currentMember));
 	}
 
-	@GetMapping("/endpoints/{flowImageId}")
+	@GetMapping("/images/{flowImageId}/endpoints")
 	@Operation(
 		summary = "Flow 이미지에 매핑된 엔드포인트 목록 조회",
 		description = "지정한 Flow 이미지에 현재 매핑되어 있는 모든 엔드포인트 목록을 조회합니다. " +
