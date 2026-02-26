@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -16,9 +18,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
+import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
 import pingpong.backend.global.annotation.CurrentMember;
@@ -31,6 +36,7 @@ public class SwaggerController {
 
 	private final SwaggerService swaggerService;
 	private final EndpointService endpointService;
+	private final ApiExecuteService apiExecuteService;
 
 	@Hidden
 	@GetMapping("/api/v1/swagger/{teamId}")
@@ -94,6 +100,19 @@ public class SwaggerController {
 		@RequestParam Long teamId
 	) {
 		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
+	}
+
+	@PostMapping("/api/v1/endpoints/{endpointId}/execute")
+	@Operation(
+		summary = "엔드포인트 직접 실행",
+		description = "지정한 엔드포인트를 팀 서버로 실제 HTTP 요청을 보내고 응답을 반환합니다."
+	)
+	public SuccessResponse<ApiExecuteResponse> executeEndpoint(
+		@PathVariable Long endpointId,
+		@RequestParam Long teamId,
+		@RequestBody ApiExecuteRequest request
+	) {
+		return SuccessResponse.ok(apiExecuteService.execute(endpointId, teamId, request));
 	}
 
 	@PatchMapping("/api/v1/flow-images/{flowImageId}/endpoints/{endpointId}/complete")
