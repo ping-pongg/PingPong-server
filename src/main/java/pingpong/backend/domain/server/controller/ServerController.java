@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -16,15 +17,16 @@ import pingpong.backend.domain.server.dto.response.ServerCreateResponse;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.global.response.result.SuccessResponse;
 
+@Hidden
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/server")
+@RequestMapping("/api/v1/servers")
 @Tag(name="server 관련 API",description = "server를 생성/수정/삭제 조회하는 API입니다.")
 public class ServerController {
 
 	private final ServerService serverService;
 
-	@PostMapping("/create/{teamId}")
+	@PostMapping("/{teamId}")
 	@Operation(summary="server 생성",description = "해당 팀의 특정 server를 생성합니다.")
 	public SuccessResponse<ServerCreateResponse> createServer(
 		@PathVariable Long teamId,
