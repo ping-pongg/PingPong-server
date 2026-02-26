@@ -48,11 +48,22 @@ public class ApiExecuteClient {
 
 		HttpEntity<Object> entity = new HttpEntity<>(body, headers);
 
-		log.debug("Executing API request: {} {}", httpMethod, url);
+		log.info("[ApiExecute] → {} {} | headers={} | body={}", httpMethod, url, requestHeaders, body);
+		long startMs = System.currentTimeMillis();
 		try {
-			return restTemplate.exchange(url, httpMethod, entity, String.class);
+			ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
+			long elapsedMs = System.currentTimeMillis() - startMs;
+			log.info("[ApiExecute] ← {} {} | status={} | elapsed={}ms | headers={} | body={}",
+				httpMethod, url,
+				response.getStatusCode().value(),
+				elapsedMs,
+				response.getHeaders().toSingleValueMap(),
+				response.getBody()
+			);
+			return response;
 		} catch (Exception e) {
-			log.error("External API request failed: {} {}", httpMethod, url, e);
+			long elapsedMs = System.currentTimeMillis() - startMs;
+			log.info("[ApiExecute] ← {} {} | status=ERROR | elapsed={}ms | message={}", httpMethod, url, elapsedMs, e.getMessage());
 			throw new CustomException(SwaggerErrorCode.API_EXECUTE_ERROR);
 		}
 	}
