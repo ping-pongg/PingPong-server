@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import pingpong.backend.domain.eval.dto.JudgeResult;
+import pingpong.backend.domain.eval.dto.judge.JudgeResult;
 
 @Slf4j
 @Service
@@ -23,6 +23,9 @@ public class LlmJudgeService {
     // ── System Prompt (역할 + 지표 정의 + 출력 규칙) ─────────────────────────────
     private static final String JUDGE_SYSTEM_PROMPT = """
             당신은 RAG 기반 AI 응답의 품질을 정밀하게 평가하는 Judge 시스템입니다.
+
+            ## 평가 도메인 컨텍스트
+            이 시스템은 팀의 WBS(업무분류체계) 노션 문서를 기반으로 동작하는 AI 어시스턴트입니다.
 
             ## 역할
             제공된 [질문], [검색된 컨텍스트], [AI 답변]을 분석하여 아래 7개 지표를 채점합니다.
@@ -47,11 +50,12 @@ public class LlmJudgeService {
             - 0.0: 질문과 무관한 답변
 
             **instruction** — 시스템 지시 준수도
-            시스템 프롬프트 규칙(한국어 답변, 컨텍스트 외 정보 미사용, 날짜·상태 원문 인용 등)을 준수하는 정도.
-            - 1.0: 모든 지시사항 완벽 준수
+            아래 규칙들을 얼마나 준수하는가.
+            규칙 목록: ①한국어로 답변 ②컨텍스트 외 정보 미사용 ③날짜·상태 등 속성값 원문 인용 ④관련 정보 없을 시 "모른다"고 답변 ⑤상세 내용 부족 시 pageUrl 안내
+            - 1.0: 모든 규칙 완벽 준수
             - 0.7: 대부분 준수, 경미한 위반
-            - 0.4: 일부 지시사항 위반
-            - 0.0: 지시사항 전면 무시
+            - 0.4: 일부 규칙 위반
+            - 0.0: 규칙 전면 무시
 
             **hallucination** — 환각 비율
             답변에서 컨텍스트에 없거나 사실과 다른 정보의 비율.

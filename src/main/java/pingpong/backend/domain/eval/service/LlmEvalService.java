@@ -5,15 +5,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import pingpong.backend.domain.eval.dto.JudgeResult;
+import pingpong.backend.domain.eval.dto.judge.JudgeResult;
 import pingpong.backend.domain.eval.enums.EvalStatus;
 import pingpong.backend.domain.eval.LlmEvalCase;
 import pingpong.backend.domain.eval.repository.LlmEvalCaseRepository;
 import pingpong.backend.domain.eval.service.LlmJudgeService.JudgeOutcome;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,11 +28,12 @@ public class LlmEvalService {
     private final LlmJudgeService judgeService;
     private final ObjectMapper objectMapper;
 
-    // gpt-4.1-mini 단가 (변경 시 여기만 수정)
+    @Value("${spring.ai.openai.chat.options.model}")
+    private String modelName;
+
     private static final double COST_REGULAR_INPUT = 0.40 / 1_000_000.0;  // $0.40/1M
     private static final double COST_CACHED_INPUT  = 0.10 / 1_000_000.0;  // $0.10/1M (75% 할인)
     private static final double COST_OUTPUT        = 1.60 / 1_000_000.0;  // $1.60/1M
-    private static final String MODEL_NAME         = "gpt-4.1-mini";
 
     /**
      * 평가 실행 및 저장.
@@ -58,30 +60,61 @@ public class LlmEvalService {
                 .latencyMsTotal(latencyTotal)
                 .latencyMsRetrieval(latencyRetrieval)
                 .latencyMsGeneration(latencyGeneration)
-                .modelName(MODEL_NAME);
+                .modelName(modelName);
 
-        // ── 토큰 및 비용 수집 (Cache 토큰 포함) ──────────────────────────────────
+        // ── 토큰 및 비용 수집 ─────────────────────────────────────────────────────
+        // Usage(nativeUsage)는 Spring AI/OpenAI 구현에 따라 Map이거나 POJO일 수 있어 Map으로 변환 후 읽는다.
         try {
-            var usage = chatResponse.getMetadata().getUsage();
-            // Spring AI 1.1.2: getPromptTokens() / getCompletionTokens() 반환형은 Integer
-            int tokensIn    = usage.getPromptTokens();
-            int tokensOut   = usage.getCompletionTokens();
-            int tokensTotal = usage.getTotalTokens();
+            Object nativeUsage = chatResponse.getMetadata().getUsage().getNativeUsage();
 
-            int tokensCached = extractCachedTokens(chatResponse);
-            int regularInput = tokensIn - tokensCached;
-            double costUsd   = regularInput * COST_REGULAR_INPUT
-                             + tokensCached  * COST_CACHED_INPUT
-                             + tokensOut     * COST_OUTPUT;
+            log.debug("EVAL: usage wrapper — requestId={} promptTokens={} completionTokens={} totalTokens={} nativeType={}",
+                    requestId,
+                    chatResponse.getMetadata().getUsage().getPromptTokens(),
+                    chatResponse.getMetadata().getUsage().getCompletionTokens(),
+                    chatResponse.getMetadata().getUsage().getTotalTokens(),
+                    nativeUsage != null ? nativeUsage.getClass().getName() : "null");
 
-            builder.tokensIn(tokensIn)
-                   .tokensOut(tokensOut)
-                   .tokensCached(tokensCached > 0 ? tokensCached : null)
-                   .tokensTotal(tokensTotal)
-                   .costUsd(costUsd);
+            Map<String, Object> nativeMap = coerceToMap(nativeUsage);
+            if (nativeMap == null) {
+                log.warn("EVAL: 토큰 수집 실패 — nativeUsage Map 변환 실패 requestId={} nativeType={}",
+                        requestId, nativeUsage != null ? nativeUsage.getClass().getName() : "null");
+            } else {
+                log.debug("EVAL: nativeMap 키 목록 — requestId={} keys={}", requestId, nativeMap.keySet());
 
+                int tokensIn = firstNonZeroInt(nativeMap, "prompt_tokens", "promptTokens");
+                int tokensOut = firstNonZeroInt(nativeMap, "completion_tokens", "completionTokens");
+                int tokensTotal = firstNonZeroInt(nativeMap, "total_tokens", "totalTokens");
+
+                // Fallback
+                if (tokensIn == 0 && tokensOut == 0 && tokensTotal == 0) {
+                    tokensIn = chatResponse.getMetadata().getUsage().getPromptTokens();
+                    tokensOut = chatResponse.getMetadata().getUsage().getCompletionTokens();
+                    tokensTotal = chatResponse.getMetadata().getUsage().getTotalTokens();
+                    if (tokensIn == 0 && tokensOut == 0) {
+                        log.warn("EVAL: nativeMap + wrapper 모두 토큰 0 — requestId={} streaming 사용 시 streamUsage(true) 설정 여부 확인 필요",
+                                requestId);
+                    }
+                }
+
+                int tokensCached = extractCachedTokens(chatResponse);
+                int regularInput = tokensIn - tokensCached;
+                double costUsd   = regularInput * COST_REGULAR_INPUT
+                                 + tokensCached  * COST_CACHED_INPUT
+                                 + tokensOut     * COST_OUTPUT;
+
+                builder.tokensIn(tokensIn)
+                       .tokensOut(tokensOut)
+                       .tokensCached(tokensCached > 0 ? tokensCached : null)
+                       .tokensTotal(tokensTotal)
+                       .costUsd(costUsd);
+
+                log.info("EVAL: 토큰 수집 완료 — requestId={} in={} out={} cached={} costUsd={}",
+                        requestId, tokensIn, tokensOut, tokensCached,
+                        String.format("%.6f", costUsd));
+            }
         } catch (Exception e) {
-            log.warn("EVAL: 토큰 수집 실패 — requestId={}", requestId, e);
+            log.warn("EVAL: 토큰 수집 실패 — requestId={} errorType={} message='{}'",
+                    requestId, e.getClass().getSimpleName(), e.getMessage());
         }
 
         // ── context JSON ─────────────────────────────────────────────────────────
@@ -142,27 +175,58 @@ public class LlmEvalService {
     }
 
     /**
-     * OpenAI Prompt Cache 토큰 수 추출.
-     * Spring AI 1.1.2 기준 — OpenAiUsage 캐스팅으로 시도, 실패 시 0 반환 (비용 과대 계상).
-     */
-    /**
      * OpenAI Prompt Cache 재사용 토큰 수 추출.
-     * Spring AI 1.1.2: OpenAiUsage 래퍼 클래스 없음.
-     * getNativeUsage() → OpenAiApi.Usage → promptTokensDetails().cachedTokens() 경로로 접근.
+     * Spring AI 1.1.2: getNativeUsage()가 Map<String, Object> 반환
      */
     private int extractCachedTokens(ChatResponse chatResponse) {
         try {
             Object native_ = chatResponse.getMetadata().getUsage().getNativeUsage();
-            if (native_ instanceof OpenAiApi.Usage openAiUsage) {
-                OpenAiApi.Usage.PromptTokensDetails details = openAiUsage.promptTokensDetails();
-                if (details != null && details.cachedTokens() != null) {
-                    return details.cachedTokens();
+            Map<String, Object> nativeMap = coerceToMap(native_);
+            if (nativeMap != null) {
+                Object details = nativeMap.getOrDefault("prompt_tokens_details", nativeMap.get("promptTokensDetails"));
+                Map<String, Object> detailsMap = coerceToMap(details);
+                if (detailsMap != null) {
+                    return firstNonZeroInt(detailsMap, "cached_tokens", "cachedTokens");
                 }
             }
         } catch (Exception e) {
             log.debug("EVAL: Cache 토큰 추출 실패 — 0으로 처리: {}", e.getMessage());
         }
         return 0;
+    }
+
+    private int toInt(Object value) {
+        return value instanceof Number n ? n.intValue() : 0;
+    }
+
+    private int firstNonZeroInt(Map<String, Object> map, String... keys) {
+        for (String k : keys) {
+            int i = toInt(map.get(k));
+            if (i != 0) return i;
+        }
+        return 0;
+    }
+
+    private Map<String, Object> coerceToMap(Object value) {
+        if (value == null) return null;
+
+        if (value instanceof Map<?, ?> m) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                if (e.getKey() == null) continue;
+                out.put(String.valueOf(e.getKey()), (Object) e.getValue());
+            }
+            return out;
+        }
+
+        // Jackson convertValue handles POJOs/records (e.g., native Usage objects) into a map.
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> converted = objectMapper.convertValue(value, Map.class);
+            return converted;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private String buildContextJson(List<Document> docs) {
