@@ -1,4 +1,4 @@
-package pingpong.backend.domain.eval.dto;
+package pingpong.backend.domain.eval.dto.judge;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
