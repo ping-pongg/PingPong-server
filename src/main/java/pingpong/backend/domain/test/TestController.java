@@ -70,9 +70,8 @@ public class TestController {
 		UserResponse res = new UserResponse(
 			userId,
 			"dummy-user",
-			includeDetail != null && includeDetail,
-			traceId,
-			session,
+			"1",
+			234234L,
 			Instant.now().toString()
 		);
 
