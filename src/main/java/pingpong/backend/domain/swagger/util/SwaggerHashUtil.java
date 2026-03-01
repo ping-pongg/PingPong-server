@@ -4,17 +4,25 @@ import static pingpong.backend.domain.swagger.util.SwaggerNormalizeUtil.*;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Comparator;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import pingpong.backend.domain.swagger.Endpoint;
+import pingpong.backend.domain.swagger.SwaggerEndpointSecurity;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
+import pingpong.backend.domain.swagger.SwaggerParameter;
+import pingpong.backend.domain.swagger.SwaggerRequest;
+import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.service.SwaggerParser;
 import pingpong.backend.global.exception.CustomException;
 
@@ -22,34 +30,104 @@ import pingpong.backend.global.exception.CustomException;
 public class SwaggerHashUtil {
 
 	private static final ObjectMapper mapper = new ObjectMapper()
-		.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true);
+		.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS,true)
+		.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
 
 	/**
 	 * swagger snapshot SHA-256 해시값 생성
 	 * @param root
 	 * @return
 	 */
+
 	public String generateSpecHash(JsonNode root) {
 		try {
 			JsonNode paths = root.get("paths");
 			JsonNode components = root.get("components");
 
-			//필요한 부분만 JSON으로 구성
 			ObjectNode minimal = mapper.createObjectNode();
 
 			if (paths != null) {
-				minimal.set("paths", paths);
+				minimal.set("paths",removeNonStructuralFields(paths));
 			}
 			if (components != null) {
-				minimal.set("components", components);
+				minimal.set("components", removeNonStructuralFields(components));
 			}
 
-			//key정렬
-			String cannoicalJson = mapper.writeValueAsString(minimal);
-			return sha256(cannoicalJson);
-		}catch(Exception e){
+			String canonicalJson = mapper.writeValueAsString(minimal);
+			return sha256(canonicalJson);
+
+		} catch (Exception e) {
 			throw new CustomException(SwaggerErrorCode.JSON_PROCESSING_EXCEPTION);
 		}
+	}
+
+	public String computeStructureHash(
+		Endpoint endpoint,
+		List<SwaggerParameter> parameters,
+		List<SwaggerRequest> requests,
+		List<SwaggerResponse> responses,
+		List<SwaggerEndpointSecurity> securities
+	) {
+		try {
+			ObjectNode root = mapper.createObjectNode();
+
+			root.put("path", endpoint.getPath());
+			root.put("method", endpoint.getMethod().ordinal());
+
+			// 순서 안정화
+			parameters.sort(Comparator.comparing(SwaggerParameter::getName));
+			responses.sort(Comparator.comparing(SwaggerResponse::getStatusCode));
+
+			root.set("parameters", mapper.valueToTree(parameters));
+			root.set("requests", mapper.valueToTree(requests));
+			root.set("responses", mapper.valueToTree(responses));
+			root.set("securities", mapper.valueToTree(securities));
+
+			String canonicalJson = mapper.writeValueAsString(root);
+			return sha256(canonicalJson);
+
+		} catch (Exception e) {
+			throw new CustomException(SwaggerErrorCode.JSON_PROCESSING_EXCEPTION);
+		}
+	}
+
+	/**
+	 * 필요없는 필드들 제외하고 hash값 생성하도록 함
+	 * @param node
+	 * @return
+	 */
+	private JsonNode removeNonStructuralFields(JsonNode node) {
+
+		if (node.isObject()) {
+
+			ObjectNode cleaned = ((ObjectNode) node).deepCopy();
+
+			// 제거하고 싶은 필드들
+			cleaned.remove(List.of(
+				"description",
+				"summary",
+				"example",
+				"examples",
+				"title"
+			));
+
+			cleaned.fieldNames().forEachRemaining(field -> {
+				JsonNode child = cleaned.get(field);
+				cleaned.set(field, removeNonStructuralFields(child));
+			});
+
+			return cleaned;
+		}
+
+		if (node.isArray()) {
+			ArrayNode arrayNode = (ArrayNode) node;
+			for (int i = 0; i < arrayNode.size(); i++) {
+				arrayNode.set(i, removeNonStructuralFields(arrayNode.get(i)));
+			}
+			return arrayNode;
+		}
+
+		return node;
 	}
 
 	/**

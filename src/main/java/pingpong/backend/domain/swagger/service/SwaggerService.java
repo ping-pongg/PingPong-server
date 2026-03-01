@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import pingpong.backend.domain.flow.enums.SnapshotDiffStatus;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerEndpointSecurity;
@@ -226,11 +227,27 @@ public class SwaggerService {
 		//전체 스펙 해시 계산
 		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
 
-		//기존 최신 스냅샷 조회
+		//기존 스냅샷 조회
 		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+		//변화 없을 시에, 기존 반환 값 그대로 반환
+		if (latest.isPresent() && latest.get().getSpecHash().equals(specHash)) {
 
-		if(latest.isPresent() && latest.get().getSpecHash().equals(specHash)){
-			return List.of();
+			List<Endpoint> previousEndpoints =
+				endpointRepository.findBySnapshotId(latest.get().getId());
+
+			Map<String, List<EndpointResponse>> grouped =
+				previousEndpoints.stream()
+					.filter(e -> Boolean.TRUE.equals(e.getIsChanged()))
+					.map(EndpointResponse::toDto)
+					.collect(Collectors.groupingBy(EndpointResponse::tag));
+
+			return grouped.entrySet().stream()
+				.map(e -> new EndpointGroupResponse(
+					SnapshotDiffStatus.NOT_CHANGED,
+					e.getKey(),
+					e.getValue()
+				))
+				.toList();
 		}
 
 		//이전 endpoint map 준비
@@ -240,13 +257,14 @@ public class SwaggerService {
 				endpointRepository.findBySnapshotId(latest.get().getId());
 			prevMap=prevEndpoints.stream()
 				.collect(Collectors.toMap(
-					e->e.getPath()+"|"+e.getMethod(),
+					e->e.getPath()+"|"+e.getMethod(), //path+method 단위로 endpoint 동일성 판단
 					Function.identity()
 				));
 		} else {
 			prevMap = new HashMap<>();
 		}
 
+		//새로운 snapshot 생성
 		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
 		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
 			.team(teamService.getTeam(teamId))
@@ -255,8 +273,9 @@ public class SwaggerService {
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
 			.build();
-
 		swaggerSnapshotRepository.save(snapshot);
+
+		//현재 endpoint 저장 + 변경 감지
 		List<Endpoint> endpoints=saveAggregates(aggregates,member,snapshot,prevMap);
 
 		//삭제된 endpoint 감지
@@ -293,6 +312,7 @@ public class SwaggerService {
 
 		return grouped.entrySet().stream()
 			.map(e->new EndpointGroupResponse(
+				SnapshotDiffStatus.CHANGED,
 				e.getKey(),
 				e.getValue()
 			))
@@ -300,7 +320,7 @@ public class SwaggerService {
 	}
 
 	/**
-	 * endpoint 단위 diff 비교 및 swagger endpoint,response,request,parameter 정규화 후 DB 저장
+	 * Swagger에서 파싱된 EndpointAggregate들을 실제 DB 엔티티로 저장하고, 이전 스냅샷과 비교(diff) 수행
 	 * @param aggregates
 	 * @param member
 	 * @param snapshot
@@ -315,23 +335,40 @@ public class SwaggerService {
 
 		List<Endpoint> savedEndpoints=new ArrayList<>();
 		for(EndpointAggregate aggregate:aggregates){
-			Endpoint endpoint=aggregate.endpoint();
+			List<SwaggerParameter> parameters=aggregate.parameters();
+			List<SwaggerRequest> requests=aggregate.requests();
+			List<SwaggerResponse> responses=aggregate.responses();
+			List<SwaggerEndpointSecurity> securities=aggregate.endpointSecuritys();
 
+			Endpoint endpoint=aggregate.endpoint();
+			String structureHash= swaggerHashUtil.computeStructureHash(
+				endpoint,
+				parameters,
+				requests,
+				responses,
+				securities
+			);
+			endpoint.updateStructureHash(structureHash);
+			//생성 정보 세팅
 			endpoint.markCreated(aggregate.createdAt(),member,snapshot);
+			//이전 endpoint 찾기
 			String key=endpoint.getPath()+"|"+endpoint.getMethod();
 			Endpoint prev=prevMap.get(key);
+			//diff 계산
 			endpoint.applyDiff(prev);
-
+			//endpoint 저장
 			Endpoint saved=endpointRepository.save(endpoint);
 			savedEndpoints.add(saved);
 
-			swaggerEndpointSecurityRepository.saveAll(aggregate.endpointSecuritys());
-			swaggerParameterRepository.saveAll(aggregate.parameters());
-			swaggerRequestRepository.saveAll(aggregate.requests());
-			swaggerResponseRepository.saveAll(aggregate.responses());
+			//하위 요소 저장
+			swaggerEndpointSecurityRepository.saveAll(securities);
+			swaggerParameterRepository.saveAll(parameters);
+			swaggerRequestRepository.saveAll(requests);
+			swaggerResponseRepository.saveAll(responses);
 		}
 		return savedEndpoints;
 	}
+
 
 	/**
 	 * 삭제된 endpoint 감지
