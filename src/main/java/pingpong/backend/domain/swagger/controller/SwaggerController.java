@@ -51,7 +51,7 @@ public class SwaggerController {
 
 	@PostMapping("/api/v1/swagger/{teamId}/sync")
 	@Operation(
-		summary = "swagger JSON 정규화해서 DB에 저장",
+		summary = "새로고침 - swagger JSON 정규화해서 DB에 저장",
 		description = """
         지정한 서버의 Swagger(OpenAPI) 문서를 조회하여 최신 스냅샷과 비교합니다.
         스펙 해시가 동일한 경우에는 별도의 저장 없이 빈 결과를 반환합니다.

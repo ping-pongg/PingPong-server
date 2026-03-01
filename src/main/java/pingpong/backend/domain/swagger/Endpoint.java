@@ -64,6 +64,9 @@ public class Endpoint {
 	@Column
 	private String tag;
 
+	@Column(name="structure_hash")
+	private String structureHash;
+
 	@Column
 	private Boolean isChanged;
 
@@ -111,39 +114,31 @@ public class Endpoint {
 
 	}
 
-
+	/**
+	 * 이전 snaphost의 동일 endpoint와 비교해서
+	 * 변경여부(isChanged), 변경 타입(changeType)을 결정
+	 * @param prev
+	 */
 	public void applyDiff(Endpoint prev) {
 		if (prev == null) {
 			this.isChanged = true;
-			this.isCompleted=false;
 			this.changeType = ChangeType.CREATED;
 			return;
 		}
-
-		boolean requestChanged =
-			!Objects.equals(this.requestSchemaHash, prev.getRequestSchemaHash());
-		boolean responseChanged =
-			!Objects.equals(this.responseSchemaHash, prev.getResponseSchemaHash());
-		boolean changed = requestChanged || responseChanged;
+		boolean changed=!Objects.equals(this.structureHash,prev.getStructureHash());
 		this.isChanged = changed;
-		this.isCompleted=false;
 
-		if (!changed) {
+		if(!changed){
 			return;
 		}
-
-		if (requestChanged && responseChanged) {
-			this.changeType = ChangeType.BOTH_CHANGED;
-		} else if (requestChanged) {
-			this.changeType = ChangeType.REQUEST_CHANGED;
-		} else if (responseChanged) {
-			this.changeType = ChangeType.RESPONSE_CHANGED;
-		} else {
-			this.changeType = ChangeType.MODIFIED;
-		}
+		this.changeType=ChangeType.MODIFIED;
 	}
 
 	public void assignTag(String tag) {
 		this.tag = tag;
+	}
+
+	public void updateStructureHash(String structureHash) {
+		this.structureHash = structureHash;
 	}
 }
