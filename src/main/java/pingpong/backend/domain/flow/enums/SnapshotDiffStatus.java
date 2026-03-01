@@ -1,6 +1,7 @@
 package pingpong.backend.domain.flow.enums;
 
+
 public enum SnapshotDiffStatus {
-	NOT_CHANGED,
-	CHANGED;
+	CHANGED,
+	NOT_CHANGED
 }
