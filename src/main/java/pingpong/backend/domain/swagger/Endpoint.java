@@ -54,6 +54,10 @@ public class Endpoint {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
+	//해당 엔드포인트 연동 완료 여부
+	@Column
+	private Boolean isCompleted;
+
 	@Column
 	private String operationId;
 
@@ -95,11 +99,15 @@ public class Endpoint {
 	@ManyToOne(fetch = FetchType.LAZY)
 	private SwaggerSnapshot snapshot;
 
+	public void markCompleted() {
+		this.isCompleted = true;
+	}
 
 	public void markCreated(LocalDateTime createdAt, Member createdBy,SwaggerSnapshot snapshot) {
 		this.createdAt = createdAt;
 		this.createdBy = createdBy;
 		this.snapshot = snapshot;
+		this.isCompleted = false;
 
 	}
 
@@ -107,6 +115,7 @@ public class Endpoint {
 	public void applyDiff(Endpoint prev) {
 		if (prev == null) {
 			this.isChanged = true;
+			this.isCompleted=false;
 			this.changeType = ChangeType.CREATED;
 			return;
 		}
@@ -117,6 +126,7 @@ public class Endpoint {
 			!Objects.equals(this.responseSchemaHash, prev.getResponseSchemaHash());
 		boolean changed = requestChanged || responseChanged;
 		this.isChanged = changed;
+		this.isCompleted=false;
 
 		if (!changed) {
 			return;

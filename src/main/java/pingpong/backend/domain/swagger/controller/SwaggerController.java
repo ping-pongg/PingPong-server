@@ -23,6 +23,7 @@ import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointStatusResponse;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
@@ -35,8 +36,8 @@ import pingpong.backend.global.response.result.SuccessResponse;
 public class SwaggerController {
 
 	private final SwaggerService swaggerService;
-	private final EndpointService endpointService;
 	private final ApiExecuteService apiExecuteService;
+	private final EndpointService endpointService;
 
 	@Hidden
 	@GetMapping("/api/v1/swagger/{teamId}")
@@ -116,7 +117,7 @@ public class SwaggerController {
 	}
 
 	@PatchMapping("/api/v1/flow-images/{flowImageId}/endpoints/{endpointId}/complete")
-	@Operation(summary = "엔드포인트 연동 상태 완료로 변경", description = "해당 API를 연동 완료시 요청해주시면 됩니다.")
+	@Operation(summary = "엔드포인트 연동 상태 완료로 변경", description = "FE가 해당 엔드포인트를 연동 완료 시 호출하는 API입니다.")
 	public SuccessResponse<Boolean> completeEndpoint(
 		@PathVariable Long flowImageId,
 		@PathVariable Long endpointId,
@@ -124,5 +125,13 @@ public class SwaggerController {
 	) {
 		endpointService.completeEndpoint(flowImageId, endpointId, member);
 		return SuccessResponse.ok();
+	}
+
+	@GetMapping("/api/v1/pm/progress/{endpointId}")
+	@Operation(summary = "PM입장에서 엔드포인트 별 연동 상태 조회")
+	public SuccessResponse<EndpointStatusResponse> getEndpointStatus(
+		@PathVariable Long endpointId
+	){
+		return SuccessResponse.ok(endpointService.getEndpointStatus(endpointId));
 	}
 }

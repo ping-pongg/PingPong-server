@@ -1,6 +1,6 @@
 package pingpong.backend.domain.flow.dto.response;
 
-import pingpong.backend.domain.flow.UploadStatus;
+import pingpong.backend.domain.flow.enums.UploadStatus;
 
 public record FlowImageResponse(
 	Long imageId,
