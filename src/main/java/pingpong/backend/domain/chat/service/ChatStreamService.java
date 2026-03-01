@@ -3,8 +3,6 @@ package pingpong.backend.domain.chat.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -18,6 +16,8 @@ import pingpong.backend.domain.chat.stream.StreamMetadata;
 import pingpong.backend.domain.chat.stream.StreamStatus;
 import pingpong.backend.domain.eval.service.LlmEvalAsyncService;
 import pingpong.backend.domain.team.repository.MemberTeamRepository;
+import pingpong.backend.global.rag.chat.RagUserPrompt;
+import pingpong.backend.global.rag.chat.config.RagChatProperties;
 import pingpong.backend.global.exception.CustomException;
 import reactor.core.publisher.Flux;
 
@@ -40,12 +40,8 @@ public class ChatStreamService {
     private final ChatStreamManager streamManager;
     private final MemberTeamRepository memberTeamRepository;
     private final LlmEvalAsyncService evalAsyncService;
-
-    @Value("${rag.chat.top-k}")
-    private int topK;
-
-    @Value("${rag.chat.similarity-threshold}")
-    private double similarityThreshold;
+    private final RagChatProperties ragChatProperties;
+    private final RagUserPrompt ragUserPrompt;
 
     public void validateTeamAccess(Long teamId, Long memberId) {
         if (!memberTeamRepository.existsByTeamIdAndMemberId(teamId, memberId)) {
@@ -152,7 +148,7 @@ public class ChatStreamService {
             List<Document> retrievedDocs = diagnosVectorStoreContext(streamId, teamId, message, filterExpression);
             int latencyRetrieval = (int) (System.currentTimeMillis() - retrievalStart);
 
-            log.info("STREAM-RAG: calling ChatClient (QuestionAnswerAdvisor + OpenAI streaming) — streamId={} teamId={}", streamId, teamId);
+            log.info("STREAM: calling ChatClient (direct docs injection + OpenAI streaming) — streamId={} teamId={}", streamId, teamId);
 
             long generationStart = System.currentTimeMillis();
 
@@ -162,8 +158,7 @@ public class ChatStreamService {
 
             // .content() 대신 .chatResponse()로 변경 → usage 메타데이터(토큰/비용) 보존
             Flux<ChatResponse> responseFlux = chatClient.prompt()
-                    .user(message)
-                    .advisors(a -> a.param(QuestionAnswerAdvisor.FILTER_EXPRESSION, filterExpression))
+                    .user(ragUserPrompt.build(message, retrievedDocs))
                     .stream()
                     .chatResponse();
 
@@ -262,8 +257,8 @@ public class ChatStreamService {
             List<Document> docs = vectorStore.similaritySearch(
                     SearchRequest.builder()
                             .query(message)
-                            .topK(topK)
-                            .similarityThreshold(similarityThreshold)
+                            .topK(ragChatProperties.getTopK())
+                            .similarityThreshold(ragChatProperties.getSimilarityThreshold())
                             .filterExpression(filterExpression)
                             .build()
             );
@@ -276,12 +271,12 @@ public class ChatStreamService {
                 try {
                     List<Document> lowThresholdDocs = vectorStore.similaritySearch(
                             SearchRequest.builder()
-                                    .query(message)
-                                    .topK(topK)
+                                     .query(message)
+                                    .topK(ragChatProperties.getTopK())
                                     .similarityThreshold(0.0)
                                     .filterExpression(filterExpression)
                                     .build()
-                    );
+                     );
                     if (lowThresholdDocs == null || lowThresholdDocs.isEmpty()) {
                         log.warn("STREAM-RAG [Step2]: 필터+threshold=0.0 → 결과 0건. → 원인: ①teamId={} 에 해당하는 데이터가 Pinecone에 없음 또는 ②필터 표현식 타입 불일치",
                                 teamId);

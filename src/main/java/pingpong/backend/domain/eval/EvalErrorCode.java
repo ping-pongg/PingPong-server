@@ -1,4 +1,4 @@
-package pingpong.backend.domain.eval.error;
+package pingpong.backend.domain.eval;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

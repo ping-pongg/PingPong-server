@@ -3,6 +3,7 @@ package pingpong.backend.domain.flow.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,6 +21,7 @@ import pingpong.backend.domain.flow.dto.request.FlowEndpointAssignRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowEndpointAssignResponse;
 import pingpong.backend.domain.flow.dto.response.FlowImageResponse;
+import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.repository.FlowImageEndpointRepository;
@@ -32,6 +34,7 @@ import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.team.enums.Role;
 import pingpong.backend.domain.team.service.TeamService;
 import pingpong.backend.global.exception.CustomException;
 import pingpong.backend.global.storage.dto.ImageUploadType;
@@ -52,6 +55,59 @@ public class FlowService {
 	private final ServerService serverService;
 	private final FlowImageEndpointRepository flowImageEndpointRepository;
 	private final EndpointRepository endpointRepository;
+
+	/**
+	 * 팀별 flow 목록 조회 (role에 따라 alert 의미 다름)
+	 */
+	@Transactional(readOnly = true)
+	public List<FlowListItemResponse> getFlowList(Long teamId, Role role) {
+		// 1. 팀의 모든 flow 조회
+		List<Flow> flows = flowRepository.findByTeamId(teamId);
+		if (flows.isEmpty()) {
+			return List.of();
+		}
+
+		List<Long> flowIds = flows.stream().map(Flow::getId).toList();
+
+		// 2. flow별 대표 이미지 batch 조회 (id가 가장 작은 것 1건)
+		List<FlowImage> thumbnails = flowImageRepository.findFirstImagePerFlow(flowIds);
+		Map<Long, FlowImage> thumbnailByFlowId = thumbnails.stream()
+			.collect(Collectors.toMap(fi -> fi.getFlow().getId(), Function.identity()));
+
+		// 3. role별 alert 판단에 필요한 flow id 집합 조회
+		// BACKEND: 엔드포인트가 하나라도 할당된 flow id 집합
+		// FRONTEND: isLinked=false인 엔드포인트가 하나라도 있는 flow id 집합
+		Set<Long> alertFlowIds = switch (role) {
+			case BACKEND -> Set.copyOf(flowImageEndpointRepository.findFlowIdsWithAnyEndpoint(flowIds));
+			case FRONTEND -> Set.copyOf(flowImageEndpointRepository.findFlowIdsWithUnlinkedEndpoint(flowIds));
+			default -> Set.of();
+		};
+
+		// 4. 대표 이미지 presigned URL 발급 및 DTO 조립
+		return flows.stream().map(flow -> {
+			FlowImage thumbnail = thumbnailByFlowId.get(flow.getId());
+			String thumbnailUrl = null;
+			if (thumbnail != null && thumbnail.getStatus() == UploadStatus.COMPLETE) {
+				thumbnailUrl = presignedUrlService.getGetS3Url(thumbnail.getObjectKey()).presignedUrl();
+			}
+
+			// BACKEND: true=미할당, false=할당됨
+			// FRONTEND: true=미연동 엔드포인트 존재, false=전체 연동 완료 or 엔드포인트 미할당
+			Boolean alert = switch (role) {
+				case BACKEND -> !alertFlowIds.contains(flow.getId());
+				case FRONTEND -> alertFlowIds.contains(flow.getId());
+				default -> null;
+			};
+
+			return new FlowListItemResponse(
+				flow.getId(),
+				flow.getTitle(),
+				flow.getDescription(),
+				thumbnailUrl,
+				alert
+			);
+		}).toList();
+	}
 
 	/**
 	 * flow 생성

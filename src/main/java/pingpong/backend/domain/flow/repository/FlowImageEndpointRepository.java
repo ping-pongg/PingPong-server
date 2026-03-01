@@ -33,5 +33,22 @@ public interface FlowImageEndpointRepository extends JpaRepository<FlowImageEndp
 """)
 	int unlinkChangedEndpoints(@Param("endpointIds") List<Long> endpointIds);
 
+	@Query("""
+		select distinct fi.flow.id
+		from FlowImageEndpoint fie
+		join fie.image fi
+		where fi.flow.id in :flowIds
+		""")
+	List<Long> findFlowIdsWithAnyEndpoint(@Param("flowIds") List<Long> flowIds);
+
+	@Query("""
+		select distinct fi.flow.id
+		from FlowImageEndpoint fie
+		join fie.image fi
+		where fi.flow.id in :flowIds
+		  and fie.isLinked = false
+		""")
+	List<Long> findFlowIdsWithUnlinkedEndpoint(@Param("flowIds") List<Long> flowIds);
+
 }
 

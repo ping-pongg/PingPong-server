@@ -6,7 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 import pingpong.backend.domain.eval.dto.*;
 import pingpong.backend.domain.eval.LlmEvalCase;
-import pingpong.backend.domain.eval.error.EvalErrorCode;
+import pingpong.backend.domain.eval.EvalErrorCode;
 import pingpong.backend.domain.eval.enums.EvalStatus;
 import pingpong.backend.domain.eval.repository.LlmEvalCaseRepository;
 import pingpong.backend.global.exception.CustomException;
