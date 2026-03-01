@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,10 +17,12 @@ import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
 import pingpong.backend.domain.flow.dto.request.FlowEndpointAssignRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowEndpointAssignResponse;
+import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.service.FlowService;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.team.enums.Role;
 import pingpong.backend.global.annotation.CurrentMember;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -30,6 +33,28 @@ import pingpong.backend.global.response.result.SuccessResponse;
 public class FlowController {
 
 	private final FlowService flowService;
+
+	@GetMapping("/teams/{teamId}")
+	@Operation(
+		summary = "팀별 Flow 목록 조회",
+		description = """
+			- 팀에 속한 Flow 목록을 반환합니다. alert 필드의 의미는 role 파라미터에 따라 다릅니다.
+			- 각 Flow의 썸네일은 해당 Flow에 속한 이미지 중 가장 먼저 등록된 1장의 presigned URL입니다.
+			- 이미지가 없거나 업로드 미완료(PENDING) 상태이면 thumbnailUrl은 null입니다.
+
+			| role | `true` | `false` | `null` |
+			|---|---|---|---|
+			| `BACKEND` | 엔드포인트 **미할당** (액션 필요) | 엔드포인트 할당됨 | — |
+			| `FRONTEND` | **미연동** 엔드포인트 존재 (액션 필요) | 전체 연동 완료 또는 엔드포인트 미할당 | — |
+			| `PLANNING` / `QA` | — | — | 항상 `null` |
+			"""
+	)
+	public SuccessResponse<List<FlowListItemResponse>> getFlowList(
+		@PathVariable Long teamId,
+		@RequestParam Role role
+	) {
+		return SuccessResponse.ok(flowService.getFlowList(teamId, role));
+	}
 
 	@PostMapping("/{teamId}")
 	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
