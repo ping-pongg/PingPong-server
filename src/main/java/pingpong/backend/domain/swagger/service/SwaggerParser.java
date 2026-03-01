@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.swagger.Endpoint;
+import pingpong.backend.domain.swagger.SwaggerEndpointSecurity;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.SwaggerRequest;
@@ -69,8 +70,9 @@ public class SwaggerParser {
 				List<SwaggerParameter> parameters=extractParameters(pathLevelParams,operationNode,endpoint,root);
 				List<SwaggerRequest> requests=extractRequests(operationNode,endpoint,root);
 				List<SwaggerResponse> responses=extractResponses(operationNode,endpoint,root);
+				List<SwaggerEndpointSecurity> securities=extractSecurity(operationNode,endpoint,root);
 
-				result.add(new EndpointAggregate(endpoint,parameters,requests,responses, LocalDateTime.now()));
+				result.add(new EndpointAggregate(endpoint,securities,parameters,requests,responses, LocalDateTime.now()));
 			});
 		});
 		return result;
@@ -182,6 +184,101 @@ public class SwaggerParser {
 		} catch (JsonProcessingException e) {
 			return node.toString();
 		}
+	}
+
+	/**
+	 * swagger에서 security 추출해서 객체 생성
+	 * @param operationNode
+	 * @param endpoint
+	 * @param root
+	 * @return
+	 */
+	public List<SwaggerEndpointSecurity> extractSecurity(
+		JsonNode operationNode,
+		Endpoint endpoint,
+		JsonNode root
+	) {
+
+		List<SwaggerEndpointSecurity> result = new ArrayList<>();
+
+		// 1️⃣ operation-level security
+		JsonNode securityNode = operationNode.get("security");
+
+		// 2️⃣ operation에 없으면 global security
+		if (securityNode == null || securityNode.isNull()) {
+			securityNode = root.get("security");
+		}
+
+		if (securityNode == null || !securityNode.isArray()) {
+			return result; // security 없음
+		}
+
+		JsonNode components = root.get("components");
+		JsonNode securitySchemes = components != null
+			? components.get("securitySchemes")
+			: null;
+
+		if (securitySchemes == null) {
+			return result;
+		}
+
+		// security: [ { bearerAuth: [] } ]
+		for (JsonNode secItem : securityNode) {
+
+			secItem.fieldNames().forEachRemaining(securityName -> {
+
+				JsonNode schemeNode =
+					securitySchemes.get(securityName);
+
+				if (schemeNode == null) {
+					return;
+				}
+
+				String type =
+					schemeNode.get("type") != null
+						? schemeNode.get("type").asText()
+						: null;
+
+				String scheme =
+					schemeNode.get("scheme") != null
+						? schemeNode.get("scheme").asText()
+						: null;
+
+				String bearerFormat =
+					schemeNode.get("bearerFormat") != null
+						? schemeNode.get("bearerFormat").asText()
+						: null;
+
+				String headerName = null;
+
+				// apiKey 타입일 경우
+				if ("apiKey".equals(type)) {
+					headerName =
+						schemeNode.get("name") != null
+							? schemeNode.get("name").asText()
+							: null;
+				}
+
+				// http bearer 기본 헤더
+				if ("http".equals(type) &&
+					"bearer".equals(scheme)) {
+					headerName = "Authorization";
+				}
+
+				SwaggerEndpointSecurity security =
+					SwaggerEndpointSecurity.builder()
+						.type(type)
+						.scheme(scheme)
+						.bearerFormat(bearerFormat)
+						.headerName(headerName)
+						.endpoint(endpoint)
+						.build();
+
+				result.add(security);
+			});
+		}
+
+		return result;
 	}
 
 

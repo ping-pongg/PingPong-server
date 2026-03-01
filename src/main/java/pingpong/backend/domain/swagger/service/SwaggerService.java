@@ -12,27 +12,37 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.Endpoint;
+import pingpong.backend.domain.swagger.SwaggerEndpointSecurity;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.SwaggerResponse;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
+import pingpong.backend.domain.swagger.dto.SnapshotSecurity;
+import pingpong.backend.domain.swagger.dto.request.SnapshotRequest;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
 import pingpong.backend.domain.swagger.dto.response.ParameterResponse;
+import pingpong.backend.domain.swagger.dto.response.ParameterSnapshotResponse;
 import pingpong.backend.domain.swagger.dto.response.RequestBodyResponse;
 import pingpong.backend.domain.swagger.dto.response.ResponseBodyResponse;
+import pingpong.backend.domain.swagger.dto.response.SnapshotResponse;
+import pingpong.backend.domain.swagger.dto.response.SnapshotSecurityResponse;
 import pingpong.backend.domain.swagger.enums.ChangeType;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerEndpointSecurityRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
@@ -58,6 +68,8 @@ public class SwaggerService {
 	private final TeamService teamService;
 	private final DiffService diffService;
 	private final EndpointService endpointService;
+	private final ObjectMapper objectMapper;
+	private final SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository;
 
 	/**
 	 * swagger JSON Node 형태로 읽어오기
@@ -75,7 +87,7 @@ public class SwaggerService {
 	 * @param endpointId
 	 * @return
 	 */
-	public EndpointDetailResponse getEndpointDetails(Long endpointId) {
+	public EndpointDiffDetailResponse getEndpointDiffDetails(Long endpointId) {
 		//현재 endpoint 조회
 		Endpoint curr=endpointRepository.findById(endpointId)
 			.orElseThrow(()->new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
@@ -127,7 +139,7 @@ public class SwaggerService {
 		List<ResponseBodyResponse> responseDiff =
 			diffService.diffResponses(prevResponses, currResponses);
 
-		return new EndpointDetailResponse(
+		return new EndpointDiffDetailResponse(
 			curr.getPath(),
 			curr.getMethod(),
 			parameterDiff,
@@ -135,6 +147,72 @@ public class SwaggerService {
 			responseDiff
 		);
 	}
+
+	/**
+	 * endpoint 단건 조회
+	 * @param endpointId
+	 * @return
+	 */
+	@Transactional(readOnly = true)
+	public EndpointDetailResponse getEndpointDetails(Long endpointId) {
+
+		Endpoint endpoint = endpointRepository.findById(endpointId)
+			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+
+		return new EndpointDetailResponse(
+			endpoint.getPath(),
+			endpoint.getMethod(),
+			toSnapshotParameters(
+				swaggerParameterRepository.findByEndpointId(endpointId)
+			),
+			toSnapshotRequests(
+				swaggerRequestRepository.findByEndpointId(endpointId)
+			),
+			toSnapshotResponses(
+				swaggerResponseRepository.findByEndpointId(endpointId)
+			),
+			toSnapshotSecurity(
+				swaggerEndpointSecurityRepository.findByEndpointId(endpointId)
+			)
+		);
+	}
+
+
+	private List<SnapshotSecurityResponse> toSnapshotSecurity(
+		List<SwaggerEndpointSecurity> securityList
+	) {
+		if (securityList == null || securityList.isEmpty()) {
+			return List.of();
+		}
+
+		return securityList.stream()
+			.map(SnapshotSecurityResponse::from)
+			.toList();
+	}
+	private List<ParameterSnapshotResponse> toSnapshotParameters(
+		List<SwaggerParameter> parameterList
+	) {
+		return parameterList.stream()
+			.map(p -> ParameterSnapshotResponse.from(p, objectMapper))
+			.toList();
+	}
+
+	private List<SnapshotRequest> toSnapshotRequests(
+		List<SwaggerRequest> requestList
+	) {
+		return requestList.stream()
+			.map(r -> SnapshotRequest.from(r, objectMapper))
+			.toList();
+	}
+
+	private List<SnapshotResponse> toSnapshotResponses(
+		List<SwaggerResponse> responseList
+	) {
+		return responseList.stream()
+			.map(r -> SnapshotResponse.from(r, objectMapper))
+			.toList();
+	}
+
 
 	/**
 	 * 가장 최신의 swagger를 업데이트해서 비교
@@ -247,6 +325,7 @@ public class SwaggerService {
 			Endpoint saved=endpointRepository.save(endpoint);
 			savedEndpoints.add(saved);
 
+			swaggerEndpointSecurityRepository.saveAll(aggregate.endpointSecuritys());
 			swaggerParameterRepository.saveAll(aggregate.parameters());
 			swaggerRequestRepository.saveAll(aggregate.requests());
 			swaggerResponseRepository.saveAll(aggregate.responses());
