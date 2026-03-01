@@ -54,6 +54,10 @@ public class TestController {
 		@Parameter(description = "상세 포함 여부", example = "true")
 		Boolean includeDetail,
 
+		@RequestParam
+		@Parameter(description = "집가고싶다")
+		Boolean goHome,
+
 		@RequestHeader(value = "X-Trace-Id", required = false)
 		@Parameter(in = ParameterIn.HEADER, description = "추적용 Trace ID", example = "trace-abc-123")
 		String traceId,
