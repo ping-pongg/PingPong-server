@@ -21,8 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.flow.enums.UploadStatus;
 
 @Getter
 @Entity
