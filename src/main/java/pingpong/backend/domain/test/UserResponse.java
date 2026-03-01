@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record UserResponse(
 	@Schema(example = "1001") Long id,
 	@Schema(example = "dummy-user") String name,
-	@Schema(description = "상세 포함 여부", example = "true") boolean detailed,
+	// @Schema(description = "상세 포함 여부", example = "true") boolean detailed,
 	@Schema(description = "trace id", example = "trace-abc-123") String traceId,
-	@Schema(description = "session cookie", example = "s123") String session,
+	@Schema(description = "session cookie", example = "s123") Long session,
 	@Schema(description = "응답 생성 시각", example = "2026-03-01T09:00:00Z") String generatedAt
 ) {}
