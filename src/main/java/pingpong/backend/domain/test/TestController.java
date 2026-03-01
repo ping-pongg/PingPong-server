@@ -34,7 +34,7 @@ public class TestController {
 	@GetMapping("/users/{userId}")
 	@Operation(
 		summary = "유저 단건 조회(더미)",
-		description = "Swagger diff 테스트를 위해 path/query/header/cookie 파라미터를 모두 포함합니다.",
+		description = "오예오예",
 		responses = {
 			@ApiResponse(
 				responseCode = "200",
