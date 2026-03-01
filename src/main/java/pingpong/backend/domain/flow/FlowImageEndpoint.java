@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import pingpong.backend.domain.flow.enums.FlowEndpointLinkStatus;
 import pingpong.backend.domain.swagger.Endpoint;
 
 @Getter
@@ -63,7 +64,7 @@ public class FlowImageEndpoint {
 		m.x = x;
 		m.y = y;
 		m.isChanged = ep.getIsChanged();
-		m.isLinked = false;
+		m.isLinked=false;
 		return m;
 	}
 
@@ -72,9 +73,8 @@ public class FlowImageEndpoint {
 		this.y = y;
 	}
 
-	public Boolean markLinked() {
+	public void markLinked() {
 		this.isLinked = true;
-		return null;
 	}
 
 	public void markChanged() {
