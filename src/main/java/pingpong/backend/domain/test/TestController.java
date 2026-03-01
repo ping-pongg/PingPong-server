@@ -58,6 +58,10 @@ public class TestController {
 		@Parameter(description = "집가고싶다")
 		Boolean goHome,
 
+		@RequestParam
+		@Parameter(description = "연휴 최고~")
+		Boolean greatSunday,
+
 		@RequestHeader(value = "X-Trace-Id", required = false)
 		@Parameter(in = ParameterIn.HEADER, description = "추적용 Trace ID", example = "trace-abc-123")
 		String traceId,
