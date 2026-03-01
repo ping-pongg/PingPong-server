@@ -3,12 +3,10 @@ package pingpong.backend.domain.swagger.dto.response;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import pingpong.backend.domain.swagger.dto.SnapshotSecurity;
-import pingpong.backend.domain.swagger.dto.request.SnapshotRequest;
 import pingpong.backend.domain.swagger.enums.CrudMethod;
 
 @Schema(description = "endpoint 상세 조회 응답 dto ")
-public record EndpointDetailResponse(
+public record EndpointDiffDetailResponse(
 
 	@Schema
 	String path,
@@ -17,15 +15,12 @@ public record EndpointDetailResponse(
 	CrudMethod method,
 
 	@Schema
-	List<ParameterSnapshotResponse> parameters,
+	List<ParameterResponse> parameters,
 
 	@Schema
-	List<SnapshotRequest> requests,
+	List<RequestBodyResponse> requests,
 
 	@Schema
-	List<SnapshotResponse> responses,
-
-	@Schema
-	List<SnapshotSecurityResponse> security
+	List<ResponseBodyResponse> responses
 ){
 }

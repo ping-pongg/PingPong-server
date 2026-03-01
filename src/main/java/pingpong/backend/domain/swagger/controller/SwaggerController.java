@@ -21,6 +21,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointStatusResponse;
@@ -70,8 +71,16 @@ public class SwaggerController {
 		return SuccessResponse.ok(swaggerService.syncSwagger(teamId, currentMember));
 	}
 
-	@GetMapping("/api/v1/endpoints/{endpointId}")
+	@GetMapping("/api/v1/endpoints/diff/{endpointId}")
 	@Operation(summary = "endpoint 상세 조회 (미완성)", description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
+	public SuccessResponse<EndpointDiffDetailResponse> getEndpointDiffDetails(
+		@PathVariable Long endpointId
+	) {
+		return SuccessResponse.ok(swaggerService.getEndpointDiffDetails(endpointId));
+	}
+
+	@GetMapping("/api/v1/endpoints/{endpointId}")
+	@Operation(summary = "endpoint 상세 조회", description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
 	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
 		@PathVariable Long endpointId
 	) {
