@@ -1,9 +1,6 @@
 package pingpong.backend.global.storage.service;
 
-import java.net.URL;
-import java.nio.file.AccessDeniedException;
 import java.time.Duration;
-import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Value;
 
@@ -14,11 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import pingpong.backend.domain.flow.FlowImage;
-import pingpong.backend.domain.flow.UploadStatus;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
-import pingpong.backend.domain.member.Member;
-import pingpong.backend.global.exception.CustomException;
 import pingpong.backend.global.storage.dto.ImageUploadType;
 import pingpong.backend.global.storage.dto.request.PresignedUrlRequest;
 import pingpong.backend.global.storage.dto.response.PresignedUrlResponse;

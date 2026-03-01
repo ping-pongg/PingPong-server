@@ -22,6 +22,7 @@ public interface FlowImageEndpointRepository extends JpaRepository<FlowImageEndp
 	List<FlowImageEndpoint> findMappingsByImageId(@Param("flowImageId") Long flowImageId);
 	Optional<FlowImageEndpoint> findByImageIdAndEndpointId(Long flowImageId, Long endpointId);
 	List<FlowImageEndpoint> findAllByImageId(Long imageId);
+	List<FlowImageEndpoint> findAllByEndpointId(Long endpointId);
 
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Query("""

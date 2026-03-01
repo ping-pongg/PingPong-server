@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.flow.Flow;
 import pingpong.backend.domain.flow.FlowImageEndpoint;
-import pingpong.backend.domain.flow.UploadStatus;
+import pingpong.backend.domain.flow.enums.UploadStatus;
 import pingpong.backend.domain.flow.dto.ImageUploadDto;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
 import pingpong.backend.domain.flow.dto.request.FlowEndpointAssignRequest;
