@@ -1,4 +1,4 @@
-package pingpong.backend.global.config;
+package pingpong.backend.global.rag.chat.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
@@ -67,7 +67,6 @@ public class ChatStreamConfig {
         RedisTemplate<String, StreamMetadata> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Jackson2JsonRedisSerializer로 명시적 타입 지정
         Jackson2JsonRedisSerializer<StreamMetadata> serializer =
                 new Jackson2JsonRedisSerializer<>(objectMapper, StreamMetadata.class);
 
