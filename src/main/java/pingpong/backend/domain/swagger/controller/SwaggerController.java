@@ -72,7 +72,7 @@ public class SwaggerController {
 	}
 
 	@GetMapping("/api/v1/endpoints/diff/{endpointId}")
-	@Operation(summary = "endpoint 상세 조회 (미완성)", description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
+	@Operation(summary = "diff 포함 endpoint 상세 조회", description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다. 변경 사항을 상세히 확인할 때 활용합니다.")
 	public SuccessResponse<EndpointDiffDetailResponse> getEndpointDiffDetails(
 		@PathVariable Long endpointId
 	) {
@@ -80,7 +80,7 @@ public class SwaggerController {
 	}
 
 	@GetMapping("/api/v1/endpoints/{endpointId}")
-	@Operation(summary = "endpoint 상세 조회", description = "변경된 사항이 있는 경우 diff까지 함께 조회할 수 있도록 합니다.")
+	@Operation(summary = "endpoint 상세 조회", description = "endpoint를 상세 조회 합니다. qa 엔드포인트 실행 시 활용합니다.")
 	public SuccessResponse<EndpointDetailResponse> getEndpointDetails(
 		@PathVariable Long endpointId
 	) {
