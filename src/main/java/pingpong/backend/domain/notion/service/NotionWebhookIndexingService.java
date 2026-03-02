@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
+import pingpong.backend.domain.task.service.TaskSyncService;
 import pingpong.backend.global.rag.indexing.dto.IndexJob;
 import pingpong.backend.global.rag.indexing.enums.IndexSourceType;
 import pingpong.backend.global.rag.indexing.job.IndexJobPublisher;
@@ -30,6 +31,7 @@ public class NotionWebhookIndexingService {
     private final NotionConnectionService notionConnectionService;
     private final IndexJobPublisher indexJobPublisher;
     private final VectorStoreGateway vectorStoreGateway;
+    private final TaskSyncService taskSyncService;
     private final ObjectMapper objectMapper;
 
     @Async("indexExecutor")
@@ -52,6 +54,11 @@ public class NotionWebhookIndexingService {
             } catch (Exception e) {
                 log.error("WEBHOOK_INDEX: child database 인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
             }
+            try {
+                taskSyncService.upsert(teamId, pageResponse);
+            } catch (Exception e) {
+                log.error("WEBHOOK_INDEX: Task upsert 실패 teamId={} pageId={}", teamId, pageId, e);
+            }
         }
         try {
             indexPrimaryDatabase(teamId);
@@ -69,6 +76,11 @@ public class NotionWebhookIndexingService {
             log.error("WEBHOOK_INDEX: 페이지 벡터 삭제 실패 teamId={} pageId={}", teamId, pageId, e);
         }
         try {
+            taskSyncService.delete(pageId);
+        } catch (Exception e) {
+            log.error("WEBHOOK_INDEX: Task 삭제 실패 teamId={} pageId={}", teamId, pageId, e);
+        }
+        try {
             indexPrimaryDatabase(teamId);
         } catch (Exception e) {
             log.error("WEBHOOK_INDEX: primary database 재인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
@@ -82,6 +94,7 @@ public class NotionWebhookIndexingService {
             String apiPath = "GET /api/v1/teams/" + teamId + "/notion/pages/" + pageResponse.id();
             JsonNode payload = objectMapper.valueToTree(pageResponse);
             indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, apiPath, pageResponse.id(), payload));
+            taskSyncService.upsert(teamId, pageResponse);
         } catch (Exception e) {
             log.error("WEBHOOK_INDEX: 페이지 인덱싱 실패 teamId={} pageId={}", teamId, pageResponse.id(), e);
         }
@@ -126,7 +139,6 @@ public class NotionWebhookIndexingService {
     }
 
     private String resolveCompactPrimaryDatabaseId(Long teamId) {
-        String databaseId = notionConnectionService.resolveConnectedDatabaseId(teamId);
-        return databaseId == null ? null : databaseId.replace("-", "");
+        return notionConnectionService.resolveConnectedDatabaseId(teamId);
     }
 }

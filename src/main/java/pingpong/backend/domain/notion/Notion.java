@@ -74,11 +74,15 @@ public class Notion {
     }
 
     public void updateDatabaseId(String databaseId) {
-        this.databaseId = databaseId;
+        this.databaseId = compact(databaseId);
     }
 
     public void updateConnection(String databaseId, String dataSourceId) {
-        this.databaseId = databaseId;
+        this.databaseId = compact(databaseId);
         this.dataSourceId = dataSourceId;
+    }
+
+    private static String compact(String id) {
+        return id == null ? null : id.replace("-", "");
     }
 }

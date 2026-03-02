@@ -9,8 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
+import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.dto.response.PageSummary;
 import pingpong.backend.domain.notion.event.NotionInitialIndexEvent;
+import pingpong.backend.domain.task.service.TaskSyncService;
 import pingpong.backend.global.rag.indexing.dto.IndexJob;
 import pingpong.backend.global.rag.indexing.enums.IndexSourceType;
 import pingpong.backend.global.rag.indexing.job.IndexJobPublisher;
@@ -30,6 +32,7 @@ public class NotionInitialIndexingService {
     private final NotionDatabaseQueryService notionDatabaseQueryService;
     private final NotionPageService notionPageService;
     private final IndexJobPublisher indexJobPublisher;
+    private final TaskSyncService taskSyncService;
     private final ObjectMapper objectMapper;
 
     @Async("indexExecutor")
@@ -69,10 +72,11 @@ public class NotionInitialIndexingService {
 
     private void indexPage(Long teamId, String pageId) {
         try {
-            var pageResponse = notionPageService.getPageBlocks(teamId, pageId);
+            PageDetailResponse pageResponse = notionPageService.getPageBlocks(teamId, pageId);
             String pageApiPath = "GET /api/v1/teams/" + teamId + "/notion/pages/" + pageId;
             JsonNode pagePayload = objectMapper.valueToTree(pageResponse);
             indexJobPublisher.publish(new IndexJob(IndexSourceType.NOTION, teamId, pageApiPath, pageId, pagePayload));
+            taskSyncService.upsert(teamId, pageResponse);
         } catch (Exception e) {
             log.warn("INITIAL_INDEX: 페이지 인덱싱 실패 teamId={} pageId={}", teamId, pageId, e);
         }
