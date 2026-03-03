@@ -21,9 +21,11 @@ import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.event.NotionInitialIndexEvent;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 import pingpong.backend.domain.notion.util.NotionJsonUtils;
+import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.global.exception.CustomException;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -111,11 +113,31 @@ public class NotionFacade {
         return notionPageService.getPageBlocks(teamId, pageId);
     }
 
-    public DatabaseCreatedResponse createDatabase(Long teamId, Member member, String parentPageId) {
-        notionConnectionService.assertTeamAccess(teamId, member);
-        DatabaseCreatedResponse result = notionDatabaseCreateService.createDatabase(teamId, parentPageId);
-        notionWebhookIndexingService.triggerAfterDatabaseCreate(teamId, result.id(), parentPageId);
-        return result;
+    /**
+     * Task의 flowMappingCompleted = true 설정 시 호출.
+     * 기존 child DB가 있으면 archived 처리 후 새 DB를 생성하고, 각 endpoint 행을 추가한다.
+     *
+     * @param teamId                 팀 ID
+     * @param taskPageId             Task의 Notion 페이지 ID (child DB의 parent)
+     * @param existingChildDatabaseId 기존 child DB ID (없으면 null)
+     * @param endpoints              추가할 endpoint 목록
+     * @return 새로 생성된 DB ID
+     */
+    public String setupTaskDatabase(Long teamId, String taskPageId, String existingChildDatabaseId, List<Endpoint> endpoints) {
+        if (existingChildDatabaseId != null) {
+            notionDatabaseCreateService.archiveBlock(teamId, existingChildDatabaseId);
+        }
+
+        DatabaseCreatedResponse created = notionDatabaseCreateService.createDatabase(teamId, taskPageId);
+        String newDbId = created.id();
+
+        for (Endpoint endpoint : endpoints) {
+            String apiListValue = endpoint.getMethod().name() + " " + endpoint.getPath();
+            notionDatabaseCreateService.addRowToDatabase(teamId, newDbId, apiListValue);
+        }
+
+        notionWebhookIndexingService.triggerAfterDatabaseCreate(teamId, newDbId, taskPageId);
+        return newDbId;
     }
 
     @Transactional(readOnly = true)

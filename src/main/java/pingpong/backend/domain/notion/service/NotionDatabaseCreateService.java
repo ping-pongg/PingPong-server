@@ -93,6 +93,58 @@ public class NotionDatabaseCreateService {
         return new DatabaseCreatedResponse(databaseId, databaseTitle, databaseUrl);
     }
 
+    /**
+     * Notion 블록(데이터베이스 등)을 archived 상태로 변경 (삭제)
+     *
+     * @param teamId  팀 ID
+     * @param blockId 아카이브할 블록 ID
+     */
+    public void archiveBlock(Long teamId, String blockId) {
+        String normalizedBlockId = compactNotionId(blockId);
+        log.info("BLOCK-ARCHIVE: Archiving block={}", normalizedBlockId);
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("archived", true);
+
+        callApi(teamId,
+                () -> notionRestClient.patch("/v1/blocks/" + normalizedBlockId, notionTokenService.getAccessToken(teamId), body));
+    }
+
+    /**
+     * 데이터베이스에 행(페이지) 추가
+     *
+     * @param teamId       팀 ID
+     * @param databaseId   대상 데이터베이스 ID
+     * @param apiListValue "API List" title 컬럼에 입력할 값 (예: "GET /api/v1/users")
+     */
+    public void addRowToDatabase(Long teamId, String databaseId, String apiListValue) {
+        String normalizedDatabaseId = compactNotionId(databaseId);
+        log.info("DB-ROW-ADD: Adding row to database={}, apiList={}", normalizedDatabaseId, apiListValue);
+
+        ObjectNode body = objectMapper.createObjectNode();
+
+        ObjectNode parent = objectMapper.createObjectNode();
+        parent.put("database_id", normalizedDatabaseId);
+        body.set("parent", parent);
+
+        ObjectNode properties = objectMapper.createObjectNode();
+
+        ObjectNode apiListProperty = objectMapper.createObjectNode();
+        apiListProperty.set("title", notionJsonUtils.toRichTextArray(apiListValue));
+        properties.set("API List", apiListProperty);
+
+        ObjectNode statusProperty = objectMapper.createObjectNode();
+        ObjectNode selectNode = objectMapper.createObjectNode();
+        selectNode.put("name", "Backend");
+        statusProperty.set("select", selectNode);
+        properties.set("Status", statusProperty);
+
+        body.set("properties", properties);
+
+        callApi(teamId,
+                () -> notionRestClient.post("/v1/pages", notionTokenService.getAccessToken(teamId), body));
+    }
+
     private ResponseEntity<String> callApi(Long teamId, Supplier<ResponseEntity<String>> supplier) {
         ResponseEntity<String> response = notionTokenService.executeWithRefresh(teamId, supplier);
         if (!response.getStatusCode().is2xxSuccessful()) {
