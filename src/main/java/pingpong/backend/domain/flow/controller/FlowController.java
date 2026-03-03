@@ -14,10 +14,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.flow.dto.request.FlowEndpointAssignRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestConnectRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
-import pingpong.backend.domain.flow.dto.response.FlowEndpointAssignResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
+import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.service.FlowService;
@@ -29,7 +30,7 @@ import pingpong.backend.global.response.result.SuccessResponse;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/flows")
-@Tag(name="Flow API",description = "flow를 생성/수정/삭제 조회하는 API입니다.")
+@Tag(name = "Flow API", description = "flow를 생성/수정/삭제 조회하는 API입니다.")
 public class FlowController {
 
 	private final FlowService flowService;
@@ -57,43 +58,12 @@ public class FlowController {
 	}
 
 	@PostMapping("/{teamId}")
-	@Operation(summary="flow 생성",description = "해당 프로젝트의 특정 flow를 생성합니다.")
+	@Operation(summary = "flow 생성", description = "해당 프로젝트의 특정 flow를 생성합니다.")
 	public SuccessResponse<FlowCreateResponse> createFlow(
 		@PathVariable Long teamId,
 		@RequestBody FlowCreateRequest flowCreateRequest
-	){
-		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest,teamId));
-	}
-
-	@PostMapping("/images/{imageId}/endpoints")
-	@Operation(
-		summary = "Flow 이미지에 엔드포인트 매핑",
-		description = "지정한 Flow 이미지에 하나 이상의 엔드포인트를 할당(매핑)합니다. " +
-			"각 엔드포인트는 이미지 내 위치 좌표(x, y)와 함께 저장되며, " +
-			"이미 매핑된 경우에는 기존 매핑을 유지한 채 좌표 정보만 업데이트합니다. " +
-			"처리 완료 후 해당 이미지에 현재 매핑된 전체 엔드포인트 목록을 반환합니다."
-	)
-	public SuccessResponse<FlowEndpointAssignResponse> assignEndpoints(
-		@PathVariable Long imageId,
-		@RequestBody List<FlowEndpointAssignRequest> request,
-		@CurrentMember Member currentMember
-	){
-		return SuccessResponse.ok(flowService.assignEndpoints(request,imageId,currentMember));
-	}
-
-	@GetMapping("/images/{flowImageId}/endpoints")
-	@Operation(
-		summary = "Flow 이미지에 매핑된 엔드포인트 목록 조회",
-		description = "지정한 Flow 이미지에 현재 매핑되어 있는 모든 엔드포인트 목록을 조회합니다. " +
-			"각 엔드포인트의 기본 정보(태그, 경로, HTTP 메서드, 요약 정보)와 함께 " +
-			"이미지 내 위치 좌표(x, y) 및 연동 상태(isLinked, isChanged)를 포함하여 반환합니다. " +
-			"요청 시 해당 Flow에 대한 접근 권한을 검증합니다."
-	)
-	public SuccessResponse<List<ImageEndpointsResponse>> getImageEndpoints(
-		@PathVariable Long flowImageId,
-		@CurrentMember Member currentMember
-	){
-		return SuccessResponse.ok(flowService.getImageEndpoints(flowImageId,currentMember));
+	) {
+		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, teamId));
 	}
 
 	@GetMapping("/{flowId}")
@@ -105,10 +75,64 @@ public class FlowController {
 	public SuccessResponse<FlowResponse> getFlow(
 		@PathVariable Long flowId,
 		@CurrentMember Member currentMember
-	){
-		return SuccessResponse.ok(flowService.getFlow(flowId,currentMember));
+	) {
+		return SuccessResponse.ok(flowService.getFlow(flowId, currentMember));
 	}
 
+	@PostMapping("/images/{imageId}/requests")
+	@Operation(
+		summary = "Flow 이미지에 request 생성",
+		description = "지정한 Flow 이미지에 요청(내용, 위치 좌표)을 추가합니다. " +
+			"생성된 request에 이후 endpoint를 연결할 수 있습니다."
+	)
+	public SuccessResponse<FlowRequestResponse> createRequest(
+		@PathVariable Long imageId,
+		@RequestBody FlowRequestCreateRequest request,
+		@CurrentMember Member currentMember
+	) {
+		return SuccessResponse.ok(flowService.createRequest(imageId, request, currentMember));
+	}
 
+	@PostMapping("/images/requests/{requestId}/endpoints")
+	@Operation(
+		summary = "request에 endpoint 연결",
+		description = "지정한 request에 endpoint를 연결합니다. " +
+			"이미 연결된 경우 중복 저장 없이 무시됩니다. " +
+			"연결 후 해당 request의 전체 endpoint 목록을 반환합니다."
+	)
+	public SuccessResponse<FlowRequestResponse> connectEndpoint(
+		@PathVariable Long requestId,
+		@RequestBody FlowRequestConnectRequest request,
+		@CurrentMember Member currentMember
+	) {
+		return SuccessResponse.ok(flowService.connectEndpoint(requestId, request, currentMember));
+	}
 
+	@GetMapping("/images/{flowImageId}/requests")
+	@Operation(
+		summary = "Flow 이미지의 request 목록 조회 (request 기준)",
+		description = "지정한 Flow 이미지에 등록된 모든 request 목록을 반환합니다. " +
+			"각 request의 내용(content), 이미지 내 위치(x, y)와 함께 " +
+			"연결된 endpoint 목록(태그, 경로, 메서드, 요약, 연동 상태)을 포함합니다."
+	)
+	public SuccessResponse<List<FlowRequestResponse>> getFlowRequests(
+		@PathVariable Long flowImageId,
+		@CurrentMember Member currentMember
+	) {
+		return SuccessResponse.ok(flowService.getFlowRequests(flowImageId, currentMember));
+	}
+
+	@GetMapping("/images/{flowImageId}/endpoints")
+	@Operation(
+		summary = "Flow 이미지의 endpoint 목록 조회 (endpoint 기준)",
+		description = "지정한 Flow 이미지에 연결된 모든 endpoint 목록을 반환합니다. " +
+			"각 endpoint의 기본 정보(태그, 경로, 메서드, 요약)와 연동 상태(isChanged, isLinked)와 함께 " +
+			"해당 endpoint를 참조하는 request 목록(내용만, 위치 좌표 제외)을 포함합니다."
+	)
+	public SuccessResponse<List<ImageEndpointsResponse>> getImageEndpoints(
+		@PathVariable Long flowImageId,
+		@CurrentMember Member currentMember
+	) {
+		return SuccessResponse.ok(flowService.getImageEndpoints(flowImageId, currentMember));
+	}
 }
