@@ -12,4 +12,6 @@ public interface FlowTaskRepository extends JpaRepository<FlowTask, Long> {
     List<FlowTask> findAllByFlowId(Long flowId);
 
     List<FlowTask> findAllByTaskId(String taskId);
+
+    boolean existsByFlowIdAndTaskId(Long flowId, String taskId);
 }
