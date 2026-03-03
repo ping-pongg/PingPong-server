@@ -31,13 +31,28 @@ public class TaskService {
         List<Task> tasks = flowMappingCompleted != null
                 ? taskRepository.findAllByTeamIdAndFlowMappingCompleted(teamId, flowMappingCompleted)
                 : taskRepository.findAllByTeamId(teamId);
-        return tasks.stream().map(TaskResponse::from).toList();
+
+        return tasks.stream().map(task -> {
+            List<Long> flowIds = flowTaskRepository.findAllByTaskId(task.getId())
+                    .stream().map(FlowTask::getFlowId).toList();
+            List<TaskResponse.FlowInfo> flows = flowRepository.findAllById(flowIds)
+                    .stream().map(TaskResponse.FlowInfo::from).toList();
+            return TaskResponse.from(task, flows);
+        }).toList();
     }
 
     @Transactional
     public void updateFlowMappingCompleted(String taskId, TaskMappedUpdateRequest request) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new CustomException(TaskErrorCode.TASK_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(request.flowMappingCompleted())) {
+            boolean hasMappedFlow = flowTaskRepository.existsByTaskId(taskId);
+            if (!hasMappedFlow) {
+                throw new CustomException(TaskErrorCode.NO_FLOW_MAPPED);
+            }
+        }
+
         task.updateFlowMappingCompleted(request.flowMappingCompleted());
     }
 

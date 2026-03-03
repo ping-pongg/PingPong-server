@@ -1,8 +1,10 @@
 package pingpong.backend.domain.task.dto;
 
+import pingpong.backend.domain.flow.Flow;
 import pingpong.backend.domain.task.Task;
 
 import java.time.Instant;
+import java.util.List;
 
 public record TaskResponse(
         String id,
@@ -12,9 +14,16 @@ public record TaskResponse(
         String dateEnd,
         String status,
         Instant lastSyncedAt,
-        Boolean flowMappingCompleted
+        Boolean flowMappingCompleted,
+        List<FlowInfo> flows
 ) {
-    public static TaskResponse from(Task task) {
+    public record FlowInfo(Long id, String title, String description) {
+        public static FlowInfo from(Flow flow) {
+            return new FlowInfo(flow.getId(), flow.getTitle(), flow.getDescription());
+        }
+    }
+
+    public static TaskResponse from(Task task, List<FlowInfo> flows) {
         return new TaskResponse(
                 task.getId(),
                 task.getUrl(),
@@ -23,7 +32,8 @@ public record TaskResponse(
                 task.getDateEnd(),
                 task.getStatus(),
                 task.getLastSyncedAt(),
-                task.getFlowMappingCompleted()
+                task.getFlowMappingCompleted(),
+                flows
         );
     }
 }
