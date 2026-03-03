@@ -101,7 +101,7 @@ public class SwaggerController {
 
 	@GetMapping("/api/v1/endpoints/changed")
 	@Operation(
-		summary = "팀에 속한 전체 엔드포인트들 중 이번에 바뀐 엔드포인트만 조회(미완성)",
+		summary = "팀에 속한 전체 엔드포인트들 중 이번에 바뀐 엔드포인트만 조회",
 		description = "지정한 팀(프로젝트)에서 변경된 엔드포인트를 조회합니다. " +
 			"엔드포인트 매칭 화면에서 NEW 목록을 표시할 때 사용됩니다. "
 	)
