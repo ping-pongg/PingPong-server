@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import pingpong.backend.domain.flow.RequestEndpoint;
+import pingpong.backend.domain.swagger.Endpoint;
 
 public interface RequestEndpointRepository extends JpaRepository<RequestEndpoint, Long> {
 
@@ -73,4 +74,13 @@ public interface RequestEndpointRepository extends JpaRepository<RequestEndpoint
 		  and re.isLinked = false
 	""")
 	List<Long> findFlowIdsWithUnlinkedEndpoint(@Param("flowIds") List<Long> flowIds);
+
+	@Query("""
+		SELECT DISTINCT re.endpoint
+		FROM RequestEndpoint re
+		JOIN re.request r
+		JOIN r.image fi
+		WHERE fi.flow.id IN :flowIds
+	""")
+	List<Endpoint> findDistinctEndpointsByFlowIds(@Param("flowIds") List<Long> flowIds);
 }
