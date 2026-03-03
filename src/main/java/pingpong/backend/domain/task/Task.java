@@ -50,6 +50,14 @@ public class Task {
     @Column(name = "last_synced_at", nullable = false)
     private Instant lastSyncedAt;
 
+    @Builder.Default
+    @Column(name = "flow_mapping_completed", nullable = false)
+    private Boolean flowMappingCompleted = false;
+
+    public void updateFlowMappingCompleted(boolean completed) {
+        this.flowMappingCompleted = completed;
+    }
+
     public static Task from(Long teamId, PageDetailResponse page) {
         PageDateRange date = page.date();
         return Task.builder()
