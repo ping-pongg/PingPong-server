@@ -5,6 +5,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.flow.Flow;
 import pingpong.backend.domain.flow.repository.FlowRepository;
+import pingpong.backend.domain.flow.repository.RequestEndpointRepository;
+import pingpong.backend.domain.notion.service.NotionFacade;
+import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.task.FlowTask;
 import pingpong.backend.domain.task.Task;
 import pingpong.backend.domain.task.TaskErrorCode;
@@ -25,6 +28,8 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final FlowTaskRepository flowTaskRepository;
     private final FlowRepository flowRepository;
+    private final RequestEndpointRepository requestEndpointRepository;
+    private final NotionFacade notionFacade;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByTeamId(Long teamId, Boolean flowMappingCompleted) {
@@ -51,6 +56,14 @@ public class TaskService {
             if (!hasMappedFlow) {
                 throw new CustomException(TaskErrorCode.NO_FLOW_MAPPED);
             }
+
+            List<Long> flowIds = flowTaskRepository.findAllByTaskId(taskId)
+                    .stream().map(FlowTask::getFlowId).toList();
+            List<Endpoint> endpoints = requestEndpointRepository.findDistinctEndpointsByFlowIds(flowIds);
+
+            String newDatabaseId = notionFacade.setupTaskDatabase(
+                    task.getTeamId(), taskId, task.getChildDatabaseId(), endpoints);
+            task.updateChildDatabaseId(newDatabaseId);
         }
 
         task.updateFlowMappingCompleted(request.flowMappingCompleted());
