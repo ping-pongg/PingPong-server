@@ -11,7 +11,8 @@ public record TaskResponse(
         String dateStart,
         String dateEnd,
         String status,
-        Instant lastSyncedAt
+        Instant lastSyncedAt,
+        Boolean flowMappingCompleted
 ) {
     public static TaskResponse from(Task task) {
         return new TaskResponse(
@@ -21,7 +22,8 @@ public record TaskResponse(
                 task.getDateStart(),
                 task.getDateEnd(),
                 task.getStatus(),
-                task.getLastSyncedAt()
+                task.getLastSyncedAt(),
+                task.getFlowMappingCompleted()
         );
     }
 }

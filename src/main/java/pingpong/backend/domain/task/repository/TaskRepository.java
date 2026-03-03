@@ -8,4 +8,6 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, String> {
 
     List<Task> findAllByTeamId(Long teamId);
+
+    List<Task> findAllByTeamIdAndFlowMappingCompleted(Long teamId, Boolean flowMappingCompleted);
 }
