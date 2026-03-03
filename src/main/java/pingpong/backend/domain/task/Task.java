@@ -54,8 +54,15 @@ public class Task {
     @Column(name = "flow_mapping_completed", nullable = false)
     private Boolean flowMappingCompleted = false;
 
+    @Column(name = "child_database_id")
+    private String childDatabaseId;
+
     public void updateFlowMappingCompleted(boolean completed) {
         this.flowMappingCompleted = completed;
+    }
+
+    public void updateChildDatabaseId(String id) {
+        this.childDatabaseId = id;
     }
 
     public static Task from(Long teamId, PageDetailResponse page) {
