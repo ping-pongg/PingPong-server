@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import pingpong.backend.domain.swagger.enums.CrudMethod;
 
 @Schema(description = "flow 이미지의 request 기준 목록")
-public record ImageRequestsResponse(
+public record FlowRequestResponse(
 
 	@Schema(description = "request ID")
 	Long requestId,

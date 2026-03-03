@@ -21,10 +21,10 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "flow_image_endpoint_request")
+@Table(name = "flow_request")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class FlowImageEndpointRequest {
+public class FlowRequest {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,10 +44,10 @@ public class FlowImageEndpointRequest {
 	private Float y;
 
 	@OneToMany(mappedBy = "request", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<FlowImageEndpointRequestEndpoint> endpointLinks = new ArrayList<>();
+	private List<RequestEndpoint> endpointLinks = new ArrayList<>();
 
-	public static FlowImageEndpointRequest create(FlowImage image, String content, Float x, Float y) {
-		FlowImageEndpointRequest r = new FlowImageEndpointRequest();
+	public static FlowRequest create(FlowImage image, String content, Float x, Float y) {
+		FlowRequest r = new FlowRequest();
 		r.image = image;
 		r.content = content;
 		r.x = x;

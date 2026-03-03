@@ -19,15 +19,15 @@ import pingpong.backend.domain.swagger.Endpoint;
 @Getter
 @Entity
 @Table(
-	name = "flow_image_endpoint_request_endpoint",
+	name = "request_endpoint",
 	uniqueConstraints = @UniqueConstraint(
-		name = "uk_flow_image_endpoint_request_endpoint",
+		name = "uk_request_endpoint",
 		columnNames = {"request_id", "endpoint_id"}
 	)
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class FlowImageEndpointRequestEndpoint {
+public class RequestEndpoint {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,7 +35,7 @@ public class FlowImageEndpointRequestEndpoint {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "request_id", nullable = false)
-	private FlowImageEndpointRequest request;
+	private FlowRequest request;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "endpoint_id", nullable = false)
@@ -47,8 +47,8 @@ public class FlowImageEndpointRequestEndpoint {
 	@Column
 	private Boolean isLinked;
 
-	public static FlowImageEndpointRequestEndpoint create(FlowImageEndpointRequest request, Endpoint endpoint) {
-		FlowImageEndpointRequestEndpoint link = new FlowImageEndpointRequestEndpoint();
+	public static RequestEndpoint create(FlowRequest request, Endpoint endpoint) {
+		RequestEndpoint link = new RequestEndpoint();
 		link.request = request;
 		link.endpoint = endpoint;
 		link.isChanged = endpoint.getIsChanged();

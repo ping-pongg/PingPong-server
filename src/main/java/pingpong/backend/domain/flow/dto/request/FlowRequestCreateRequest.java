@@ -3,7 +3,7 @@ package pingpong.backend.domain.flow.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "flow 이미지에 request 생성")
-public record FlowImageEndpointRequestCreateRequest(
+public record FlowRequestCreateRequest(
 
 	@Schema(description = "요청 내용", example = "이메일, 이름 필드 반환 필요합니다")
 	String content,

@@ -6,13 +6,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import pingpong.backend.domain.flow.FlowImageEndpointRequest;
+import pingpong.backend.domain.flow.FlowRequest;
 
-public interface FlowImageEndpointRequestRepository extends JpaRepository<FlowImageEndpointRequest, Long> {
+public interface FlowRequestRepository extends JpaRepository<FlowRequest, Long> {
 
 	@Query("""
-		select r from FlowImageEndpointRequest r
+		select r from FlowRequest r
 		where r.image.id = :imageId
 	""")
-	List<FlowImageEndpointRequest> findByImageId(@Param("imageId") Long imageId);
+	List<FlowRequest> findByImageId(@Param("imageId") Long imageId);
 }

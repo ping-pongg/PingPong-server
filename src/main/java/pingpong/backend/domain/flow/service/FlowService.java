@@ -14,24 +14,24 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.flow.Flow;
 import pingpong.backend.domain.flow.FlowImage;
-import pingpong.backend.domain.flow.FlowImageEndpointRequest;
-import pingpong.backend.domain.flow.FlowImageEndpointRequestEndpoint;
+import pingpong.backend.domain.flow.FlowRequest;
 import pingpong.backend.domain.flow.FlowErrorCode;
+import pingpong.backend.domain.flow.RequestEndpoint;
 import pingpong.backend.domain.flow.dto.ImageUploadDto;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.flow.dto.request.FlowImageEndpointRequestConnectRequest;
-import pingpong.backend.domain.flow.dto.request.FlowImageEndpointRequestCreateRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestConnectRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowImageResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
+import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
-import pingpong.backend.domain.flow.dto.response.ImageRequestsResponse;
 import pingpong.backend.domain.flow.enums.UploadStatus;
-import pingpong.backend.domain.flow.repository.FlowImageEndpointRequestEndpointRepository;
-import pingpong.backend.domain.flow.repository.FlowImageEndpointRequestRepository;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
 import pingpong.backend.domain.flow.repository.FlowRepository;
+import pingpong.backend.domain.flow.repository.FlowRequestRepository;
+import pingpong.backend.domain.flow.repository.RequestEndpointRepository;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
@@ -56,8 +56,8 @@ public class FlowService {
 	private final PresignedUrlService presignedUrlService;
 	private final FlowImageRepository flowImageRepository;
 	private final ServerService serverService;
-	private final FlowImageEndpointRequestRepository flowImageEndpointRequestRepository;
-	private final FlowImageEndpointRequestEndpointRepository flowImageEndpointRequestEndpointRepository;
+	private final FlowRequestRepository flowRequestRepository;
+	private final RequestEndpointRepository requestEndpointRepository;
 	private final EndpointRepository endpointRepository;
 
 	/**
@@ -79,10 +79,10 @@ public class FlowService {
 
 		// role별 alert 판단에 필요한 flow id 집합 조회
 		// BACKEND: request에 연결된 endpoint가 하나라도 있는 flow id 집합
-		// FRONTEND: isLinked=false인 endpoint link가 하나라도 있는 flow id 집합
+		// FRONTEND: isLinked=false인 endpoint가 하나라도 있는 flow id 집합
 		Set<Long> alertFlowIds = switch (role) {
-			case BACKEND -> Set.copyOf(flowImageEndpointRequestEndpointRepository.findFlowIdsWithAnyEndpoint(flowIds));
-			case FRONTEND -> Set.copyOf(flowImageEndpointRequestEndpointRepository.findFlowIdsWithUnlinkedEndpoint(flowIds));
+			case BACKEND -> Set.copyOf(requestEndpointRepository.findFlowIdsWithAnyEndpoint(flowIds));
+			case FRONTEND -> Set.copyOf(requestEndpointRepository.findFlowIdsWithUnlinkedEndpoint(flowIds));
 			default -> Set.of();
 		};
 
@@ -160,47 +160,36 @@ public class FlowService {
 	 * flow 이미지에 request 생성
 	 */
 	@Transactional
-	public ImageRequestsResponse createRequest(
-		Long imageId,
-		FlowImageEndpointRequestCreateRequest request,
-		Member member
-	) {
+	public FlowRequestResponse createRequest(Long imageId, FlowRequestCreateRequest request, Member member) {
 		FlowImage image = flowImageRepository.findById(imageId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_IMAGE_NOT_FOUND));
 
-		FlowImageEndpointRequest saved = flowImageEndpointRequestRepository.save(
-			FlowImageEndpointRequest.create(image, request.content(), request.x(), request.y())
+		FlowRequest saved = flowRequestRepository.save(
+			FlowRequest.create(image, request.content(), request.x(), request.y())
 		);
 
-		return new ImageRequestsResponse(saved.getId(), saved.getContent(), saved.getX(), saved.getY(), List.of());
+		return new FlowRequestResponse(saved.getId(), saved.getContent(), saved.getX(), saved.getY(), List.of());
 	}
 
 	/**
 	 * request에 endpoint 연결 (upsert)
 	 */
 	@Transactional
-	public ImageRequestsResponse connectEndpoint(
-		Long requestId,
-		FlowImageEndpointRequestConnectRequest request,
-		Member member
-	) {
-		FlowImageEndpointRequest flowRequest = flowImageEndpointRequestRepository.findById(requestId)
+	public FlowRequestResponse connectEndpoint(Long requestId, FlowRequestConnectRequest request, Member member) {
+		FlowRequest flowRequest = flowRequestRepository.findById(requestId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_REQUEST_NOT_FOUND));
 
 		Endpoint endpoint = endpointRepository.findById(request.endpointId())
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
-		if (!flowImageEndpointRequestEndpointRepository.existsByRequestIdAndEndpointId(requestId, request.endpointId())) {
-			flowImageEndpointRequestEndpointRepository.save(
-				FlowImageEndpointRequestEndpoint.create(flowRequest, endpoint)
-			);
+		if (!requestEndpointRepository.existsByRequestIdAndEndpointId(requestId, request.endpointId())) {
+			requestEndpointRepository.save(RequestEndpoint.create(flowRequest, endpoint));
 		}
 
-		List<FlowImageEndpointRequestEndpoint> links =
-			flowImageEndpointRequestEndpointRepository.findByRequestIdWithEndpoint(requestId);
+		List<RequestEndpoint> links = requestEndpointRepository.findByRequestIdWithEndpoint(requestId);
 
-		List<ImageRequestsResponse.EndpointSummary> endpointSummaries = links.stream()
-			.map(link -> new ImageRequestsResponse.EndpointSummary(
+		List<FlowRequestResponse.EndpointSummary> endpointSummaries = links.stream()
+			.map(link -> new FlowRequestResponse.EndpointSummary(
 				link.getEndpoint().getId(),
 				link.getEndpoint().getTag(),
 				link.getEndpoint().getPath(),
@@ -211,7 +200,7 @@ public class FlowService {
 			))
 			.toList();
 
-		return new ImageRequestsResponse(
+		return new FlowRequestResponse(
 			flowRequest.getId(),
 			flowRequest.getContent(),
 			flowRequest.getX(),
@@ -224,18 +213,17 @@ public class FlowService {
 	 * flow 이미지의 request 목록 조회 (request 기준, x/y/content + endpoints 포함)
 	 */
 	@Transactional(readOnly = true)
-	public List<ImageRequestsResponse> getImageRequests(Long imageId, Member member) {
+	public List<FlowRequestResponse> getFlowRequests(Long imageId, Member member) {
 		flowImageRepository.findById(imageId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_IMAGE_NOT_FOUND));
 
-		List<FlowImageEndpointRequest> requests = flowImageEndpointRequestRepository.findByImageId(imageId);
+		List<FlowRequest> requests = flowRequestRepository.findByImageId(imageId);
 
 		return requests.stream().map(req -> {
-			List<FlowImageEndpointRequestEndpoint> links =
-				flowImageEndpointRequestEndpointRepository.findByRequestIdWithEndpoint(req.getId());
+			List<RequestEndpoint> links = requestEndpointRepository.findByRequestIdWithEndpoint(req.getId());
 
-			List<ImageRequestsResponse.EndpointSummary> endpointSummaries = links.stream()
-				.map(link -> new ImageRequestsResponse.EndpointSummary(
+			List<FlowRequestResponse.EndpointSummary> endpointSummaries = links.stream()
+				.map(link -> new FlowRequestResponse.EndpointSummary(
 					link.getEndpoint().getId(),
 					link.getEndpoint().getTag(),
 					link.getEndpoint().getPath(),
@@ -246,7 +234,7 @@ public class FlowService {
 				))
 				.toList();
 
-			return new ImageRequestsResponse(req.getId(), req.getContent(), req.getX(), req.getY(), endpointSummaries);
+			return new FlowRequestResponse(req.getId(), req.getContent(), req.getX(), req.getY(), endpointSummaries);
 		}).toList();
 	}
 
@@ -258,21 +246,20 @@ public class FlowService {
 		flowImageRepository.findById(imageId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_IMAGE_NOT_FOUND));
 
-		List<FlowImageEndpointRequestEndpoint> links =
-			flowImageEndpointRequestEndpointRepository.findByImageIdWithAll(imageId);
+		List<RequestEndpoint> links = requestEndpointRepository.findByImageIdWithAll(imageId);
 
 		// endpoint 기준으로 그룹핑
-		Map<Long, List<FlowImageEndpointRequestEndpoint>> byEndpoint = links.stream()
-			.collect(Collectors.groupingBy(l -> l.getEndpoint().getId()));
+		Map<Long, List<RequestEndpoint>> byEndpoint = links.stream()
+			.collect(Collectors.groupingBy(re -> re.getEndpoint().getId()));
 
 		return byEndpoint.values().stream().map(endpointLinks -> {
-			FlowImageEndpointRequestEndpoint first = endpointLinks.get(0);
+			RequestEndpoint first = endpointLinks.get(0);
 			Endpoint ep = first.getEndpoint();
 
 			List<ImageEndpointsResponse.RequestSummary> requestSummaries = endpointLinks.stream()
-				.map(l -> new ImageEndpointsResponse.RequestSummary(
-					l.getRequest().getId(),
-					l.getRequest().getContent()
+				.map(re -> new ImageEndpointsResponse.RequestSummary(
+					re.getRequest().getId(),
+					re.getRequest().getContent()
 				))
 				.toList();
 

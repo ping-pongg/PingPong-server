@@ -10,10 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.flow.FlowErrorCode;
-import pingpong.backend.domain.flow.FlowImageEndpointRequestEndpoint;
+import pingpong.backend.domain.flow.RequestEndpoint;
 import pingpong.backend.domain.flow.enums.FlowEndpointLinkStatus;
-import pingpong.backend.domain.flow.repository.FlowImageEndpointRequestEndpointRepository;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
+import pingpong.backend.domain.flow.repository.RequestEndpointRepository;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
@@ -29,7 +29,7 @@ import pingpong.backend.global.exception.CustomException;
 @RequiredArgsConstructor
 public class EndpointService {
 
-	private final FlowImageEndpointRequestEndpointRepository flowImageEndpointRequestEndpointRepository;
+	private final RequestEndpointRepository requestEndpointRepository;
 	private final EndpointRepository endpointRepository;
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
 	private final FlowImageRepository flowImageRepository;
@@ -52,7 +52,7 @@ public class EndpointService {
 	}
 
 	/**
-	 * 해당 API를 연동 완료 — 해당 이미지에서 이 endpoint를 참조하는 모든 request-endpoint 링크를 linked 처리
+	 * 해당 API를 연동 완료 — 해당 이미지에서 이 endpoint를 참조하는 모든 request_endpoint를 linked 처리
 	 */
 	@Transactional
 	public void completeEndpoint(Long flowImageId, Long endpointId, Member member) {
@@ -62,14 +62,14 @@ public class EndpointService {
 		endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
-		List<FlowImageEndpointRequestEndpoint> links =
-			flowImageEndpointRequestEndpointRepository.findByImageIdAndEndpointId(flowImageId, endpointId);
+		List<RequestEndpoint> links =
+			requestEndpointRepository.findByImageIdAndEndpointId(flowImageId, endpointId);
 
 		if (links.isEmpty()) {
 			throw new CustomException(SwaggerErrorCode.ENDPOINT_NOT_ASSIGNED);
 		}
 
-		links.forEach(FlowImageEndpointRequestEndpoint::markLinked);
+		links.forEach(RequestEndpoint::markLinked);
 	}
 
 	/**
@@ -84,7 +84,7 @@ public class EndpointService {
 		if (endpointIds.isEmpty()) {
 			return;
 		}
-		flowImageEndpointRequestEndpointRepository.unlinkChangedEndpoints(endpointIds);
+		requestEndpointRepository.unlinkChangedEndpoints(endpointIds);
 	}
 
 	/**
@@ -95,8 +95,7 @@ public class EndpointService {
 		Endpoint endpoint = endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
-		List<FlowImageEndpointRequestEndpoint> links =
-			flowImageEndpointRequestEndpointRepository.findAllByEndpointId(endpointId);
+		List<RequestEndpoint> links = requestEndpointRepository.findAllByEndpointId(endpointId);
 
 		FlowEndpointLinkStatus status;
 
@@ -104,7 +103,7 @@ public class EndpointService {
 			status = FlowEndpointLinkStatus.BACKEND_IN_PROGRESS;
 		} else {
 			boolean allLinked = links.stream()
-				.allMatch(l -> Boolean.TRUE.equals(l.getIsLinked()));
+				.allMatch(re -> Boolean.TRUE.equals(re.getIsLinked()));
 
 			status = allLinked
 				? FlowEndpointLinkStatus.FULLY_INTEGRATED

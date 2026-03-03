@@ -14,13 +14,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
-import pingpong.backend.domain.flow.dto.request.FlowImageEndpointRequestConnectRequest;
-import pingpong.backend.domain.flow.dto.request.FlowImageEndpointRequestCreateRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestConnectRequest;
+import pingpong.backend.domain.flow.dto.request.FlowRequestCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
+import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
-import pingpong.backend.domain.flow.dto.response.ImageRequestsResponse;
 import pingpong.backend.domain.flow.service.FlowService;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.team.enums.Role;
@@ -85,9 +85,9 @@ public class FlowController {
 		description = "지정한 Flow 이미지에 요청(내용, 위치 좌표)을 추가합니다. " +
 			"생성된 request에 이후 endpoint를 연결할 수 있습니다."
 	)
-	public SuccessResponse<ImageRequestsResponse> createRequest(
+	public SuccessResponse<FlowRequestResponse> createRequest(
 		@PathVariable Long imageId,
-		@RequestBody FlowImageEndpointRequestCreateRequest request,
+		@RequestBody FlowRequestCreateRequest request,
 		@CurrentMember Member currentMember
 	) {
 		return SuccessResponse.ok(flowService.createRequest(imageId, request, currentMember));
@@ -100,9 +100,9 @@ public class FlowController {
 			"이미 연결된 경우 중복 저장 없이 무시됩니다. " +
 			"연결 후 해당 request의 전체 endpoint 목록을 반환합니다."
 	)
-	public SuccessResponse<ImageRequestsResponse> connectEndpoint(
+	public SuccessResponse<FlowRequestResponse> connectEndpoint(
 		@PathVariable Long requestId,
-		@RequestBody FlowImageEndpointRequestConnectRequest request,
+		@RequestBody FlowRequestConnectRequest request,
 		@CurrentMember Member currentMember
 	) {
 		return SuccessResponse.ok(flowService.connectEndpoint(requestId, request, currentMember));
@@ -115,11 +115,11 @@ public class FlowController {
 			"각 request의 내용(content), 이미지 내 위치(x, y)와 함께 " +
 			"연결된 endpoint 목록(태그, 경로, 메서드, 요약, 연동 상태)을 포함합니다."
 	)
-	public SuccessResponse<List<ImageRequestsResponse>> getImageRequests(
+	public SuccessResponse<List<FlowRequestResponse>> getFlowRequests(
 		@PathVariable Long flowImageId,
 		@CurrentMember Member currentMember
 	) {
-		return SuccessResponse.ok(flowService.getImageRequests(flowImageId, currentMember));
+		return SuccessResponse.ok(flowService.getFlowRequests(flowImageId, currentMember));
 	}
 
 	@GetMapping("/images/{flowImageId}/endpoints")
