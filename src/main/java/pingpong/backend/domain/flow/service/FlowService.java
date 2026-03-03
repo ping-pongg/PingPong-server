@@ -33,10 +33,13 @@ import pingpong.backend.domain.flow.repository.FlowRepository;
 import pingpong.backend.domain.flow.repository.FlowRequestRepository;
 import pingpong.backend.domain.flow.repository.RequestEndpointRepository;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.domain.server.service.ServerService;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
+import pingpong.backend.domain.task.repository.FlowTaskRepository;
+import pingpong.backend.domain.task.repository.TaskRepository;
 import pingpong.backend.domain.team.Team;
 import pingpong.backend.domain.team.enums.Role;
 import pingpong.backend.domain.team.service.TeamService;
@@ -59,6 +62,9 @@ public class FlowService {
 	private final FlowRequestRepository flowRequestRepository;
 	private final RequestEndpointRepository requestEndpointRepository;
 	private final EndpointRepository endpointRepository;
+	private final FlowTaskRepository flowTaskRepository;
+	private final TaskRepository taskRepository;
+	private final NotionFacade notionFacade;
 
 	/**
 	 * 팀별 flow 목록 조회 (role에 따라 alert 의미 다름)
@@ -184,6 +190,7 @@ public class FlowService {
 
 		if (!requestEndpointRepository.existsByRequestIdAndEndpointId(requestId, request.endpointId())) {
 			requestEndpointRepository.save(RequestEndpoint.create(flowRequest, endpoint));
+			syncNotionEndpointStatus(endpoint, flowRequest.getImage().getFlow().getId());
 		}
 
 		List<RequestEndpoint> links = requestEndpointRepository.findByRequestIdWithEndpoint(requestId);
@@ -236,6 +243,31 @@ public class FlowService {
 
 			return new FlowRequestResponse(req.getId(), req.getContent(), req.getX(), req.getY(), endpointSummaries);
 		}).toList();
+	}
+
+	/**
+	 * endpoint의 현재 RequestEndpoint 상태를 기반으로 Notion child DB row의 Status를 동기화한다.
+	 * Notion 호출 실패는 메인 트랜잭션에 영향을 주지 않는다 (NotionFacade 내부에서 처리).
+	 */
+	private void syncNotionEndpointStatus(Endpoint endpoint, Long flowId) {
+		List<RequestEndpoint> allLinks = requestEndpointRepository.findAllByEndpointId(endpoint.getId());
+		String newStatus;
+		if (allLinks.isEmpty()) {
+			newStatus = "Backend";
+		} else if (allLinks.stream().allMatch(re -> Boolean.TRUE.equals(re.getIsLinked()))) {
+			newStatus = "Complete";
+		} else {
+			newStatus = "Frontend";
+		}
+
+		String apiListValue = endpoint.getMethod().name() + " " + endpoint.getPath();
+
+		flowTaskRepository.findAllByFlowId(flowId).forEach(flowTask ->
+			taskRepository.findById(flowTask.getTaskId())
+				.filter(task -> task.getChildDatabaseId() != null)
+				.ifPresent(task -> notionFacade.updateChildDatabaseEndpointStatus(
+					task.getTeamId(), task.getChildDatabaseId(), apiListValue, newStatus))
+		);
 	}
 
 	/**

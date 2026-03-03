@@ -2,6 +2,7 @@ package pingpong.backend.domain.notion.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.notion.Notion;
 import pingpong.backend.domain.notion.NotionErrorCode;
 import pingpong.backend.domain.notion.client.NotionRestClient;
+import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.NotionOAuthExchangeResponse;
 import pingpong.backend.domain.notion.dto.response.NotionOAuthTokenResponse;
 import pingpong.backend.domain.notion.client.NotionOauthClient;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotionFacade {
@@ -138,6 +141,46 @@ public class NotionFacade {
 
         notionWebhookIndexingService.triggerAfterDatabaseCreate(teamId, newDbId, taskPageId);
         return newDbId;
+    }
+
+    /**
+     * Task child database 내 특정 endpoint 행의 Status(select)를 업데이트한다.
+     * 대상 페이지는 "API List" title 값으로 탐색한다.
+     * Notion 호출 실패 시 예외를 전파하지 않고 경고 로그만 기록한다.
+     *
+     * @param teamId          팀 ID
+     * @param childDatabaseId child database ID
+     * @param apiListValue    "METHOD /path" 형식의 API List 값 (예: "GET /api/v1/users")
+     * @param newStatus       새 상태 ("Backend" / "Frontend" / "Complete")
+     */
+    public void updateChildDatabaseEndpointStatus(
+            Long teamId, String childDatabaseId, String apiListValue, String newStatus) {
+        ChildDatabaseWithPagesResponse dbResponse;
+        try {
+            dbResponse = notionDatabaseQueryService.queryChildDatabase(teamId, childDatabaseId);
+        } catch (Exception e) {
+            log.warn("ENDPOINT-STATUS-SYNC: child DB 조회 실패 — databaseId={} error={}",
+                    childDatabaseId, e.getMessage());
+            return;
+        }
+
+        dbResponse.pages().stream()
+                .filter(page -> apiListValue.equals(page.title()))
+                .findFirst()
+                .ifPresentOrElse(
+                        page -> {
+                            try {
+                                notionDatabaseCreateService.updateRowStatus(teamId, page.id(), newStatus);
+                                log.info("ENDPOINT-STATUS-SYNC: 완료 — databaseId={} apiList={} newStatus={}",
+                                        childDatabaseId, apiListValue, newStatus);
+                            } catch (Exception e) {
+                                log.warn("ENDPOINT-STATUS-SYNC: 페이지 업데이트 실패 — pageId={} error={}",
+                                        page.id(), e.getMessage());
+                            }
+                        },
+                        () -> log.warn("ENDPOINT-STATUS-SYNC: 해당 endpoint row 없음 — databaseId={} apiList={}",
+                                childDatabaseId, apiListValue)
+                );
     }
 
     @Transactional(readOnly = true)

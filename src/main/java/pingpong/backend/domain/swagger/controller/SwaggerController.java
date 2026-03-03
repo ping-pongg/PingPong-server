@@ -24,7 +24,6 @@ import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
-import pingpong.backend.domain.swagger.dto.response.EndpointStatusResponse;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
@@ -136,11 +135,4 @@ public class SwaggerController {
 		return SuccessResponse.ok();
 	}
 
-	@GetMapping("/api/v1/pm/progress/{endpointId}")
-	@Operation(summary = "PM입장에서 엔드포인트 별 연동 상태 조회")
-	public SuccessResponse<EndpointStatusResponse> getEndpointStatus(
-		@PathVariable Long endpointId
-	){
-		return SuccessResponse.ok(endpointService.getEndpointStatus(endpointId));
-	}
 }

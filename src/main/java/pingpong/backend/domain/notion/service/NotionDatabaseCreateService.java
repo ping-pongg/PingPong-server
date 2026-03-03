@@ -111,6 +111,32 @@ public class NotionDatabaseCreateService {
     }
 
     /**
+     * 데이터베이스 행(페이지)의 Status(select) 값 수정
+     *
+     * @param teamId    팀 ID
+     * @param pageId    수정할 페이지 ID
+     * @param newStatus 새 Status 값 ("Backend" / "Frontend" / "Complete")
+     */
+    public void updateRowStatus(Long teamId, String pageId, String newStatus) {
+        String normalizedPageId = compactNotionId(pageId);
+        log.info("DB-ROW-UPDATE: pageId={} newStatus={}", normalizedPageId, newStatus);
+
+        ObjectNode properties = objectMapper.createObjectNode();
+        ObjectNode selectNode = objectMapper.createObjectNode();
+        selectNode.put("name", newStatus);
+        ObjectNode statusProperty = objectMapper.createObjectNode();
+        statusProperty.set("select", selectNode);
+        properties.set("Status", statusProperty);
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.set("properties", properties);
+
+        callApi(teamId,
+                () -> notionRestClient.patch("/v1/pages/" + normalizedPageId,
+                        notionTokenService.getAccessToken(teamId), body));
+    }
+
+    /**
      * 데이터베이스에 행(페이지) 추가
      *
      * @param teamId       팀 ID
