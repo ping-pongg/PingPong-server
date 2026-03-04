@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,7 +41,10 @@ public class QaController {
 		summary = "QA 케이스 실행",
 		description = "qaId에 해당하는 QA 케이스를 실행합니다. 실행에 필요한 정보(pathVariables, queryParams, headers, body)는 QA 테이블에서 읽어오며, 실행 결과에 따라 isSuccess 필드가 자동으로 업데이트됩니다."
 	)
-	public SuccessResponse<ApiExecuteResponse> executeQaCase(@PathVariable Long qaId) {
-		return SuccessResponse.ok(qaService.executeQaCase(qaId));
+	public SuccessResponse<ApiExecuteResponse> executeQaCase(
+		@PathVariable Long qaId,
+		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization
+	) {
+		return SuccessResponse.ok(qaService.executeQaCase(qaId, proxyAuthorization));
 	}
 }

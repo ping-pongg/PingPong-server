@@ -46,7 +46,7 @@ public class QaService {
 	}
 
 	@Transactional
-	public ApiExecuteResponse executeQaCase(Long qaId) {
+	public ApiExecuteResponse executeQaCase(Long qaId, String proxyAuthorization) {
 		QaCase qa = qaCaseRepository.findById(qaId)
 			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
 
@@ -60,7 +60,7 @@ public class QaService {
 			parseBody(qa.getBody())
 		);
 
-		ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request);
+		ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
 		qa.updateIsSuccess(response.httpStatus() >= 200 && response.httpStatus() < 300);
 		return response;
 	}

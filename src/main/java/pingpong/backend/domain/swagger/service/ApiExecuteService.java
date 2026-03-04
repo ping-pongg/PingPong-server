@@ -43,7 +43,7 @@ public class ApiExecuteService {
 	private final ApiExecuteClient apiExecuteClient;
 	private final ObjectMapper objectMapper;
 
-	public ApiExecuteResponse execute(Long endpointId, Long teamId, ApiExecuteRequest req) {
+	public ApiExecuteResponse execute(Long endpointId, Long teamId, ApiExecuteRequest req, String proxyAuthorization) {
 		// 1. Endpoint 조회
 		Endpoint endpoint = endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
@@ -57,32 +57,39 @@ public class ApiExecuteService {
 			throw new CustomException(SwaggerErrorCode.ENDPOINT_TEAM_MISMATCH);
 		}
 
-		// 4. required 파라미터 검증
-		validateParameters(endpointId, req);
+		// 4. X-Proxy-Authorization를 headers에 머지 (항상 우선)
+		Map<String, String> mergedHeaders = new HashMap<>(req.headers() != null ? req.headers() : new HashMap<>());
+		if (proxyAuthorization != null && !proxyAuthorization.isBlank()) {
+			mergedHeaders.put("authorization", proxyAuthorization);
+		}
+		ApiExecuteRequest mergedReq = new ApiExecuteRequest(req.pathVariables(), req.queryParams(), mergedHeaders, req.body());
 
-		// 5. required body 검증
-		validateRequestBody(endpointId, req);
+		// 5. required 파라미터 검증
+		validateParameters(endpointId, mergedReq);
 
-		// 6. base URL 추출
+		// 6. required body 검증
+		validateRequestBody(endpointId, mergedReq);
+
+		// 7. base URL 추출
 		String baseUrl = swaggerUrlResolver.resolveBaseUrl(team.getSwagger());
 
-		// 7. path variable 치환 + full URL 빌드
-		Map<String, String> pathVars = req.pathVariables() != null ? req.pathVariables() : new HashMap<>();
+		// 8. path variable 치환 + full URL 빌드
+		Map<String, String> pathVars = mergedReq.pathVariables() != null ? mergedReq.pathVariables() : new HashMap<>();
 		String resolvedPath = UriComponentsBuilder.fromPath(endpoint.getPath())
 			.buildAndExpand(pathVars)
 			.toUriString();
 		String fullUrl = baseUrl + resolvedPath;
 
-		// 8. 외부 API 요청
+		// 9. 외부 API 요청
 		ResponseEntity<String> response = apiExecuteClient.execute(
 			fullUrl,
 			endpoint.getMethod(),
-			req.queryParams(),
-			req.headers(),
-			req.body()
+			mergedReq.queryParams(),
+			mergedReq.headers(),
+			mergedReq.body()
 		);
 
-		// 9. 응답 변환
+		// 10. 응답 변환
 		Map<String, String> responseHeaders = new HashMap<>();
 		response.getHeaders().forEach((key, values) -> {
 			if (!values.isEmpty()) {
