@@ -15,6 +15,7 @@ import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.service.QaService;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -34,6 +35,15 @@ public class QaController {
 	)
 	public SuccessResponse<List<QaCaseResponse>> getQaCases(@RequestParam Long endpointId) {
 		return SuccessResponse.ok(qaService.getQaCasesByEndpointId(endpointId));
+	}
+
+	@GetMapping("/tags")
+	@Operation(
+		summary = "Tag별 Endpoint QA 성공률 조회",
+		description = "teamId에 해당하는 최신 스냅샷의 endpoint를 tag 기준으로 그룹핑하여 각 endpoint의 QA 성공률을 반환합니다."
+	)
+	public SuccessResponse<List<EndpointQaTagGroupResponse>> getEndpointsByTag(@RequestParam Long teamId) {
+		return SuccessResponse.ok(qaService.getEndpointsByTag(teamId));
 	}
 
 	@PostMapping("/{qaId}/execute")

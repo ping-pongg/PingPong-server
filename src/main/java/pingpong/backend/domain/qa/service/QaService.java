@@ -1,7 +1,9 @@
 package pingpong.backend.domain.qa.service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,10 +15,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
+import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
+import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
+import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
+import pingpong.backend.domain.swagger.repository.EndpointRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.global.exception.CustomException;
 
@@ -28,6 +35,8 @@ public class QaService {
 	private final QaCaseRepository qaCaseRepository;
 	private final ApiExecuteService apiExecuteService;
 	private final ObjectMapper objectMapper;
+	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
+	private final EndpointRepository endpointRepository;
 
 	public List<QaCaseResponse> getQaCasesByEndpointId(Long endpointId) {
 		return qaCaseRepository.findAllByEndpointId(endpointId).stream()
@@ -63,6 +72,37 @@ public class QaService {
 		ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
 		qa.updateIsSuccess(response.httpStatus() >= 200 && response.httpStatus() < 300);
 		return response;
+	}
+
+	public List<EndpointQaTagGroupResponse> getEndpointsByTag(Long teamId) {
+		return swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId)
+			.map(snapshot -> {
+				List<Endpoint> endpoints = endpointRepository.findBySnapshotId(snapshot.getId());
+				if (endpoints.isEmpty()) {
+					return Collections.<EndpointQaTagGroupResponse>emptyList();
+				}
+
+				List<Long> endpointIds = endpoints.stream().map(Endpoint::getId).toList();
+				Map<Long, List<QaCase>> qaCasesByEndpoint = qaCaseRepository.findAllByEndpointIdIn(endpointIds)
+					.stream()
+					.collect(Collectors.groupingBy(qa -> qa.getEndpoint().getId()));
+
+				return endpoints.stream()
+					.collect(Collectors.groupingBy(
+						ep -> ep.getTag() != null ? ep.getTag() : "",
+						Collectors.mapping(ep -> {
+							List<QaCase> cases = qaCasesByEndpoint.getOrDefault(ep.getId(), List.of());
+							Double successRate = cases.isEmpty() ? null
+								: (double) cases.stream().filter(qa -> Boolean.TRUE.equals(qa.getIsSuccess())).count()
+								/ cases.size() * 100;
+							return new EndpointQaSummaryResponse(ep.getId(), ep.getMethod(), ep.getPath(), successRate);
+						}, Collectors.toList())
+					))
+					.entrySet().stream()
+					.map(e -> new EndpointQaTagGroupResponse(e.getKey(), e.getValue()))
+					.toList();
+			})
+			.orElse(Collections.emptyList());
 	}
 
 	private Map<String, String> parseStringMap(String json) {
