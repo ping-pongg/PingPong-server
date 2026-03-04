@@ -202,7 +202,7 @@ public class FlowService {
 				link.getEndpoint().getPath(),
 				link.getEndpoint().getMethod(),
 				link.getEndpoint().getSummary(),
-				link.getIsChanged(),
+				link.getEndpoint().getIsChanged(),
 				link.getIsLinked()
 			))
 			.toList();
@@ -236,7 +236,7 @@ public class FlowService {
 					link.getEndpoint().getPath(),
 					link.getEndpoint().getMethod(),
 					link.getEndpoint().getSummary(),
-					link.getIsChanged(),
+					link.getEndpoint().getIsChanged(),
 					link.getIsLinked()
 				))
 				.toList();
@@ -301,7 +301,7 @@ public class FlowService {
 				ep.getPath(),
 				ep.getMethod(),
 				ep.getSummary(),
-				first.getIsChanged(),
+				first.getEndpoint().getIsChanged(),
 				first.getIsLinked(),
 				requestSummaries
 			);
