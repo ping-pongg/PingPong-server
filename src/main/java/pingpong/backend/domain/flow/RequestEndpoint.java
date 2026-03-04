@@ -42,25 +42,17 @@ public class RequestEndpoint {
 	private Endpoint endpoint;
 
 	@Column
-	private Boolean isChanged;
-
-	@Column
 	private Boolean isLinked;
 
 	public static RequestEndpoint create(FlowRequest request, Endpoint endpoint) {
 		RequestEndpoint link = new RequestEndpoint();
 		link.request = request;
 		link.endpoint = endpoint;
-		link.isChanged = endpoint.getIsChanged();
 		link.isLinked = false;
 		return link;
 	}
 
 	public void markLinked() {
 		this.isLinked = true;
-	}
-
-	public void markChanged() {
-		this.isChanged = true;
 	}
 }
