@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -119,9 +120,10 @@ public class SwaggerController {
 	public SuccessResponse<ApiExecuteResponse> executeEndpoint(
 		@PathVariable Long endpointId,
 		@RequestParam Long teamId,
+		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization,
 		@RequestBody ApiExecuteRequest request
 	) {
-		return SuccessResponse.ok(apiExecuteService.execute(endpointId, teamId, request));
+		return SuccessResponse.ok(apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization));
 	}
 
 	@PatchMapping("/api/v1/flow-images/{flowImageId}/endpoints/{endpointId}/complete")
