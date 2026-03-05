@@ -38,19 +38,15 @@ public class FlowImage {
 	private String objectKey;
 
 	// 업로드 상태 관리
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private UploadStatus status;
+	// @Enumerated(EnumType.STRING)
+	// @Column(nullable = false)
+	// private UploadStatus status;
 
 	public static FlowImage create(Flow flow, String objectKey) {
 		return FlowImage.builder()
 			.flow(flow)
 			.objectKey(objectKey)
-			.status(UploadStatus.PENDING)
 			.build();
 	}
 
-	public void markComplete() {
-		this.status = UploadStatus.COMPLETE;
-	}
 }
