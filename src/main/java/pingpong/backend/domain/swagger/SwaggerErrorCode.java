@@ -16,6 +16,7 @@ public enum SwaggerErrorCode implements ApiErrorCode {
 
 	//endpoint
 	ENDPOINT_NOT_FOUND("ENDPOINT404", "해당 엔드포인트를 찾을 수 없어요.", HttpStatus.NOT_FOUND),
+	ENDPOINTS_NOT_FOUND("ENDPOINT404", "존재하지 않는 엔드포인트 ID가 포함되어 있어요.", HttpStatus.NOT_FOUND),
 	ENDPOINT_NOT_ASSIGNED("ENDPOINT404", "해당 이미지에 할당된 엔드포인트를 찾을 수 없어요.", HttpStatus.NOT_FOUND),
 	ENDPOINT_TEAM_MISMATCH("ENDPOINT403", "해당 엔드포인트는 이 팀에 속하지 않습니다.", HttpStatus.FORBIDDEN),
 	MISSING_REQUIRED_PARAMETER("ENDPOINT400", "필수 파라미터가 누락되었습니다.", HttpStatus.BAD_REQUEST),

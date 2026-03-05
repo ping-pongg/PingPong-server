@@ -179,19 +179,29 @@ public class FlowService {
 	}
 
 	/**
-	 * request에 endpoint 연결 (upsert)
+	 * request에 endpoint 연결 (bulk upsert)
 	 */
 	@Transactional
 	public FlowRequestResponse connectEndpoint(Long requestId, FlowRequestConnectRequest request, Member member) {
 		FlowRequest flowRequest = flowRequestRepository.findById(requestId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_REQUEST_NOT_FOUND));
 
-		Endpoint endpoint = endpointRepository.findById(request.endpointId())
-			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+		List<Endpoint> endpoints = endpointRepository.findAllById(request.endpointIds());
 
-		if (!requestEndpointRepository.existsByRequestIdAndEndpointId(requestId, request.endpointId())) {
-			requestEndpointRepository.save(RequestEndpoint.create(flowRequest, endpoint));
-			syncNotionEndpointStatus(endpoint, flowRequest.getImage().getFlow().getId());
+		Set<Long> foundIds = endpoints.stream().map(Endpoint::getId).collect(Collectors.toSet());
+		List<Long> missingIds = request.endpointIds().stream()
+			.filter(id -> !foundIds.contains(id))
+			.toList();
+
+		if (!missingIds.isEmpty()) {
+			throw new CustomException(SwaggerErrorCode.ENDPOINTS_NOT_FOUND, missingIds);
+		}
+
+		for (Endpoint endpoint : endpoints) {
+			if (!requestEndpointRepository.existsByRequestIdAndEndpointId(requestId, endpoint.getId())) {
+				requestEndpointRepository.save(RequestEndpoint.create(flowRequest, endpoint));
+				syncNotionEndpointStatus(endpoint, flowRequest.getImage().getFlow().getId());
+			}
 		}
 
 		List<RequestEndpoint> links = requestEndpointRepository.findByRequestIdWithEndpoint(requestId);

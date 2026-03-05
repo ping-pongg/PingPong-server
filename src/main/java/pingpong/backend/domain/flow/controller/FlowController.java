@@ -2,6 +2,7 @@ package pingpong.backend.domain.flow.controller;
 
 import java.util.List;
 
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -102,7 +103,7 @@ public class FlowController {
 	)
 	public SuccessResponse<FlowRequestResponse> connectEndpoint(
 		@PathVariable Long requestId,
-		@RequestBody FlowRequestConnectRequest request,
+		@RequestBody @Validated FlowRequestConnectRequest request,
 		@CurrentMember Member currentMember
 	) {
 		return SuccessResponse.ok(flowService.connectEndpoint(requestId, request, currentMember));

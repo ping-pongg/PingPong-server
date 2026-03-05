@@ -99,11 +99,9 @@ public class ExceptionAdvice {
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse<?>> handleCustomException(CustomException e) {
         ApiErrorCode errorCode = e.getErrorCode();
-
-        ErrorResponse<?> errorResponse = ErrorResponse.of(
-                errorCode.getErrorCode(),
-                errorCode.getMessage()
-        );
+        ErrorResponse<?> errorResponse = e.getData() != null
+            ? ErrorResponse.ok(errorCode.getErrorCode(), errorCode.getMessage(), e.getData())
+            : ErrorResponse.of(errorCode.getErrorCode(), errorCode.getMessage());
         return new ResponseEntity<>(errorResponse, errorCode.getStatus());
     }
 }
