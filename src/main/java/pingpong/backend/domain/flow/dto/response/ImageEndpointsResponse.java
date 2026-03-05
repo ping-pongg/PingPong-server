@@ -11,9 +11,6 @@ public record ImageEndpointsResponse(
 	@Schema(description = "endpoint ID")
 	Long endpointId,
 
-	@Schema(description = "태그명")
-	String tag,
-
 	@Schema(description = "엔드포인트 path")
 	String path,
 

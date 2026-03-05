@@ -27,6 +27,7 @@ import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
+import pingpong.backend.domain.flow.dto.response.ImageEndpointsTagGroupResponse;
 import pingpong.backend.domain.flow.enums.UploadStatus;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
 import pingpong.backend.domain.flow.repository.FlowRepository;
@@ -271,10 +272,10 @@ public class FlowService {
 	}
 
 	/**
-	 * flow 이미지의 endpoint 목록 조회 (endpoint 기준, requests 포함)
+	 * flow 이미지의 endpoint 목록 조회 (tag 별 그룹핑, endpoint 기준, requests 포함)
 	 */
 	@Transactional(readOnly = true)
-	public List<ImageEndpointsResponse> getImageEndpoints(Long imageId, Member member) {
+	public List<ImageEndpointsTagGroupResponse> getImageEndpoints(Long imageId, Member member) {
 		flowImageRepository.findById(imageId)
 			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_IMAGE_NOT_FOUND));
 
@@ -284,7 +285,9 @@ public class FlowService {
 		Map<Long, List<RequestEndpoint>> byEndpoint = links.stream()
 			.collect(Collectors.groupingBy(re -> re.getEndpoint().getId()));
 
-		return byEndpoint.values().stream().map(endpointLinks -> {
+		// tag 기준으로 재그룹핑 (null tag 허용)
+		Map<String, List<ImageEndpointsResponse>> byTag = new java.util.HashMap<>();
+		for (List<RequestEndpoint> endpointLinks : byEndpoint.values()) {
 			RequestEndpoint first = endpointLinks.get(0);
 			Endpoint ep = first.getEndpoint();
 
@@ -295,16 +298,21 @@ public class FlowService {
 				))
 				.toList();
 
-			return new ImageEndpointsResponse(
+			ImageEndpointsResponse response = new ImageEndpointsResponse(
 				ep.getId(),
-				ep.getTag(),
 				ep.getPath(),
 				ep.getMethod(),
 				ep.getSummary(),
-				first.getEndpoint().getIsChanged(),
+				ep.getIsChanged(),
 				first.getIsLinked(),
 				requestSummaries
 			);
-		}).toList();
+
+			byTag.computeIfAbsent(ep.getTag(), k -> new ArrayList<>()).add(response);
+		}
+
+		return byTag.entrySet().stream()
+			.map(entry -> new ImageEndpointsTagGroupResponse(entry.getKey(), entry.getValue()))
+			.toList();
 	}
 }

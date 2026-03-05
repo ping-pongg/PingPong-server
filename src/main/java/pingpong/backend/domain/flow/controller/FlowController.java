@@ -20,7 +20,7 @@ import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
-import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
+import pingpong.backend.domain.flow.dto.response.ImageEndpointsTagGroupResponse;
 import pingpong.backend.domain.flow.service.FlowService;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.team.enums.Role;
@@ -124,12 +124,13 @@ public class FlowController {
 
 	@GetMapping("/images/{flowImageId}/endpoints")
 	@Operation(
-		summary = "Flow 이미지의 endpoint 목록 조회 (endpoint 기준)",
-		description = "지정한 Flow 이미지에 연결된 모든 endpoint 목록을 반환합니다. " +
-			"각 endpoint의 기본 정보(태그, 경로, 메서드, 요약)와 연동 상태(isChanged, isLinked)와 함께 " +
-			"해당 endpoint를 참조하는 request 목록(내용만, 위치 좌표 제외)을 포함합니다."
+		summary = "Flow 이미지의 endpoint 목록 조회 (tag 별 그룹핑)",
+		description = "지정한 Flow 이미지에 연결된 모든 endpoint 목록을 tag 별로 묶어 반환합니다. " +
+			"각 endpoint의 기본 정보(경로, 메서드, 요약)와 연동 상태(isChanged, isLinked)와 함께 " +
+			"해당 endpoint를 참조하는 request 목록(내용만, 위치 좌표 제외)을 포함합니다. " +
+			"tag가 null인 endpoint는 tag: null 그룹으로 묶입니다."
 	)
-	public SuccessResponse<List<ImageEndpointsResponse>> getImageEndpoints(
+	public SuccessResponse<List<ImageEndpointsTagGroupResponse>> getImageEndpoints(
 		@PathVariable Long flowImageId,
 		@CurrentMember Member currentMember
 	) {
