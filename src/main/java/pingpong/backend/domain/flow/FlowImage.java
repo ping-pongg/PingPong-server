@@ -38,15 +38,22 @@ public class FlowImage {
 	private String objectKey;
 
 	// 업로드 상태 관리
-	// @Enumerated(EnumType.STRING)
-	// @Column(nullable = false)
-	// private UploadStatus status;
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private UploadStatus status;
 
 	public static FlowImage create(Flow flow, String objectKey) {
 		return FlowImage.builder()
 			.flow(flow)
 			.objectKey(objectKey)
+			.status(UploadStatus.PENDING)
 			.build();
+	}
+
+	public void markComplete() {
+		// 업로드 완료 시점에 서버가 검증한 정보들을 저장
+		this.status = UploadStatus.COMPLETE;
+
 	}
 
 }

@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +20,19 @@ import pingpong.backend.domain.flow.FlowErrorCode;
 import pingpong.backend.domain.flow.RequestEndpoint;
 import pingpong.backend.domain.flow.dto.ImageUploadDto;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
+import pingpong.backend.domain.flow.dto.request.FlowImageUploadCompleteRequest;
 import pingpong.backend.domain.flow.dto.request.FlowRequestConnectRequest;
 import pingpong.backend.domain.flow.dto.request.FlowRequestCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
 import pingpong.backend.domain.flow.dto.response.FlowImageResponse;
+import pingpong.backend.domain.flow.dto.response.FlowImageUploadCompleteBulkResponse;
+import pingpong.backend.domain.flow.dto.response.FlowImageUploadCompleteResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsResponse;
 import pingpong.backend.domain.flow.dto.response.ImageEndpointsTagGroupResponse;
+import pingpong.backend.domain.flow.enums.BulkCompleteResultStatus;
 import pingpong.backend.domain.flow.enums.UploadStatus;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
 import pingpong.backend.domain.flow.repository.FlowRepository;
@@ -49,6 +54,11 @@ import pingpong.backend.global.storage.dto.ImageUploadType;
 import pingpong.backend.global.storage.dto.request.PresignedUrlRequest;
 import pingpong.backend.global.storage.dto.response.PresignedUrlResponse;
 import pingpong.backend.global.storage.service.PresignedUrlService;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Service
 @Slf4j
@@ -66,6 +76,9 @@ public class FlowService {
 	private final FlowTaskRepository flowTaskRepository;
 	private final TaskRepository taskRepository;
 	private final NotionFacade notionFacade;
+	private final S3Client s3Client;
+	@Value("pingpong-teams-image-dev-jk34")
+	private String bucketName;
 
 	/**
 	 * 팀별 flow 목록 조회 (role에 따라 alert 의미 다름)
@@ -119,6 +132,119 @@ public class FlowService {
 	}
 
 	/**
+	 * S3 presigned URL 이미지 업로드 완료
+	 */
+	@Transactional
+	public FlowImageUploadCompleteBulkResponse completeUploadBulk(
+		List<FlowImageUploadCompleteRequest> requests,
+		Member currentMember
+	) {
+		List<FlowImageUploadCompleteResponse> results = new ArrayList<>();
+
+		int success = 0;
+		int fail = 0;
+
+		for (FlowImageUploadCompleteRequest req : requests) {
+			try {
+				// ✅ 기존 단건 로직을 재사용하면 유지보수가 쉬워집니다.
+				FlowImageUploadCompleteResponse single =
+					completeUpload(req.imageId(), req, currentMember);
+
+				// completeUpload()가 COMPLETE든 ALREADY_COMPLETE든 성공 처리로 반환하게 만들면 됨
+				BulkCompleteResultStatus resultStatus =
+					(single.uploadStatus() == UploadStatus.COMPLETE)
+						? BulkCompleteResultStatus.COMPLETE
+						: BulkCompleteResultStatus.ALREADY_COMPLETE;
+
+				results.add(new FlowImageUploadCompleteResponse(
+					single.imageId(),
+					single.uploadStatus(),
+					single.objectKey()
+				));
+				success++;
+
+			} catch (CustomException e) {
+				throw new CustomException(FlowErrorCode.UPLOAD_FAILED);
+			}
+		}
+
+		return new FlowImageUploadCompleteBulkResponse(
+			requests.size(),
+			success,
+			fail,
+			results
+		);
+	}
+
+	/**
+	 * presigned URL 이미지 업로드 단건 완료
+	 * @param imageId
+	 * @param request
+	 * @param currentMember
+	 * @return
+	 */
+	@Transactional
+	public FlowImageUploadCompleteResponse completeUpload(
+		Long imageId,
+		FlowImageUploadCompleteRequest request,
+		Member currentMember
+	) {
+		// 1) FlowImage 조회
+		FlowImage flowImage = flowImageRepository.findById(imageId)
+			.orElseThrow(() -> new CustomException(FlowErrorCode.FLOW_IMAGE_NOT_FOUND));
+
+		// expectedObjectKey 교차검증
+		if (request.expectedObjectKey() != null && !request.expectedObjectKey().isBlank()) {
+			if (!flowImage.getObjectKey().equals(request.expectedObjectKey())) {
+				throw new CustomException(FlowErrorCode.OBJECT_KEY_MISMATCH);
+			}
+		}
+
+		// 4) 멱등 처리
+		if (flowImage.getStatus() == UploadStatus.COMPLETE) {
+			return new FlowImageUploadCompleteResponse(
+				flowImage.getId(),
+				flowImage.getStatus(),
+				flowImage.getObjectKey()
+			);
+		}
+
+		// 5) S3 HEAD로 실제 업로드 검증
+		headObjectOrThrow(flowImage.getObjectKey());
+
+		// 6) 상태 변경
+		flowImage.markComplete();
+
+		// 7) 저장 (영속성 컨텍스트면 생략 가능)
+		flowImageRepository.save(flowImage);
+
+		return new FlowImageUploadCompleteResponse(
+			flowImage.getId(),
+			flowImage.getStatus(),
+			flowImage.getObjectKey()
+		);
+	}
+
+
+	private HeadObjectResponse headObjectOrThrow(String objectKey) {
+		try {
+			return s3Client.headObject(
+				HeadObjectRequest.builder()
+					.bucket(bucketName)
+					.key(objectKey)
+					.build()
+			);
+		} catch (NoSuchKeyException e) {
+			// 업로드를 아직 안 했거나, key가 틀렸거나, 만료/실패 등
+			throw new CustomException(FlowErrorCode.S3_OBJECT_NOT_FOUND);
+		} catch (S3Exception e) {
+			// 권한 문제/버킷 설정 문제 등 포함
+			throw new CustomException(FlowErrorCode.S3_HEAD_FAILED, e.getMessage());
+		}
+	}
+
+
+	/**
 	 * flow 생성
 	 */
 	@Transactional
@@ -153,9 +279,9 @@ public class FlowService {
 		List<FlowImageResponse> imageResponses = images.stream()
 			.map(image -> {
 				String imageUrl = null;
-				// if (image.getStatus() == UploadStatus.COMPLETE) {
-				// 	imageUrl = presignedUrlService.getGetS3Url(image.getObjectKey()).presignedUrl();
-				// }
+				if (image.getStatus() == UploadStatus.COMPLETE) {
+					imageUrl = presignedUrlService.getGetS3Url(image.getObjectKey()).presignedUrl();
+				}
 				return new FlowImageResponse(image.getId(), imageUrl);
 			})
 			.toList();

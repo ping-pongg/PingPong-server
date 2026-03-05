@@ -13,11 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.flow.dto.request.FlowCreateRequest;
+import pingpong.backend.domain.flow.dto.request.FlowImageUploadCompleteRequest;
 import pingpong.backend.domain.flow.dto.request.FlowRequestConnectRequest;
 import pingpong.backend.domain.flow.dto.request.FlowRequestCreateRequest;
 import pingpong.backend.domain.flow.dto.response.FlowCreateResponse;
+import pingpong.backend.domain.flow.dto.response.FlowImageUploadCompleteBulkResponse;
 import pingpong.backend.domain.flow.dto.response.FlowListItemResponse;
 import pingpong.backend.domain.flow.dto.response.FlowRequestResponse;
 import pingpong.backend.domain.flow.dto.response.FlowResponse;
@@ -65,6 +68,17 @@ public class FlowController {
 		@RequestBody FlowCreateRequest flowCreateRequest
 	) {
 		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, teamId));
+	}
+
+	@PostMapping("/{imageId}/complete")
+	@Operation(summary = "S3 업로드 완료 콜백", description = "프론트가 presigned PUT 업로드 성공 후 호출하면, 서버가 S3 HEAD로 실제 파일 존재를 검증하고 업로드 상태를 COMPLETE로 변경합니다.")
+	public SuccessResponse<FlowImageUploadCompleteBulkResponse> completeUpload(
+		@Valid @RequestBody List<FlowImageUploadCompleteRequest> request,
+		@CurrentMember Member currentMember
+	) {
+		return SuccessResponse.ok(
+			flowService.completeUploadBulk(request, currentMember)
+		);
 	}
 
 	@GetMapping("/{flowId}")
