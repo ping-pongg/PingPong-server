@@ -20,5 +20,5 @@ public interface EndpointRepository extends JpaRepository<Endpoint, Long> {
 	);
 	List<Endpoint> findAllByIdIn(Collection<Long> ids);
 
-
+	List<Endpoint> findBySnapshotIdAndPathContainingIgnoreCase(Long snapshotId, String query);
 }

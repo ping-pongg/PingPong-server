@@ -18,6 +18,7 @@ import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointSearchResponse;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.task.repository.FlowTaskRepository;
@@ -52,6 +53,18 @@ public class EndpointService {
 		return endpoints.stream()
 			.map(EndpointResponse::toDto)
 			.collect(Collectors.toList());
+	}
+
+	/**
+	 * path에 검색어가 포함된 엔드포인트 조회 (최신 스냅샷 기준, case-insensitive)
+	 */
+	@Transactional(readOnly = true)
+	public List<EndpointSearchResponse> searchEndpoints(Long teamId, String query) {
+		Optional<SwaggerSnapshot> latest = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+		if (latest.isEmpty()) return List.of();
+		List<Endpoint> results = endpointRepository
+			.findBySnapshotIdAndPathContainingIgnoreCase(latest.get().getId(), query);
+		return results.stream().map(EndpointSearchResponse::toDto).toList();
 	}
 
 	/**

@@ -22,6 +22,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
+import pingpong.backend.domain.swagger.dto.response.EndpointSearchResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
@@ -98,6 +99,15 @@ public class SwaggerController {
 		@RequestParam Long teamId
 	) {
 		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
+	}
+
+	@GetMapping("/api/v1/endpoints/search")
+	@Operation(summary = "엔드포인트 검색", description = "path에 검색어를 포함하는 엔드포인트를 조회합니다.")
+	public SuccessResponse<List<EndpointSearchResponse>> searchEndpoints(
+		@RequestParam Long teamId,
+		@RequestParam String query
+	) {
+		return SuccessResponse.ok(endpointService.searchEndpoints(teamId, query));
 	}
 
 	@GetMapping("/api/v1/endpoints/changed")
