@@ -96,7 +96,7 @@ public class FlowService {
 		return flows.stream().map(flow -> {
 			FlowImage thumbnail = thumbnailByFlowId.get(flow.getId());
 			String thumbnailUrl = null;
-			if (thumbnail != null && thumbnail.getStatus() == UploadStatus.COMPLETE) {
+			if (thumbnail != null) {
 				thumbnailUrl = presignedUrlService.getGetS3Url(thumbnail.getObjectKey()).presignedUrl();
 			}
 
@@ -153,10 +153,10 @@ public class FlowService {
 		List<FlowImageResponse> imageResponses = images.stream()
 			.map(image -> {
 				String imageUrl = null;
-				if (image.getStatus() == UploadStatus.COMPLETE) {
-					imageUrl = presignedUrlService.getGetS3Url(image.getObjectKey()).presignedUrl();
-				}
-				return new FlowImageResponse(image.getId(), imageUrl, image.getStatus());
+				// if (image.getStatus() == UploadStatus.COMPLETE) {
+				// 	imageUrl = presignedUrlService.getGetS3Url(image.getObjectKey()).presignedUrl();
+				// }
+				return new FlowImageResponse(image.getId(), imageUrl);
 			})
 			.toList();
 

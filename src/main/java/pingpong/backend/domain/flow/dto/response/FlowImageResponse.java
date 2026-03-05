@@ -4,6 +4,6 @@ import pingpong.backend.domain.flow.enums.UploadStatus;
 
 public record FlowImageResponse(
 	Long imageId,
-	String imageUrl,   // GET presigned
-	UploadStatus status
+	String imageUrl   // GET presigned
+	// UploadStatus status
 ) {}
