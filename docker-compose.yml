@@ -75,7 +75,7 @@ services:
       retries: 20
 
   mcp-server:
-    build: ./mcp-server
+    image: "${DOCKER_CONTAINER_REGISTRY}/grad02-mcp:${GITHUB_SHA}"
     container_name: grad02-mcp-server
     environment:
       SPRING_BASE_URL: http://server:8080
