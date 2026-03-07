@@ -59,7 +59,7 @@ public class JwtUtil {
 
     /** 토큰 생성 */
     public String createAccessToken(String email) {
-        long accessTokenExpireMs = 1000L * 60 * 1000; // 1000분 (FIXME: 임시값)
+        long accessTokenExpireMs = 1000L * 60 * 1000; // 1000분 FIXME: 임시값
         return createJwt(email, accessTokenExpireMs);
     }
 
@@ -81,5 +81,51 @@ public class JwtUtil {
                 .expiration(exp)
                 .signWith(key)
                 .compact();
+    }
+
+    /** MCP 토큰 생성 */
+    public String createMcpAccessToken(String email, Long teamId) {
+        long expireMs = 1000L * 60 * 1000; // 1000분 FIXME: 임시값
+        return createMcpJwt(email, teamId, "mcp", expireMs);
+    }
+
+    public String createMcpRefreshToken(String email, Long teamId) {
+        long expireMs = 1000L * 60 * 60 * 24 * 30; // 30일
+        return createMcpJwt(email, teamId, "mcp_refresh", expireMs);
+    }
+
+    private String createMcpJwt(String email, Long teamId, String type, long expiredMs) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("teamId", teamId);
+        claims.put("type", type);
+
+        Date now = new Date();
+        Date exp = new Date(now.getTime() + expiredMs);
+
+        return Jwts.builder()
+                .claims(claims)
+                .issuedAt(now)
+                .expiration(exp)
+                .signWith(key)
+                .compact();
+    }
+
+    /** MCP 토큰 클레임 추출 */
+    public Long getTeamId(String token) {
+        Object value = parseClaims(token).get("teamId");
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return null;
+    }
+
+    public boolean isMcpToken(String token) {
+        try {
+            String type = parseClaims(token).get("type", String.class);
+            return "mcp".equals(type);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

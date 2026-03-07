@@ -42,11 +42,11 @@ public class MemberController {
     }
 
     @GetMapping
-    @Operation(summary = "내 정보 조회", description = "내 정보를 조회합니다.")
+    @Operation(summary = "내 정보 조회", description = "내 정보를 조회합니다. MCP 연결 상태(mcpConnected, mcpTeamId, mcpTeamName, mcpLastUsedAt)를 포함합니다.")
     public SuccessResponse<MemberResponse> findMe(
             @CurrentMember Member member
     ) {
-        return SuccessResponse.ok(MemberResponse.of(member));
+        return SuccessResponse.ok(memberService.findMe(member));
     }
 
     @GetMapping("/search")

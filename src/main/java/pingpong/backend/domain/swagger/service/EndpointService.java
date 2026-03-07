@@ -17,9 +17,13 @@ import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
 import pingpong.backend.domain.swagger.SwaggerSnapshot;
+import pingpong.backend.domain.swagger.dto.EndpointSchemaResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointSearchResponse;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.task.repository.FlowTaskRepository;
 import pingpong.backend.domain.task.repository.TaskRepository;
@@ -33,10 +37,52 @@ public class EndpointService {
 	private final RequestEndpointRepository requestEndpointRepository;
 	private final EndpointRepository endpointRepository;
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
+	private final SwaggerParameterRepository swaggerParameterRepository;
+	private final SwaggerRequestRepository swaggerRequestRepository;
+	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final FlowImageRepository flowImageRepository;
 	private final FlowTaskRepository flowTaskRepository;
 	private final TaskRepository taskRepository;
 	private final NotionFacade notionFacade;
+
+	/**
+	 * 엔드포인트 스키마 조회 (parameters, requestBody, responses)
+	 */
+	@Transactional(readOnly = true)
+	public EndpointSchemaResponse getSchema(Long endpointId) {
+		Endpoint endpoint = endpointRepository.findById(endpointId)
+			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+
+		List<EndpointSchemaResponse.ParameterInfo> parameters = swaggerParameterRepository
+			.findByEndpointId(endpointId).stream()
+			.map(p -> new EndpointSchemaResponse.ParameterInfo(
+				p.getName(), p.getInType(), p.getRequired(), p.getDescription(), p.getSchemaJson()
+			))
+			.toList();
+
+		List<EndpointSchemaResponse.RequestBodyInfo> requestBodies = swaggerRequestRepository
+			.findByEndpointId(endpointId).stream()
+			.map(r -> new EndpointSchemaResponse.RequestBodyInfo(r.getMediaType(), r.getSchemaJson()))
+			.toList();
+
+		EndpointSchemaResponse.RequestBodyInfo requestBody = requestBodies.isEmpty() ? null : requestBodies.get(0);
+
+		List<EndpointSchemaResponse.ResponseInfo> responses = swaggerResponseRepository
+			.findByEndpointId(endpointId).stream()
+			.map(r -> new EndpointSchemaResponse.ResponseInfo(r.getStatusCode(), r.getMediaType(), r.getSchemaJson()))
+			.toList();
+
+		return new EndpointSchemaResponse(
+			endpoint.getId(),
+			endpoint.getPath(),
+			endpoint.getMethod() != null ? endpoint.getMethod().name() : null,
+			endpoint.getSummary(),
+			endpoint.getDescription(),
+			parameters,
+			requestBody,
+			responses
+		);
+	}
 
 	/**
 	 * 해당 프로젝트에 속한 모든 엔드포인트 조회

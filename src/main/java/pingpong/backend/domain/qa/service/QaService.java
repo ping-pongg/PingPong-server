@@ -20,6 +20,7 @@ import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
 import pingpong.backend.domain.swagger.Endpoint;
@@ -135,6 +136,47 @@ public class QaService {
 				r.getDurationMs()
 			))
 			.toList();
+	}
+
+	public List<QaTeamFailureResponse> getTeamFailures(Long teamId) {
+		return swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId)
+			.map(snapshot -> {
+				List<Endpoint> endpoints = endpointRepository.findBySnapshotId(snapshot.getId());
+				if (endpoints.isEmpty()) return Collections.<QaTeamFailureResponse>emptyList();
+
+				List<Long> endpointIds = endpoints.stream().map(Endpoint::getId).toList();
+				List<QaCase> allCases = qaCaseRepository.findAllByEndpointIdIn(endpointIds);
+
+				return allCases.stream()
+					.flatMap(qa -> qaExecuteResultRepository
+						.findTopByQaCaseIdOrderByExecutedAtDesc(qa.getId())
+						.filter(result -> Boolean.FALSE.equals(result.getIsSuccess()))
+						.map(result -> {
+							Endpoint ep = qa.getEndpoint();
+							return new QaTeamFailureResponse(
+								qa.getId(),
+								ep.getId(),
+								ep.getPath(),
+								ep.getMethod() != null ? ep.getMethod().name() : null,
+								ep.getTag(),
+								qa.getDescription(),
+								parseStringMap(qa.getPathVariables()),
+								parseStringMap(qa.getQueryParams()),
+								parseStringMap(qa.getHeaders()),
+								parseBody(qa.getBody()),
+								new QaTeamFailureResponse.LatestResult(
+									result.getHttpStatus(),
+									parseBody(result.getResponseBody()),
+									result.getDurationMs(),
+									result.getExecutedAt()
+								)
+							);
+						})
+						.stream()
+					)
+					.toList();
+			})
+			.orElse(Collections.emptyList());
 	}
 
 	public List<EndpointQaTagGroupResponse> getEndpointsByTag(Long teamId) {

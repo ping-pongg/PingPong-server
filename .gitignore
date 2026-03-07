@@ -39,3 +39,9 @@ out/
 
 ### YAML ###
 application.yaml
+
+# TypeScript build
+mcp-server/dist/
+
+# Node modules
+mcp-server/node_modules/

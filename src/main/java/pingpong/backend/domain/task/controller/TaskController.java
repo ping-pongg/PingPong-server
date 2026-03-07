@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pingpong.backend.domain.task.dto.TaskDetailResponse;
 import pingpong.backend.domain.task.dto.TaskFlowMappingRequest;
 import pingpong.backend.domain.task.dto.TaskFlowMappingResponse;
 import pingpong.backend.domain.task.dto.TaskMappedUpdateRequest;
@@ -31,13 +32,22 @@ public class TaskController {
     @GetMapping("/teams/{teamId}")
     @Operation(
             summary = "팀별 Task 목록 조회",
-            description = "팀의 Notion primary database와 동기화된 Task 목록을 반환합니다. flowMappingCompleted 파라미터로 필터링 가능합니다."
+            description = "팀의 Notion primary database와 동기화된 Task 목록을 반환합니다. flowMappingCompleted, status 파라미터로 필터링 가능합니다."
     )
     public SuccessResponse<List<TaskResponse>> getTasksByTeamId(
             @PathVariable Long teamId,
-            @RequestParam(required = false) Boolean flowMappingCompleted
+            @RequestParam(required = false) Boolean flowMappingCompleted,
+            @RequestParam(required = false) String status
     ) {
-        return SuccessResponse.ok(taskService.getTasksByTeamId(teamId, flowMappingCompleted));
+        return SuccessResponse.ok(taskService.getTasksByTeamId(teamId, flowMappingCompleted, status));
+    }
+
+    @GetMapping("/{taskId}/details")
+    @Operation(hidden = true)
+    public SuccessResponse<TaskDetailResponse> getTaskDetails(
+            @PathVariable String taskId
+    ) {
+        return SuccessResponse.ok(taskService.getTaskDetails(taskId));
     }
 
     @PatchMapping("/{taskId}/mapped")

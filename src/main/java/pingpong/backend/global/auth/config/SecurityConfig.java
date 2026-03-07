@@ -25,7 +25,9 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import pingpong.backend.domain.member.service.MemberMcpConnectionService;
 import pingpong.backend.domain.member.service.MemberService;
+import pingpong.backend.global.auth.filter.McpLastUsedFilter;
 import pingpong.backend.global.auth.jwt.JwtFilter;
 import pingpong.backend.global.auth.jwt.JwtUtil;
 import pingpong.backend.global.auth.jwt.LoginFilter;
@@ -49,7 +51,11 @@ public class SecurityConfig {
             "/api/v1/s3/get-url",
 
             // Dashboard (HTML/JS/CSS is public; API data is protected by Basic Auth on /internal/**)
-            "/dashboard/**"
+            "/dashboard/**",
+
+            // OAuth & MCP Well-Known
+            "/.well-known/**",
+            "/oauth/authorize"
     };
 
     private static final String[] ALLOWED_POST_URLS = {
@@ -57,7 +63,11 @@ public class SecurityConfig {
             "/api/v1/auth/reissue",
             "/api/v1/members",
             "/api/v1/s3/post-url",
-            "/api/v1/notion/webhooks"
+            "/api/v1/notion/webhooks",
+
+            // OAuth
+            "/oauth/authorize",
+            "/oauth/token"
     };
 
 
@@ -65,6 +75,7 @@ public class SecurityConfig {
     private final RefreshTokenCacheUtil refreshTokenCacheUtil;
     private final JwtUtil jwtUtil;
     private final AuthService authService;
+    private final MemberMcpConnectionService memberMcpConnectionService;
 
     /**
      * /internal/** 전용 FilterChain (Order=1, 가장 먼저 평가).
@@ -134,10 +145,16 @@ public class SecurityConfig {
     }
 
     @Bean
+    public McpLastUsedFilter mcpLastUsedFilter() {
+        return new McpLastUsedFilter(jwtUtil, memberMcpConnectionService);
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            DaoAuthenticationProvider provider,
                                            AuthenticationManager authManager,
-                                           JwtFilter jwtFilter) throws Exception {
+                                           JwtFilter jwtFilter,
+                                           McpLastUsedFilter mcpLastUsedFilter) throws Exception {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -160,6 +177,9 @@ public class SecurityConfig {
 
         // JWTFilter 등록
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // MCP Last-Used 추적 필터 (JwtFilter 이후)
+        http.addFilterAfter(mcpLastUsedFilter, JwtFilter.class);
 
         // LoginFilter 등록
         http.addFilterAt(loginFilter, UsernamePasswordAuthenticationFilter.class);

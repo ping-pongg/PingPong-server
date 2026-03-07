@@ -24,6 +24,8 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       AWS_REGION: ap-northeast-2
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -71,6 +73,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  mcp-server:
+    image: "${DOCKER_CONTAINER_REGISTRY}/grad02-mcp:${GITHUB_SHA}"
+    container_name: grad02-mcp-server
+    environment:
+      SPRING_BASE_URL: http://server:8080
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3000
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+    networks:
+      - grad02-network
+    expose:
+      - "3000"
+    depends_on:
+      server:
+        condition: service_started
 
   certbot:
     image: certbot/certbot:latest

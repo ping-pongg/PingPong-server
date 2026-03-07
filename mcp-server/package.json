@@ -1,0 +1,24 @@
+{
+  "name": "pingpong-mcp-server",
+  "version": "1.0.0",
+  "description": "PingPong MCP Server for Claude integration",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "jose": "^5.2.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
