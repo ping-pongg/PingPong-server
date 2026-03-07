@@ -37,10 +37,13 @@ export async function authMiddleware(
 ): Promise<void> {
   const authorization = req.headers['authorization'];
   if (!authorization || !authorization.startsWith('Bearer ')) {
-    res.status(401).json({
-      error: 'unauthorized',
-      error_description: 'Missing or invalid Authorization header',
-    });
+    res
+      .status(401)
+      .set('WWW-Authenticate', 'Bearer realm="pingpong"')
+      .json({
+        error: 'unauthorized',
+        error_description: 'Missing or invalid Authorization header',
+      });
     return;
   }
 
@@ -49,9 +52,15 @@ export async function authMiddleware(
     req.mcpContext = await verifyMcpToken(token);
     next();
   } catch {
-    res.status(401).json({
-      error: 'unauthorized',
-      error_description: 'Invalid or expired token',
-    });
+    res
+      .status(401)
+      .set(
+        'WWW-Authenticate',
+        'Bearer realm="pingpong", error="invalid_token", error_description="Invalid or expired token"'
+      )
+      .json({
+        error: 'unauthorized',
+        error_description: 'Invalid or expired token',
+      });
   }
 }
