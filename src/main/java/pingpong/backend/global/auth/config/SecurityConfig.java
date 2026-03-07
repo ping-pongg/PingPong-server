@@ -67,7 +67,8 @@ public class SecurityConfig {
 
             // OAuth
             "/oauth/authorize",
-            "/oauth/token"
+            "/oauth/token",
+            "/oauth/register"
     };
 
 

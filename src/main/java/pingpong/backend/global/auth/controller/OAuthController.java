@@ -1,8 +1,8 @@
 package pingpong.backend.global.auth.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +15,9 @@ import pingpong.backend.global.auth.service.OAuthAuthorizationService;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+@Hidden
 @RestController
 @RequiredArgsConstructor
 public class OAuthController {
@@ -23,7 +25,7 @@ public class OAuthController {
     private final OAuthAuthorizationService oAuthAuthorizationService;
     private final TeamRepository teamRepository;
 
-    @Value("${PUBLIC_BASE_URL:https://pingpong-team.com}")
+    @Value("${PUBLIC_BASE_URL:https://pingpongg.site}")
     private String publicBaseUrl;
 
     @GetMapping("/.well-known/oauth-authorization-server")
@@ -32,6 +34,7 @@ public class OAuthController {
                 "issuer", publicBaseUrl,
                 "authorization_endpoint", publicBaseUrl + "/oauth/authorize",
                 "token_endpoint", publicBaseUrl + "/oauth/token",
+                "registration_endpoint", publicBaseUrl + "/oauth/register",
                 "response_types_supported", List.of("code"),
                 "grant_types_supported", List.of("authorization_code", "refresh_token"),
                 "code_challenge_methods_supported", List.of("S256")
@@ -39,13 +42,63 @@ public class OAuthController {
         return ResponseEntity.ok(metadata);
     }
 
+    @PostMapping("/oauth/register")
+    public ResponseEntity<Map<String, Object>> registerClient(@RequestBody Map<String, Object> body) {
+        String clientId = UUID.randomUUID().toString();
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("client_id", clientId);
+        if (body.containsKey("client_name")) response.put("client_name", body.get("client_name"));
+        if (body.containsKey("redirect_uris")) response.put("redirect_uris", body.get("redirect_uris"));
+        response.put("grant_types", body.getOrDefault("grant_types", List.of("authorization_code", "refresh_token")));
+        response.put("response_types", body.getOrDefault("response_types", List.of("code")));
+        response.put("token_endpoint_auth_method", "none");
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @GetMapping("/oauth/authorize")
     public ResponseEntity<String> showAuthorizeForm(
-            @RequestParam("redirect_uri") String redirectUri,
-            @RequestParam("code_challenge") String codeChallenge,
+            @RequestParam(value = "redirect_uri", required = false) String redirectUri,
+            @RequestParam(value = "code_challenge", required = false) String codeChallenge,
             @RequestParam(value = "state", required = false) String state,
             @RequestParam(value = "error", required = false) String error
     ) {
+        if (redirectUri == null || codeChallenge == null) {
+            String errorHtml = """
+                    <!DOCTYPE html>
+                    <html lang="ko">
+                    <head>
+                      <meta charset="UTF-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                      <title>Nexus MCP</title>
+                      <style>
+                        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                        body {
+                          min-height: 100vh; display: flex; align-items: center; justify-content: center;
+                          background: #FDF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                          padding: 24px;
+                        }
+                        .card {
+                          background: #fff; border-radius: 20px;
+                          box-shadow: 0 4px 6px -1px rgba(217,119,87,0.08), 0 12px 32px -4px rgba(217,119,87,0.12);
+                          padding: 40px 36px; width: 100%%; max-width: 420px; text-align: center;
+                        }
+                        .icon { font-size: 40px; margin-bottom: 16px; }
+                        .title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; }
+                        .desc { font-size: 14px; color: #888; line-height: 1.6; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="card">
+                        <div class="icon">🚫</div>
+                        <div class="title">직접 접근할 수 없습니다</div>
+                        <div class="desc">이 페이지는 MCP 클라이언트(Claude Desktop 등)를 통해서만 접근할 수 있습니다.<br>MCP 설정을 통해 연결을 시작해주세요.</div>
+                      </div>
+                    </body>
+                    </html>
+                    """;
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_HTML).body(errorHtml);
+        }
+
         List<Team> teams = teamRepository.findAll();
         StringBuilder teamOptions = new StringBuilder();
         for (Team team : teams) {
