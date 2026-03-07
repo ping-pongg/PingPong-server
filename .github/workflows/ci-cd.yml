@@ -114,8 +114,17 @@ jobs:
 
       - name: Copy deployment files to EC2
         run: |
-          scp -o StrictHostKeyChecking=no -P ${{ secrets.PROD_EC2_PORT }} docker-compose.yml \
-            ${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }}:/home/${{ secrets.PROD_EC2_USER }}/docker-compose.yml
+          SCP="scp -o StrictHostKeyChecking=no -P ${{ secrets.PROD_EC2_PORT }}"
+          DEST="${{ secrets.PROD_EC2_USER }}@${{ secrets.PROD_EC2_HOST }}:/home/${{ secrets.PROD_EC2_USER }}"
+
+          # docker-compose.yml
+          $SCP docker-compose.yml $DEST/docker-compose.yml
+
+          # deploy.sh
+          $SCP deploy.sh $DEST/deploy.sh
+
+          # nginx 설정 (MCP 라우팅 포함)
+          $SCP nginx/conf.d/default.conf $DEST/nginx/conf.d/default.conf
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@master
