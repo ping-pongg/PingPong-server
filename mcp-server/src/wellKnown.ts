@@ -4,7 +4,7 @@ const BASE_URL = (process.env.PUBLIC_BASE_URL ?? 'https://pingpongg.site').repla
 
 export function handleWellKnown(_req: Request, res: Response): void {
   res.json({
-    issuer: `${BASE_URL}/`,
+    issuer: `${BASE_URL}`,
     authorization_endpoint: `${BASE_URL}/oauth/authorize`,
     token_endpoint: `${BASE_URL}/oauth/token`,
     registration_endpoint: `${BASE_URL}/oauth/register`,
