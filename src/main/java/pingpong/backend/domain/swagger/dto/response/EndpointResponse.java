@@ -23,8 +23,8 @@ public record EndpointResponse (
 	@Schema(description = "엔드포인트 요약")
 	String summary,
 
-	// @Schema(description="endpoint 변화 여부")
-	// Boolean isChanged,
+	@Schema(description="endpoint 변화 여부")
+	Boolean isChanged,
 
 	@Schema(description="endpoint 변화 타입")
 	ChangeType changeType
@@ -32,6 +32,6 @@ public record EndpointResponse (
 ){
 
 	public static EndpointResponse toDto(Endpoint e){
-		return new EndpointResponse(e.getId(),e.getTag(),e.getPath(), e.getMethod(), e.getSummary(), e.getChangeType());
+		return new EndpointResponse(e.getId(),e.getTag(),e.getPath(), e.getMethod(), e.getSummary(), e.getIsChanged(),e.getChangeType());
 	}
 }

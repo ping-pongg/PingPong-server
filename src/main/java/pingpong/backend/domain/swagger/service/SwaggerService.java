@@ -305,7 +305,6 @@ public class SwaggerService {
 		// endpoint diff
 		Map<String, List<EndpointResponse>> grouped =
 			allEndpoints.stream()
-				.filter(e -> Boolean.TRUE.equals(e.getIsChanged()))
 				.map(EndpointResponse::toDto)
 				.collect(Collectors.groupingBy(EndpointResponse::tag));
 
