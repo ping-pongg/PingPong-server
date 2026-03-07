@@ -24,7 +24,7 @@ public record EndpointResponse (
 	String summary,
 
 	@Schema(description="endpoint 변화 여부")
-	Boolean isChanged,
+	boolean isChanged,
 
 	@Schema(description="endpoint 변화 타입")
 	ChangeType changeType
