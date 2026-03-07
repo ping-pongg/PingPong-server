@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.service.QaService;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -64,5 +65,11 @@ public class QaController {
 	)
 	public SuccessResponse<List<QaExecuteResultResponse>> getExecuteResults(@PathVariable Long qaId) {
 		return SuccessResponse.ok(qaService.getExecuteResults(qaId));
+	}
+
+	@GetMapping("/failures")
+	@Operation(hidden = true)
+	public SuccessResponse<List<QaTeamFailureResponse>> getTeamFailures(@RequestParam Long teamId) {
+		return SuccessResponse.ok(qaService.getTeamFailures(teamId));
 	}
 }
