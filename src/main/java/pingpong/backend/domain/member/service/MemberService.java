@@ -6,10 +6,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
+import pingpong.backend.domain.member.MemberMcpConnection;
 import pingpong.backend.domain.member.dto.MemberRegisterRequest;
 import pingpong.backend.domain.member.dto.MemberResponse;
 import pingpong.backend.domain.member.dto.MemberSearchResponse;
+import pingpong.backend.domain.member.repository.MemberMcpConnectionRepository;
 import pingpong.backend.domain.member.repository.MemberRepository;
+import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.team.repository.TeamRepository;
 import pingpong.backend.global.exception.CustomException;
 import java.util.List;
 
@@ -20,6 +24,8 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MemberMcpConnectionRepository mcpConnectionRepository;
+    private final TeamRepository teamRepository;
 
     /**
      * 회원가입
@@ -39,6 +45,21 @@ public class MemberService {
     public MemberResponse find(Long memberId) {
         Member member = memberRepository.getById(memberId);
         return MemberResponse.of(member);
+    }
+
+    /**
+     * 내 정보 조회 (MCP 연결 정보 포함)
+     */
+    @Transactional(readOnly = true)
+    public MemberResponse findMe(Member member) {
+        MemberMcpConnection conn = mcpConnectionRepository.findByMemberId(member.getId()).orElse(null);
+        String teamName = null;
+        if (conn != null) {
+            teamName = teamRepository.findById(conn.getTeamId())
+                    .map(Team::getName)
+                    .orElse(null);
+        }
+        return MemberResponse.of(member, conn, teamName);
     }
 
     /**
