@@ -84,45 +84,5 @@ public class TestController {
 		return ResponseEntity.ok(res);
 	}
 
-	// =========================
-	// 2) POST: request body + header + 201
-	// =========================
-	@PostMapping("/users")
-	@Operation(
-		summary = "유저 생성(더미)",
-		description = "Swagger diff 테스트용 유저 생성 API",
-		responses = {
-			@ApiResponse(
-				responseCode = "201",
-				description = "생성 성공",
-				content = @Content(
-					mediaType = "application/json",
-					schema = @Schema(implementation = UserResponse.class)
-				)
-			),
-			@ApiResponse(responseCode = "400", description = "잘못된 요청")
-		}
-	)
-	public ResponseEntity<UserResponse> createUser(
-		@RequestBody
-		@Parameter(description = "유저 생성 요청 바디", required = true)
-		UserCreateRequest request,
-
-		@RequestHeader(value = "X-Admin", required = false)
-		@Parameter(in = ParameterIn.HEADER, description = "관리자 요청 여부", example = "true")
-		Boolean isAdmin
-	) {
-
-		// 더미 생성 로직
-		UserResponse res = new UserResponse(
-			9999L,
-			request.name(),
-			request.role(),
-			100L,
-			Instant.now().toString()
-		);
-
-		return ResponseEntity.status(HttpStatus.CREATED).body(res);
-	}
 
 }
