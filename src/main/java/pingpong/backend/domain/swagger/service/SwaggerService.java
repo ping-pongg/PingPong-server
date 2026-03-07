@@ -309,11 +309,18 @@ public class SwaggerService {
 				.collect(Collectors.groupingBy(EndpointResponse::tag));
 
 		return grouped.entrySet().stream()
-			.map(e->new EndpointGroupResponse(
-				SnapshotDiffStatus.CHANGED,
-				e.getKey(),
-				e.getValue()
-			))
+			.map(e->{
+				List<EndpointResponse> endpointResponses=e.getValue();
+				boolean hasChanged=endpointResponses.stream()
+					.anyMatch(EndpointResponse::isChanged);
+				SnapshotDiffStatus status=
+					hasChanged?SnapshotDiffStatus.CHANGED:SnapshotDiffStatus.NOT_CHANGED;
+				return new EndpointGroupResponse(
+					status,
+					e.getKey(),
+					endpointResponses
+				);
+			})
 			.toList();
 	}
 
