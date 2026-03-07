@@ -119,7 +119,7 @@ public class SwaggerController {
 	public SuccessResponse<List<EndpointResponse>> getChangedEndpointList(
 		@RequestParam Long teamId
 	) {
-		return SuccessResponse.ok(endpointService.getEndpointList(teamId));
+		return SuccessResponse.ok(endpointService.getChangedEndpointList(teamId));
 	}
 
 	@PostMapping("/api/v1/endpoints/{endpointId}/execute")

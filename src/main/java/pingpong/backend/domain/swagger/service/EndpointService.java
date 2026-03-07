@@ -56,6 +56,30 @@ public class EndpointService {
 	}
 
 	/**
+	 * 해당 프로젝트에 속한 변경된 모든 엔드포인트 조회
+	 */
+	@Transactional(readOnly = true)
+	public List<EndpointResponse> getChangedEndpointList(Long teamId) {
+
+		Optional<SwaggerSnapshot> latest =
+			swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+
+		if (latest.isEmpty()) {
+			return List.of();
+		}
+
+		Long snapshotId = latest.get().getId();
+
+		List<Endpoint> endpoints =
+			endpointRepository.findBySnapshotId(snapshotId);
+
+		return endpoints.stream()
+			.filter(e -> Boolean.TRUE.equals(e.getIsChanged()))
+			.map(EndpointResponse::toDto)
+			.toList();
+	}
+
+	/**
 	 * path에 검색어가 포함된 엔드포인트 조회 (최신 스냅샷 기준, case-insensitive)
 	 */
 	@Transactional(readOnly = true)

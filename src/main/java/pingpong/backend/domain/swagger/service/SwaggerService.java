@@ -305,16 +305,25 @@ public class SwaggerService {
 		// endpoint diff
 		Map<String, List<EndpointResponse>> grouped =
 			allEndpoints.stream()
-				.filter(e -> Boolean.TRUE.equals(e.getIsChanged()))
 				.map(EndpointResponse::toDto)
 				.collect(Collectors.groupingBy(EndpointResponse::tag));
 
 		return grouped.entrySet().stream()
-			.map(e->new EndpointGroupResponse(
-				SnapshotDiffStatus.CHANGED,
-				e.getKey(),
-				e.getValue()
-			))
+			.map(e -> {
+				List<EndpointResponse> endpointResponses = e.getValue();
+
+				boolean hasChanged = endpointResponses.stream()
+					.anyMatch(ep -> Boolean.TRUE.equals(ep.isChanged()));
+
+				SnapshotDiffStatus status =
+					hasChanged ? SnapshotDiffStatus.CHANGED : SnapshotDiffStatus.NOT_CHANGED;
+
+				return new EndpointGroupResponse(
+					status,
+					e.getKey(),
+					endpointResponses
+				);
+			})
 			.toList();
 	}
 
