@@ -9,5 +9,8 @@ public record UserCreateRequest(
 	String name,
 
 	@Schema(description = "유저 역할", example = "ADMIN")
-	String role
+	String role,
+
+	@Schema(description = "유저 역할", example = "ADMIN")
+	String description
 ) {}
