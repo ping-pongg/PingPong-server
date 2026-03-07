@@ -8,9 +8,11 @@ import pingpong.backend.domain.flow.repository.FlowRepository;
 import pingpong.backend.domain.flow.repository.RequestEndpointRepository;
 import pingpong.backend.domain.notion.service.NotionFacade;
 import pingpong.backend.domain.swagger.Endpoint;
+import java.util.List;
 import pingpong.backend.domain.task.FlowTask;
 import pingpong.backend.domain.task.Task;
 import pingpong.backend.domain.task.TaskErrorCode;
+import pingpong.backend.domain.task.dto.TaskDetailResponse;
 import pingpong.backend.domain.task.dto.TaskFlowMappingRequest;
 import pingpong.backend.domain.task.dto.TaskFlowMappingResponse;
 import pingpong.backend.domain.task.dto.TaskMappedUpdateRequest;
@@ -32,10 +34,17 @@ public class TaskService {
     private final NotionFacade notionFacade;
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasksByTeamId(Long teamId, Boolean flowMappingCompleted) {
-        List<Task> tasks = flowMappingCompleted != null
-                ? taskRepository.findAllByTeamIdAndFlowMappingCompleted(teamId, flowMappingCompleted)
-                : taskRepository.findAllByTeamId(teamId);
+    public List<TaskResponse> getTasksByTeamId(Long teamId, Boolean flowMappingCompleted, String status) {
+        List<Task> tasks;
+        if (flowMappingCompleted != null && status != null) {
+            tasks = taskRepository.findAllByTeamIdAndFlowMappingCompletedAndStatus(teamId, flowMappingCompleted, status);
+        } else if (flowMappingCompleted != null) {
+            tasks = taskRepository.findAllByTeamIdAndFlowMappingCompleted(teamId, flowMappingCompleted);
+        } else if (status != null) {
+            tasks = taskRepository.findAllByTeamIdAndStatus(teamId, status);
+        } else {
+            tasks = taskRepository.findAllByTeamId(teamId);
+        }
 
         return tasks.stream().map(task -> {
             List<Long> flowIds = flowTaskRepository.findAllByTaskId(task.getId())
@@ -44,6 +53,42 @@ public class TaskService {
                     .stream().map(TaskResponse.FlowInfo::from).toList();
             return TaskResponse.from(task, flows);
         }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TaskDetailResponse getTaskDetails(String taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new CustomException(TaskErrorCode.TASK_NOT_FOUND));
+
+        List<Long> flowIds = flowTaskRepository.findAllByTaskId(taskId)
+                .stream().map(FlowTask::getFlowId).toList();
+
+        List<TaskDetailResponse.FlowDetail> flowDetails = flowRepository.findAllById(flowIds).stream()
+                .map(flow -> {
+                    List<Endpoint> endpoints = requestEndpointRepository
+                            .findDistinctEndpointsByFlowIds(List.of(flow.getId()));
+                    List<TaskDetailResponse.EndpointInfo> endpointInfos = endpoints.stream()
+                            .map(ep -> new TaskDetailResponse.EndpointInfo(
+                                    ep.getId(),
+                                    ep.getPath(),
+                                    ep.getMethod() != null ? ep.getMethod().name() : null,
+                                    ep.getSummary(),
+                                    ep.getTag()
+                            ))
+                            .toList();
+                    return new TaskDetailResponse.FlowDetail(flow.getId(), flow.getTitle(), flow.getDescription(), endpointInfos);
+                })
+                .toList();
+
+        return new TaskDetailResponse(
+                task.getId(),
+                task.getTitle(),
+                task.getStatus(),
+                task.getDateStart(),
+                task.getDateEnd(),
+                task.getPageContent(),
+                flowDetails
+        );
     }
 
     @Transactional
