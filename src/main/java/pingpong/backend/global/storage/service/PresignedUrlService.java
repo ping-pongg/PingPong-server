@@ -47,8 +47,8 @@ public class PresignedUrlService {
 
 		PutObjectRequest putObjectRequest= PutObjectRequest.builder()
 			.bucket(bucketName)
-			.key(objectKey)
-			.build();
+			// .contentType(request.uploadType().getContentType())
+			.key(objectKey).build();
 
 		// presigned url 생성하기
 		PutObjectPresignRequest presignedRequest =
@@ -57,6 +57,8 @@ public class PresignedUrlService {
 		String url = s3Presigner.presignPutObject(presignedRequest)
 			.url()
 			.toString();
+
+		log.info("presigned URL:{}",url);
 
 		return PresignedUrlResponse.builder()
 			.presignedUrl(url)
@@ -69,10 +71,12 @@ public class PresignedUrlService {
 	 */
 	@Transactional(readOnly = true)
 	public PresignedUrlResponse getGetS3Url(String imagePath) {
+		String contentType=getContentTypeFromKey(imagePath);
 
 		GetObjectRequest getObjectRequest= GetObjectRequest.builder()
 			.bucket(bucketName)
 			.key(imagePath)
+			.responseContentType(contentType)
 			.build();
 
 		// presigned url 생성하기
@@ -90,11 +94,30 @@ public class PresignedUrlService {
 	}
 
 	/**
+	 * 이미지 확장자 추출
+	 * @param objectKey
+	 * @return
+	 */
+	private String getContentTypeFromKey(String objectKey) {
+
+		int index = objectKey.lastIndexOf(".");
+		String extension = objectKey.substring(index + 1).toLowerCase();
+
+		return switch (extension) {
+			case "png" -> "image/png";
+			case "jpg", "jpeg" -> "image/jpeg";
+			case "gif" -> "image/gif";
+			case "webp" -> "image/webp";
+			default -> "application/octet-stream";
+		};
+	}
+
+	/**
 	 * 업로드용 preSigned URL 요청 객체 생성
 	 */
 	private PutObjectPresignRequest getPutPreSignedUrlRequest(PutObjectRequest objectRequest){
 		return PutObjectPresignRequest.builder()
-			.signatureDuration(Duration.ofMinutes(3))
+			.signatureDuration(Duration.ofMinutes(10))
 			.putObjectRequest(objectRequest)
 			.build();
 	}

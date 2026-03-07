@@ -70,7 +70,7 @@ public class FlowController {
 		return SuccessResponse.ok(flowService.createFlow(flowCreateRequest, teamId));
 	}
 
-	@PostMapping("/{imageId}/complete")
+	@PostMapping("image-upload/complete")
 	@Operation(summary = "S3 업로드 완료 콜백", description = "프론트가 presigned PUT 업로드 성공 후 호출하면, 서버가 S3 HEAD로 실제 파일 존재를 검증하고 업로드 상태를 COMPLETE로 변경합니다.")
 	public SuccessResponse<FlowImageUploadCompleteBulkResponse> completeUpload(
 		@Valid @RequestBody List<FlowImageUploadCompleteRequest> request,

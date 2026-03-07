@@ -21,3 +21,4 @@ public enum ImageUploadType {
 	private final String extension;
 
 }
+

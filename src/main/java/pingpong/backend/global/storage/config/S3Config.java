@@ -22,15 +22,19 @@ public class S3Config {
 	@Value("${cloud.aws.region.static}")
 	private String region;
 
+	@Bean
+	public AwsBasicCredentials awsBasicCredentials() {
+		return AwsBasicCredentials.create(accessKey, secretKey);
+	}
+
 	/**
-	 * 실제 API 호출
+	 * 실제 API 호출rmsep
 	 */
 	@Bean
-	public S3Client s3Client() {
-		AwsBasicCredentials awsCredentials=AwsBasicCredentials.create(accessKey, secretKey);
+	public S3Client s3Client(AwsBasicCredentials awsBasicCredentials) {
 		return S3Client.builder()
 			.credentialsProvider(
-				StaticCredentialsProvider.create(awsCredentials)
+				StaticCredentialsProvider.create(awsBasicCredentials)
 			)
 			.region(Region.of(region))
 			.build();
@@ -40,8 +44,11 @@ public class S3Config {
 	 * Presigned URL 전용
 	 */
 	@Bean
-	public S3Presigner s3Presigner() {
+	public S3Presigner s3Presigner(AwsBasicCredentials awsBasicCredentials) {
 		return S3Presigner.builder()
+			.credentialsProvider(
+				StaticCredentialsProvider.create(awsBasicCredentials)
+			)
 			.region(Region.of(region))
 			.build();
 	}

@@ -1,5 +1,7 @@
 package pingpong.backend.domain.flow.dto.request;
 
+import java.util.List;
+
 import jakarta.validation.constraints.Size;
 
 public record FlowImageUploadCompleteRequest(
