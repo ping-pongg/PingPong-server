@@ -12,6 +12,22 @@ const BASE_URL = (process.env.PUBLIC_BASE_URL ?? 'https://pingpongg.site').repla
 const app = express();
 app.use(express.json());
 
+// ── 전역 요청 로거 ──
+app.use((req, _res, next) => {
+  const hasAuth = !!req.headers['authorization'];
+  const authSummary = hasAuth
+    ? `Bearer (present, length=${req.headers['authorization']!.length - 7})`
+    : 'none';
+  console.log(`[REQ] ${new Date().toISOString()} ${req.method} ${req.path}`);
+  console.log(`  Authorization: ${authSummary}`);
+  console.log(`  Content-Type: ${req.headers['content-type'] ?? 'none'}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    const bodyStr = JSON.stringify(req.body);
+    console.log(`  Body: ${bodyStr.length > 300 ? bodyStr.substring(0, 300) + '...' : bodyStr}`);
+  }
+  next();
+});
+
 // OAuth well-known metadata (proxied from mcp-server so nginx can route /.well-known/ here)
 app.get('/.well-known/oauth-authorization-server', handleWellKnown);
 
@@ -35,6 +51,7 @@ app.all(
   authMiddleware as express.RequestHandler,
   async (req: Request & { mcpContext?: McpContext }, res: Response) => {
     const ctx = req.mcpContext!;
+    console.log(`[MCP] Handler entered - email: ${ctx.email}, teamId: ${ctx.teamId}`);
 
     const server = new McpServer({
       name: 'pingpong-mcp',
@@ -112,14 +129,41 @@ app.all(
     });
 
     res.on('close', () => {
+      console.log(`[MCP] Connection closed - email: ${ctx.email}, teamId: ${ctx.teamId}`);
       transport.close();
       server.close();
     });
 
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    try {
+      await server.connect(transport);
+      console.log(`[MCP] server.connect() succeeded`);
+      await transport.handleRequest(req, res, req.body);
+      console.log(`[MCP] transport.handleRequest() completed`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error(`[MCP] Error during handleRequest: ${message}`);
+      if (stack) console.error(stack);
+    }
   }
 );
+
+// ── 전역 에러 핸들러 ──
+app.use((err: unknown, req: Request, res: Response, _next: express.NextFunction) => {
+  const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  console.error(`[ERROR] Unhandled error on ${req.method} ${req.path}: ${message}`);
+  if (stack) console.error(stack);
+  res.status(500).json({ error: 'internal_server_error', error_description: message });
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err.message, err.stack);
+});
 
 app.listen(PORT, () => {
   console.log(`PingPong MCP Server running on port ${PORT}`);
