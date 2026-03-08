@@ -37,6 +37,7 @@ export async function authMiddleware(
 ): Promise<void> {
   const authorization = req.headers['authorization'];
   if (!authorization || !authorization.startsWith('Bearer ')) {
+    console.log('[AUTH] Missing or invalid Authorization header');
     res
       .status(401)
       .set('WWW-Authenticate', 'Bearer realm="pingpong"')
@@ -50,8 +51,11 @@ export async function authMiddleware(
   const token = authorization.substring(7);
   try {
     req.mcpContext = await verifyMcpToken(token);
+    console.log(`[AUTH] Token verified - email: ${req.mcpContext.email}, teamId: ${req.mcpContext.teamId}`);
     next();
-  } catch {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.log(`[AUTH] Token verification failed: ${message}`);
     res
       .status(401)
       .set(
