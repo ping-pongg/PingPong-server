@@ -17,7 +17,17 @@ function getSecretKey(): Uint8Array {
 
 export async function verifyMcpToken(token: string): Promise<McpContext> {
   const key = getSecretKey();
-  const { payload } = await jwtVerify(token, key, { algorithms: ['HS256'] });
+
+  // JWT header에서 실제 알고리즘 확인 (디버깅용)
+  try {
+    const headerB64 = token.split('.')[0];
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+    console.log(`[AUTH] JWT header: alg=${header.alg}, typ=${header.typ}`);
+  } catch {
+    console.log('[AUTH] Failed to decode JWT header');
+  }
+
+  const { payload } = await jwtVerify(token, key);
 
   const email = payload['email'] as string;
   const teamId = Number(payload['teamId']);
