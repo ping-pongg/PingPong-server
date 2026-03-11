@@ -7,12 +7,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.member.repository.MemberRepository;
+import pingpong.backend.domain.team.MemberTeam;
 import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.team.repository.MemberTeamRepository;
 import pingpong.backend.domain.team.repository.TeamRepository;
 import pingpong.backend.global.auth.dto.OAuthTokenResponse;
 import pingpong.backend.global.auth.service.OAuthAuthorizationService;
 import pingpong.backend.global.exception.CustomException;
 import pingpong.backend.global.redis.OAuthClientCacheUtil;
+import pingpong.backend.global.redis.OAuthStepCacheUtil;
 
 import java.net.URI;
 import java.util.List;
@@ -27,6 +32,9 @@ public class OAuthController {
     private final OAuthAuthorizationService oAuthAuthorizationService;
     private final TeamRepository teamRepository;
     private final OAuthClientCacheUtil oAuthClientCacheUtil;
+    private final OAuthStepCacheUtil oAuthStepCacheUtil;
+    private final MemberTeamRepository memberTeamRepository;
+    private final MemberRepository memberRepository;
 
     @Value("${PUBLIC_BASE_URL:https://pingpongg.site}")
     private String publicBaseUrl;
@@ -128,15 +136,8 @@ public class OAuthController {
                     .body(buildRedirectUriErrorPage(redirectUriValidationError));
         }
 
-        List<Team> teams = teamRepository.findAll();
-        StringBuilder teamOptions = new StringBuilder();
-        for (Team team : teams) {
-            teamOptions.append("<option value=\"").append(team.getId()).append("\">")
-                    .append(escapeHtml(team.getName())).append("</option>");
-        }
-
         String errorBlock = (error != null)
-                ? "<div class=\"error\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/></svg>이메일, 비밀번호 또는 팀을 확인해주세요.</div>"
+                ? "<div class=\"error\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/></svg>이메일 또는 비밀번호를 확인해주세요.</div>"
                 : "";
 
         String html = """
@@ -344,17 +345,7 @@ public class OAuthController {
                         <input id="password" type="password" name="password" required placeholder="비밀번호를 입력하세요" autocomplete="current-password">
                       </div>
 
-                      <div class="field">
-                        <label for="teamId">팀 선택</label>
-                        <div class="select-wrap">
-                          <select id="teamId" name="teamId" required>
-                            <option value="">연결할 팀을 선택하세요</option>
-                            %s
-                          </select>
-                        </div>
-                      </div>
-
-                      <button type="submit">MCP 연결하기</button>
+                      <button type="submit">다음</button>
                     </form>
 
                     <div class="footer">Nexus 계정 정보를 사용합니다</div>
@@ -366,8 +357,7 @@ public class OAuthController {
                 escapeHtml(clientId),
                 escapeHtml(redirectUri),
                 escapeHtml(codeChallenge),
-                state != null ? escapeHtml(state) : "",
-                teamOptions.toString()
+                state != null ? escapeHtml(state) : ""
         );
 
         return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(html);
@@ -378,7 +368,6 @@ public class OAuthController {
             @RequestParam("client_id") String clientId,
             @RequestParam("email") String email,
             @RequestParam("password") String password,
-            @RequestParam("teamId") Long teamId,
             @RequestParam("redirect_uri") String redirectUri,
             @RequestParam("code_challenge") String codeChallenge,
             @RequestParam(value = "state", required = false) String state
@@ -406,8 +395,60 @@ public class OAuthController {
                     .build();
         }
 
-        String code = oAuthAuthorizationService.generateCode(email, teamId, codeChallenge);
+        Member member = memberRepository.getByEmail(email);
+        List<Long> teamIds = memberTeamRepository.findAllByMemberId(member.getId())
+                .stream().map(MemberTeam::getTeamId).toList();
+        List<Team> memberTeams = teamRepository.findAllById(teamIds);
+        if (memberTeams.isEmpty()) {
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_HTML)
+                    .body(buildGenericErrorPage("소속된 팀이 없습니다",
+                            "MCP를 연결하려면 팀에 속해 있어야 합니다. 팀 가입 후 다시 시도해주세요."));
+        }
 
+        String stepToken = UUID.randomUUID().toString();
+        oAuthStepCacheUtil.saveStep(stepToken, email);
+
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML)
+                .body(buildTeamSelectPage(memberTeams, stepToken, clientId, redirectUri, codeChallenge, state));
+    }
+
+    @PostMapping("/oauth/authorize/confirm")
+    public ResponseEntity<String> confirmAuthorize(
+            @RequestParam("step_token") String stepToken,
+            @RequestParam("teamId") Long teamId,
+            @RequestParam("client_id") String clientId,
+            @RequestParam("redirect_uri") String redirectUri,
+            @RequestParam("code_challenge") String codeChallenge,
+            @RequestParam(value = "state", required = false) String state
+    ) {
+        List<String> registeredUris = oAuthClientCacheUtil.getRedirectUris(clientId)
+                .orElse(null);
+        if (registeredUris == null) {
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_HTML)
+                    .body(buildRedirectUriErrorPage("client_id를 찾을 수 없습니다. MCP 클라이언트를 재등록해주세요."));
+        }
+        String redirectUriValidationError = validateRedirectUri(redirectUri, registeredUris);
+        if (redirectUriValidationError != null) {
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_HTML)
+                    .body(buildRedirectUriErrorPage(redirectUriValidationError));
+        }
+
+        String email = oAuthStepCacheUtil.getEmail(stepToken).orElse(null);
+        if (email == null) {
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_HTML)
+                    .body(buildGenericErrorPage("인증이 만료되었습니다",
+                            "처음부터 다시 시도해주세요. MCP 클라이언트를 통해 연결을 재시작하세요."));
+        }
+
+        Member member = memberRepository.getByEmail(email);
+        if (!memberTeamRepository.existsByTeamIdAndMemberId(teamId, member.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.TEXT_HTML)
+                    .body(buildGenericErrorPage("팀 접근 권한 없음", "해당 팀의 멤버가 아닙니다."));
+        }
+
+        oAuthStepCacheUtil.deleteStep(stepToken);
+
+        String code = oAuthAuthorizationService.generateCode(email, teamId, codeChallenge);
         StringBuilder location = new StringBuilder(redirectUri);
         location.append(redirectUri.contains("?") ? "&" : "?").append("code=").append(code);
         if (state != null && !state.isBlank()) {
@@ -438,6 +479,155 @@ public class OAuthController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "invalid_grant", "error_description", e.getErrorCode().getMessage()));
         }
+    }
+
+    private String buildTeamSelectPage(List<Team> teams, String stepToken, String clientId,
+                                       String redirectUri, String codeChallenge, String state) {
+        StringBuilder teamOptions = new StringBuilder();
+        for (Team team : teams) {
+            teamOptions.append("<option value=\"").append(team.getId()).append("\">")
+                    .append(escapeHtml(team.getName())).append("</option>");
+        }
+        return """
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Nexus MCP</title>
+                  <style>
+                    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                    body {
+                      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+                      background: #FDF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                      padding: 24px;
+                    }
+                    .card {
+                      background: #ffffff; border-radius: 20px;
+                      box-shadow: 0 4px 6px -1px rgba(217,119,87,0.08), 0 12px 32px -4px rgba(217,119,87,0.12);
+                      padding: 40px 36px 36px; width: 100%%; max-width: 420px;
+                    }
+                    .header { text-align: center; margin-bottom: 32px; }
+                    .logo {
+                      display: inline-flex; align-items: center; justify-content: center;
+                      width: 52px; height: 52px;
+                      background: linear-gradient(135deg, #D97757, #C46540);
+                      border-radius: 14px; margin-bottom: 16px;
+                      box-shadow: 0 4px 12px rgba(217,119,87,0.35);
+                    }
+                    .logo svg { display: block; }
+                    .title { font-size: 22px; font-weight: 700; color: #1a1a1a; letter-spacing: -0.3px; margin-bottom: 6px; }
+                    .subtitle { font-size: 13.5px; color: #888; }
+                    .divider { height: 1px; background: #F0EAE6; margin-bottom: 28px; }
+                    .field { margin-bottom: 18px; }
+                    label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; letter-spacing: 0.1px; }
+                    select {
+                      width: 100%%; padding: 11px 14px; font-size: 14.5px; color: #1a1a1a;
+                      background: #FAFAFA; border: 1.5px solid #E8E0DB; border-radius: 10px;
+                      outline: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+                      appearance: none; -webkit-appearance: none;
+                    }
+                    select:focus { border-color: #D97757; background: #fff; box-shadow: 0 0 0 3px rgba(217,119,87,0.15); }
+                    .select-wrap { position: relative; }
+                    .select-wrap::after {
+                      content: ''; position: absolute; right: 14px; top: 50%%;
+                      transform: translateY(-50%%); width: 0; height: 0;
+                      border-left: 5px solid transparent; border-right: 5px solid transparent;
+                      border-top: 5px solid #999; pointer-events: none;
+                    }
+                    button {
+                      width: 100%%; padding: 13px; margin-top: 8px; font-size: 15px; font-weight: 600;
+                      color: #fff; background: linear-gradient(135deg, #D97757, #C46540);
+                      border: none; border-radius: 12px; cursor: pointer; letter-spacing: 0.1px;
+                      box-shadow: 0 4px 14px rgba(217,119,87,0.4);
+                      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+                    }
+                    button:hover { opacity: 0.92; box-shadow: 0 6px 18px rgba(217,119,87,0.45); }
+                    button:active { transform: scale(0.985); box-shadow: 0 2px 8px rgba(217,119,87,0.3); }
+                    .footer { text-align: center; margin-top: 22px; font-size: 12.5px; color: #aaa; }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <div class="header">
+                      <div class="logo">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M14 4C8.477 4 4 8.477 4 14s4.477 10 10 10 10-4.477 10-10S19.523 4 14 4z" fill="rgba(255,255,255,0.25)"/>
+                          <path d="M9.5 14a4.5 4.5 0 019 0" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                          <circle cx="10" cy="11.5" r="1.5" fill="white"/>
+                          <circle cx="18" cy="11.5" r="1.5" fill="white"/>
+                          <path d="M10 17.5c1.1 1.2 2.5 1.8 4 1.8s2.9-.6 4-1.8" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                      </div>
+                      <div class="title">팀 선택</div>
+                      <div class="subtitle">연결할 팀을 선택해주세요</div>
+                    </div>
+                    <div class="divider"></div>
+                    <form method="POST" action="/oauth/authorize/confirm">
+                      <input type="hidden" name="step_token" value="%s">
+                      <input type="hidden" name="client_id" value="%s">
+                      <input type="hidden" name="redirect_uri" value="%s">
+                      <input type="hidden" name="code_challenge" value="%s">
+                      <input type="hidden" name="state" value="%s">
+                      <div class="field">
+                        <label for="teamId">팀</label>
+                        <div class="select-wrap">
+                          <select id="teamId" name="teamId" required>
+                            <option value="">연결할 팀을 선택하세요</option>
+                            %s
+                          </select>
+                        </div>
+                      </div>
+                      <button type="submit">MCP 연결하기</button>
+                    </form>
+                    <div class="footer">Nexus 계정 정보를 사용합니다</div>
+                  </div>
+                </body>
+                </html>
+                """.formatted(
+                escapeHtml(stepToken),
+                escapeHtml(clientId),
+                escapeHtml(redirectUri),
+                escapeHtml(codeChallenge),
+                state != null ? escapeHtml(state) : "",
+                teamOptions.toString()
+        );
+    }
+
+    private String buildGenericErrorPage(String title, String desc) {
+        return """
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Nexus MCP</title>
+                  <style>
+                    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                    body {
+                      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+                      background: #FDF6F0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                      padding: 24px;
+                    }
+                    .card {
+                      background: #fff; border-radius: 20px;
+                      box-shadow: 0 4px 6px -1px rgba(217,119,87,0.08), 0 12px 32px -4px rgba(217,119,87,0.12);
+                      padding: 40px 36px; width: 100%%; max-width: 420px; text-align: center;
+                    }
+                    .icon { font-size: 40px; margin-bottom: 16px; }
+                    .title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; }
+                    .desc { font-size: 14px; color: #888; line-height: 1.6; }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <div class="icon">🚫</div>
+                    <div class="title">%s</div>
+                    <div class="desc">%s</div>
+                  </div>
+                </body>
+                </html>
+                """.formatted(escapeHtml(title), escapeHtml(desc));
     }
 
     private String validateRedirectUri(String redirectUri, List<String> registeredUris) {
