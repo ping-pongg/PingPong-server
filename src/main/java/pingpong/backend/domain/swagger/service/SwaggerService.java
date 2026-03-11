@@ -58,6 +58,7 @@ import pingpong.backend.global.exception.CustomException;
 public class SwaggerService {
 
 
+	private final SsrfGuard ssrfGuard;
 	private final SwaggerUrlResolver swaggerUrlResolver;
 	private final SwaggerParser swaggerParser;
 	private final SwaggerHashUtil swaggerHashUtil;
@@ -78,7 +79,9 @@ public class SwaggerService {
 	 * @return
 	 */
 	public JsonNode readSwaggerDocs(Long teamId){
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
+		String swagger = teamService.getTeam(teamId).getSwagger();
+		ssrfGuard.validate(swagger);
+		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(swagger);
 		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
 		return swaggerJson;
 	}
@@ -220,6 +223,9 @@ public class SwaggerService {
 	 */
 	@Transactional
 	public void syncSwagger(Long teamId, Member member) {
+		String swagger = teamService.getTeam(teamId).getSwagger();
+		ssrfGuard.validate(swagger);
+
 		String swaggerJsonUrl = swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
 		JsonNode swaggerJson = swaggerParser.fetchJson(swaggerJsonUrl);
 		String specHash = swaggerHashUtil.generateSpecHash(swaggerJson);

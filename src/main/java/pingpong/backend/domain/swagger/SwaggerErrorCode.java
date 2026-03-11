@@ -21,7 +21,8 @@ public enum SwaggerErrorCode implements ApiErrorCode {
 	ENDPOINT_TEAM_MISMATCH("ENDPOINT403", "해당 엔드포인트는 이 팀에 속하지 않습니다.", HttpStatus.FORBIDDEN),
 	MISSING_REQUIRED_PARAMETER("ENDPOINT400", "필수 파라미터가 누락되었습니다.", HttpStatus.BAD_REQUEST),
 	MISSING_REQUEST_BODY("ENDPOINT400", "요청 바디는 필수입니다.", HttpStatus.BAD_REQUEST),
-	API_EXECUTE_ERROR("SWAGGER503", "외부 API 요청 중 오류가 발생했습니다.", HttpStatus.BAD_GATEWAY);
+	API_EXECUTE_ERROR("SWAGGER503", "외부 API 요청 중 오류가 발생했습니다.", HttpStatus.BAD_GATEWAY),
+	SSRF_BLOCKED("SWAGGER403", "허용되지 않는 대상 서버 주소입니다.", HttpStatus.FORBIDDEN);
 
 	private final String errorCode;
 	private final String message;
