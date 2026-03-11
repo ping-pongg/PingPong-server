@@ -32,7 +32,7 @@ import pingpong.backend.global.exception.CustomException;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, noRollbackFor = CustomException.class)
 public class ApiExecuteService {
 
 	private final EndpointRepository endpointRepository;
@@ -40,6 +40,7 @@ public class ApiExecuteService {
 	private final SwaggerParameterRepository swaggerParameterRepository;
 	private final SwaggerRequestRepository swaggerRequestRepository;
 	private final SwaggerUrlResolver swaggerUrlResolver;
+	private final SsrfGuard ssrfGuard;
 	private final ApiExecuteClient apiExecuteClient;
 	private final ObjectMapper objectMapper;
 
@@ -70,8 +71,9 @@ public class ApiExecuteService {
 		// 6. required body 검증
 		validateRequestBody(endpointId, mergedReq);
 
-		// 7. base URL 추출
+		// 7. base URL 추출 및 SSRF 차단
 		String baseUrl = swaggerUrlResolver.resolveBaseUrl(team.getSwagger());
+		ssrfGuard.validate(baseUrl);
 
 		// 8. path variable 치환 + full URL 빌드
 		Map<String, String> pathVars = mergedReq.pathVariables() != null ? mergedReq.pathVariables() : new HashMap<>();

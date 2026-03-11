@@ -7,6 +7,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.domain.notion.repository.NotionRepository;
+import pingpong.backend.domain.swagger.service.SsrfGuard;
 import pingpong.backend.domain.team.MemberTeam;
 import pingpong.backend.domain.team.Team;
 import pingpong.backend.domain.team.TeamErrorCode;
@@ -27,12 +28,14 @@ public class TeamService {
     private final MemberTeamRepository memberTeamRepository;
     private final MemberService memberService;
     private final NotionRepository notionRepository;
+    private final SsrfGuard ssrfGuard;
 
     /**
      * 팀 생성 + 생성자 자동 참여 (요구사항 1 반영)
      */
     @Transactional
     public TeamCreateResponse createTeam(TeamCreateRequest req, Member creator) {
+        ssrfGuard.validate(req.swagger());
         Team team = Team.create(
                 req.name(),
                 req.figma(),
