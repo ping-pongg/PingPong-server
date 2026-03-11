@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+
 @Configuration
 @EnableConfigurationProperties(RagChatProperties.class)
 public class ChatClientConfig {
@@ -32,6 +33,7 @@ public class ChatClientConfig {
             - 컨텍스트에 내용이 있지만 상세 정보가 부족한 경우, pageUrl이 제공된 노션 페이지 방문을 안내하세요.
             """;
 
+
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) {
         return builder
@@ -51,5 +53,18 @@ public class ChatClientConfig {
                         .temperature(0.0)
                         .build())
                 .build();
+    }
+
+    /**
+     * QA 시나리오 생성 전용 ChatClient
+     * QA_SYSTEM_PROMPT를 기본으로 사용하며, JSON 출력의 일관성을 위해 temperature를 0.0으로 설정
+     */
+    @Bean(name = "qaClient")
+    public ChatClient qaClient(ChatClient.Builder builder) {
+        return builder
+            .defaultOptions(OpenAiChatOptions.builder()
+                .temperature(0.0) // 창의성 배제, 정확도 위주
+                .build())
+            .build();
     }
 }

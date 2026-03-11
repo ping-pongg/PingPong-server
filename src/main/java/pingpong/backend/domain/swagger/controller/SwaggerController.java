@@ -50,9 +50,21 @@ public class SwaggerController {
 		return SuccessResponse.ok(swaggerService.readSwaggerDocs(teamId));
 	}
 
+	/**
+	 * GET: 데이터 조회 (Query)
+	 * 새로고침 없이 현재 DB에 저장된 최신 상태만 보고 싶을 때 사용합니다.
+	 */
+	@GetMapping("/{teamId}/latest")
+	@Operation(summary = "Swagger 최신 결과 조회", description = "DB에 저장된 가장 최신 스냅샷 정보를 조회합니다.")
+	public SuccessResponse<List<EndpointGroupResponse>> getLatest(
+		@PathVariable Long teamId
+	) {
+		return SuccessResponse.ok(swaggerService.getLatestSnapshotGrouped(teamId));
+	}
+
 	@PostMapping("/api/v1/swagger/{teamId}/sync")
 	@Operation(
-		summary = "새로고침 - swagger JSON 정규화해서 DB에 저장",
+		summary = "새로고침 버튼 누르면 호출하는 API",
 		description = """
         지정한 서버의 Swagger(OpenAPI) 문서를 조회하여 최신 스냅샷과 비교합니다.
         스펙 해시가 동일한 경우에는 별도의 저장 없이 빈 결과를 반환합니다.
@@ -65,11 +77,12 @@ public class SwaggerController {
         최종적으로 변경이 발생한 endpoint만 controller(tag) 단위로 그룹화하여 반환합니다.
         """
 	)
-	public SuccessResponse<List<EndpointGroupResponse>> compareAndSaveSwagger(
+	public SuccessResponse<Void> syncSwagger(
 		@PathVariable Long teamId,
 		@CurrentMember Member currentMember
 	) {
-		return SuccessResponse.ok(swaggerService.syncSwagger(teamId, currentMember));
+		swaggerService.syncSwagger(teamId, currentMember);
+		return SuccessResponse.ok();
 	}
 
 	@GetMapping("/api/v1/endpoints/diff/{endpointId}")
@@ -110,6 +123,7 @@ public class SwaggerController {
 		return SuccessResponse.ok(endpointService.searchEndpoints(teamId, query));
 	}
 
+	@Hidden
 	@GetMapping("/api/v1/endpoints/changed")
 	@Operation(
 		summary = "팀에 속한 전체 엔드포인트들 중 이번에 바뀐 엔드포인트만 조회",

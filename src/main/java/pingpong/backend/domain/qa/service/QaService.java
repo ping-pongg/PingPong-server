@@ -1,10 +1,13 @@
 package pingpong.backend.domain.qa.service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +15,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
@@ -20,28 +23,63 @@ import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
 import pingpong.backend.domain.swagger.Endpoint;
+import pingpong.backend.domain.swagger.SwaggerErrorCode;
+import pingpong.backend.domain.swagger.dto.EndpointAggregate;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.repository.EndpointRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerEndpointSecurityRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerParameterRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
+import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.global.exception.CustomException;
+import pingpong.backend.global.rag.chat.RagUserPrompt;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class QaService {
 
+	private final ChatClient qaClient;
 	private final QaCaseRepository qaCaseRepository;
 	private final QaExecuteResultRepository qaExecuteResultRepository;
 	private final ApiExecuteService apiExecuteService;
 	private final ObjectMapper objectMapper;
 	private final SwaggerSnapshotRepository swaggerSnapshotRepository;
 	private final EndpointRepository endpointRepository;
+	private final SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository;
+	private final SwaggerParameterRepository swaggerParameterRepository;
+	private final SwaggerRequestRepository swaggerRequestRepository;
+	private final SwaggerResponseRepository swaggerResponseRepository;
+	private final LlmQaService llmQaService;
+
+
+	public QaService(@Qualifier("qaClient") ChatClient qaClient, QaCaseRepository qaCaseRepository,
+		QaExecuteResultRepository qaExecuteResultRepository, ApiExecuteService apiExecuteService,
+		ObjectMapper objectMapper, SwaggerSnapshotRepository swaggerSnapshotRepository,
+		EndpointRepository endpointRepository, SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository,
+		SwaggerParameterRepository swaggerParameterRepository, SwaggerRequestRepository swaggerRequestRepository,
+		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService) {
+		this.qaClient = qaClient;
+		this.qaCaseRepository = qaCaseRepository;
+		this.qaExecuteResultRepository = qaExecuteResultRepository;
+		this.apiExecuteService = apiExecuteService;
+		this.objectMapper = objectMapper;
+		this.swaggerSnapshotRepository = swaggerSnapshotRepository;
+		this.endpointRepository = endpointRepository;
+		this.swaggerEndpointSecurityRepository = swaggerEndpointSecurityRepository;
+		this.swaggerParameterRepository = swaggerParameterRepository;
+		this.swaggerRequestRepository = swaggerRequestRepository;
+		this.swaggerResponseRepository = swaggerResponseRepository;
+		this.llmQaService = llmQaService;
+	}
 
 	public List<QaCaseResponse> getQaCasesByEndpointId(Long endpointId) {
 		return qaCaseRepository.findAllByEndpointId(endpointId).stream()
@@ -57,6 +95,96 @@ public class QaService {
 				qa.getCreatedAt()
 			))
 			.toList();
+	}
+
+	@Transactional
+	public QaScenarioResponse createQaCases(Long endpointId) {
+
+		// 1. 데이터 수집 (기존 collectData 호출)
+		EndpointAggregate spec = collectData(endpointId);
+		Endpoint endpoint = spec.endpoint();
+
+		// 2. LlmQaService를 통해 시나리오 생성 요청 (Step 1 & Step 2 포함)
+		LlmQaService.QaOutcome outcome = llmQaService.generateScenarios(spec);
+
+		// 3. 결과 확인 및 예외 처리
+		// outcome.raw()가 null이면 LLM 호출 자체 실패, outcome.result()가 null이면 파싱 최종 실패
+		if (outcome.raw() == null) {
+			log.error("QA-GEN: AI 호출 실패. endpointId={}", endpointId);
+			throw new CustomException(QaErrorCode.AI_CALL_FAILED);
+		}
+
+		if (outcome.result() == null) {
+			log.error("QA-GEN: AI 응답 파싱 최종 실패. rawResponse='{}'", outcome.raw());
+			throw new CustomException(QaErrorCode.AI_RESPONSE_PARSING_ERROR);
+		}
+
+		// 4. 성공 로그 기록
+		QaScenarioResponse result = outcome.result();
+		log.info("QA-GEN: 시나리오 생성 성공! 개수: {} (endpointId={})",
+			result.scenarios().size(), endpointId);
+
+		// 5. DB 저장 로직 실행
+		saveScenariosToDb(endpoint, result);
+
+		log.info("QA-GEN: 성공! {}개의 시나리오가 DB에 저장되었습니다. (endpointId={})",
+			result.scenarios().size(), endpointId);
+
+		return result;
+	}
+
+	/**
+	 * AI 응답 결과를 QaCase 엔티티로 변환하여 일괄 저장
+	 */
+	private void saveScenariosToDb(Endpoint endpoint, QaScenarioResponse result) {
+		List<QaCase> qaCases = result.scenarios().stream()
+			.map(scenario -> {
+				var req = scenario.requestData();
+
+				// Map 객체들을 JSON 문자열로 변환 (DB의 TEXT/LONGTEXT 컬럼 대응)
+				String headersJson = toJsonString(req.headers());
+				String bodyJson = toJsonString(req.body());
+
+				// 만약 RequestData에 pathVariables나 queryParams가 명시적으로 구분되어 있지 않다면,
+				// 현재는 headers와 body 위주로 저장하고 나머지는 null 처리하거나 추후 확장이 가능합니다.
+				return QaCase.create(
+					endpoint,
+					scenario.description(),
+					null,        // pathVariables (필요 시 AI 응답 구조에 추가)
+					null,        // queryParams (필요 시 AI 응답 구조에 추가)
+					headersJson,
+					bodyJson
+				);
+			})
+			.toList();
+
+		qaCaseRepository.saveAll(qaCases);
+	}
+
+	/**
+	 * 객체를 JSON 문자열로 안전하게 변환
+	 */
+	private String toJsonString(Object obj) {
+		if (obj == null) return null;
+		try {
+			return objectMapper.writeValueAsString(obj);
+		} catch (JsonProcessingException e) {
+			log.warn("QA-GEN: JSON 변환 실패 - {}", e.getMessage());
+			return null;
+		}
+	}
+
+
+	private EndpointAggregate collectData(Long endpointId) {
+		//관련 정보 수집
+		var endpoint=endpointRepository.findById(endpointId)
+			.orElseThrow(()->new CustomException(SwaggerErrorCode.ENDPOINTS_NOT_FOUND));
+		var security=swaggerEndpointSecurityRepository.findByEndpointId(endpointId);
+		var parameters=swaggerParameterRepository.findByEndpointId(endpointId);
+		var requests=swaggerRequestRepository.findByEndpointId(endpointId);
+		var responses=swaggerResponseRepository.findByEndpointId(endpointId);
+
+		return new EndpointAggregate(endpoint,security,parameters,requests,responses, LocalDateTime.now());
 	}
 
 	@Transactional

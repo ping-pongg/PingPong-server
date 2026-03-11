@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.service.QaService;
 import pingpong.backend.global.response.result.SuccessResponse;
@@ -27,6 +28,15 @@ import pingpong.backend.global.response.result.SuccessResponse;
 public class QaController {
 
 	private final QaService qaService;
+
+	@PostMapping("/{endpointId}")
+	@Operation(
+		summary="해당 Endpoint의 QA 시나리오 생성",
+		description = "edpoint에 해당하는 QA 케이스들을 생성합니다."
+	)
+	public SuccessResponse<QaScenarioResponse> createQaCases(@PathVariable Long endpointId){
+		return SuccessResponse.ok(qaService.createQaCases(endpointId));
+	}
 
 	@GetMapping
 	@Operation(

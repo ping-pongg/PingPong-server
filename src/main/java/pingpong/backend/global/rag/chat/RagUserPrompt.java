@@ -3,9 +3,14 @@ package pingpong.backend.global.rag.chat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
+
+import pingpong.backend.domain.swagger.dto.EndpointAggregate;
 import pingpong.backend.global.rag.chat.config.RagChatProperties;
 
 import java.util.List;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
@@ -23,7 +28,10 @@ public class RagUserPrompt {
             답변:
             """;
 
+
+
     private final RagChatProperties properties;
+    private final ObjectMapper objectMapper;
 
     public String build(String query, List<Document> docs) {
         String context = buildContext(docs);
@@ -31,6 +39,31 @@ public class RagUserPrompt {
                 .replace("{question_answer_context}", context)
                 .replace("{query}", query != null ? query : "");
     }
+
+    /**
+     * 유저 프롬프트 생성 (RAG 컨텍스트 결합)
+     */
+    public String buildUserPrompt(EndpointAggregate spec) {
+        try {
+            // Swagger 관련 집합 정보를 읽기 좋은 JSON으로 변환
+            String swaggerJson = objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsString(spec);
+
+            return String.format("""
+                제공된 API 명세를 분석하여 QA 시나리오를 생성하세요.
+                결과 JSON의 'endpointId' 필드에는 반드시 아래의 ID를 사용해야 합니다.
+                
+                [대상 endpointId]
+                %d
+                
+                [분석할 API 명세]
+                %s
+                """, spec.endpoint().getId(), swaggerJson);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Swagger 데이터 변환 중 오류가 발생했습니다.", e);
+        }
+    }
+
 
     private String buildContext(List<Document> docs) {
         if (docs == null || docs.isEmpty()) {

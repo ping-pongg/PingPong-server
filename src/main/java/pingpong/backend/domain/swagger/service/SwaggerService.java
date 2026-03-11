@@ -219,114 +219,103 @@ public class SwaggerService {
 
 
 	/**
-	 * 가장 최신의 swagger를 업데이트해서 비교
-	 * @param teamId
-	 * @param member
-	 * @return
+	 * [Command] Swagger 동기화 및 저장 (변경이 있을 때만 실행)
 	 */
-	public List<EndpointGroupResponse> syncSwagger(Long teamId,Member member){
+	@Transactional
+	public void syncSwagger(Long teamId, Member member) {
 		String swagger = teamService.getTeam(teamId).getSwagger();
 		ssrfGuard.validate(swagger);
-		String swaggerJsonUrl=swaggerUrlResolver.resolveSwaggerUrl(swagger);
-		JsonNode swaggerJson=swaggerParser.fetchJson(swaggerJsonUrl);
-		//전체 스펙 해시 계산
-		String specHash=swaggerHashUtil.generateSpecHash(swaggerJson);
 
-		//기존 스냅샷 조회
-		Optional<SwaggerSnapshot> latest=swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
-		//변화 없을 시에, 기존 반환 값 그대로 반환
+		String swaggerJsonUrl = swaggerUrlResolver.resolveSwaggerUrl(teamService.getTeam(teamId).getSwagger());
+		JsonNode swaggerJson = swaggerParser.fetchJson(swaggerJsonUrl);
+		String specHash = swaggerHashUtil.generateSpecHash(swaggerJson);
+
+		Optional<SwaggerSnapshot> latest = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+
+		// 1. 변화가 없다면 저장 절차를 건너뜀 (Early Return)
 		if (latest.isPresent() && latest.get().getSpecHash().equals(specHash)) {
-
-			List<Endpoint> previousEndpoints =
-				endpointRepository.findBySnapshotId(latest.get().getId());
-
-			Map<String, List<EndpointResponse>> grouped =
-				previousEndpoints.stream()
-					.map(EndpointResponse::toDto)
-					.collect(Collectors.groupingBy(EndpointResponse::tag));
-
-			return grouped.entrySet().stream()
-				.map(e -> new EndpointGroupResponse(
-					SnapshotDiffStatus.NOT_CHANGED,
-					e.getKey(),
-					e.getValue()
-				))
-				.toList();
+			return;
 		}
 
-		//이전 endpoint map 준비
-		Map<String,Endpoint> prevMap;
-		if(latest.isPresent()){
-			List<Endpoint> prevEndpoints=
-				endpointRepository.findBySnapshotId(latest.get().getId());
-			prevMap=prevEndpoints.stream()
+		// 2. 이전 Endpoint Map 준비 (비교용)
+		Map<String, Endpoint> prevMap = latest.map(snapshot ->
+			endpointRepository.findBySnapshotId(snapshot.getId()).stream()
 				.collect(Collectors.toMap(
-					e->e.getPath()+"|"+e.getMethod(), //path+method 단위로 endpoint 동일성 판단
+					e -> e.getPath() + "|" + e.getMethod(),
 					Function.identity()
-				));
-		} else {
-			prevMap = new HashMap<>();
-		}
+				))
+		).orElseGet(HashMap::new);
 
-		//새로운 snapshot 생성
-		List<EndpointAggregate> aggregates=swaggerParser.parseAll(swaggerJson);
-		SwaggerSnapshot snapshot=SwaggerSnapshot.builder()
+		// 3. 새로운 Snapshot 생성 및 저장
+		List<EndpointAggregate> aggregates = swaggerParser.parseAll(swaggerJson);
+		SwaggerSnapshot snapshot = SwaggerSnapshot.builder()
 			.team(teamService.getTeam(teamId))
 			.specHash(specHash)
 			.createdAt(LocalDateTime.now())
 			.endpointCount(aggregates.size())
 			.rawJson(swaggerJson.toString())
 			.build();
+
 		swaggerSnapshotRepository.save(snapshot);
 
-		//현재 endpoint 저장 + 변경 감지
-		List<Endpoint> endpoints=saveAggregates(aggregates,member,snapshot,prevMap);
+		// 4. 현재 Endpoint 저장 및 변경 감지
+		List<Endpoint> endpoints = saveAggregates(aggregates, member, snapshot, prevMap);
 
-		//삭제된 endpoint 감지
-		Set<String> currentKeys=endpoints.stream()
-			.map(e->e.getPath()+"|"+e.getMethod())
+		// 5. 삭제된 Endpoint 처리
+		Set<String> currentKeys = endpoints.stream()
+			.map(e -> e.getPath() + "|" + e.getMethod())
 			.collect(Collectors.toSet());
-		List<Endpoint> deletedEndpoints=new ArrayList<>();
-		for(Map.Entry<String,Endpoint> entry:prevMap.entrySet()){
-			String key=entry.getKey();
-			if(!currentKeys.contains(key)){
-				Endpoint deleted=markDeleted(
-					entry.getValue(),
-					member,
-					snapshot
-				);
-				deletedEndpoints.add(endpointRepository.save(deleted));
-			}
-		}
 
-		// current + deleted 합치기
-		List<Endpoint> allEndpoints = Stream.concat(
-			endpoints.stream(),
-			deletedEndpoints.stream()
-		).toList();
+		List<Endpoint> deletedEndpoints = prevMap.entrySet().stream()
+			.filter(entry -> !currentKeys.contains(entry.getKey()))
+			.map(entry -> markDeleted(entry.getValue(), member, snapshot))
+			.map(endpointRepository::save)
+			.toList();
 
+		// 6. 전체 Endpoint 상태 업데이트 (연관 관계 등)
+		List<Endpoint> allEndpoints = Stream.concat(endpoints.stream(), deletedEndpoints.stream()).toList();
 		endpointService.unlinkChangedEndpoints(allEndpoints);
+	}
 
-		// endpoint diff
-		Map<String, List<EndpointResponse>> grouped =
-			allEndpoints.stream()
-				.map(EndpointResponse::toDto)
-				.collect(Collectors.groupingBy(EndpointResponse::tag));
+	/**
+	 * [Query] 가장 최신의 스냅샷 데이터를 기반으로 변경 사항 결과 조회
+	 * 새로고침 시 혹은 대시보드 진입 시 호출됩니다.
+	 * * @param teamId 해당 팀의 ID
+	 * @return 태그(Controller)별로 그룹화된 엔드포인트 리스트
+	 */
+	@Transactional(readOnly = true)
+	public List<EndpointGroupResponse> getLatestSnapshotGrouped(Long teamId) {
+		// 1. 해당 팀의 가장 최근 스냅샷을 조회
+		SwaggerSnapshot latest = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId)
+			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
-		return grouped.entrySet().stream()
-			.map(e -> {
-				List<EndpointResponse> endpointResponses = e.getValue();
+		// 2. 해당 스냅샷에 속한 모든 엔드포인트(Endpoint) 목록을 가져옴
+		List<Endpoint> allEndpoints = endpointRepository.findBySnapshotId(latest.getId());
 
-				boolean hasChanged = endpointResponses.stream()
+		// 3. 엔드포인트들을 DTO로 변환하고, Tag(Swagger의 그룹)별로 그룹화(Grouping)
+		Map<String, List<EndpointResponse>> groupedByTag = allEndpoints.stream()
+			.map(EndpointResponse::toDto)
+			.collect(Collectors.groupingBy(EndpointResponse::tag));
+
+		// 4. 그룹화된 맵을 최종 Response 형태인 List<EndpointGroupResponse>로 변환
+		return groupedByTag.entrySet().stream()
+			.map(entry -> {
+				String tag = entry.getKey();
+				List<EndpointResponse> responses = entry.getValue();
+
+				// 해당 그룹(태그) 내에 하나라도 변경(isChanged=true)된 엔드포인트가 있는지 판별
+				boolean hasChanged = responses.stream()
 					.anyMatch(ep -> Boolean.TRUE.equals(ep.isChanged()));
 
-				SnapshotDiffStatus status =
-					hasChanged ? SnapshotDiffStatus.CHANGED : SnapshotDiffStatus.NOT_CHANGED;
+				// 그룹 전체의 상태 결정 (하나라도 바뀌었으면 CHANGED, 아니면 NOT_CHANGED)
+				SnapshotDiffStatus groupStatus = hasChanged
+					? SnapshotDiffStatus.CHANGED
+					: SnapshotDiffStatus.NOT_CHANGED;
 
 				return new EndpointGroupResponse(
-					status,
-					e.getKey(),
-					endpointResponses
+					groupStatus,
+					tag,
+					responses
 				);
 			})
 			.toList();
