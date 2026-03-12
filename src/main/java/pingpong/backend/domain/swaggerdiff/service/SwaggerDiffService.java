@@ -77,7 +77,8 @@ public class SwaggerDiffService {
 		);
 
 		// Check if endpoint is in newEndpoints (newly added)
-		for (org.openapitools.openapidiff.core.model.Endpoint ep : diff.getNewEndpoints()) {
+		for (org.openapitools.openapidiff.core.model.Endpoint ep :
+				Optional.ofNullable(diff.getNewEndpoints()).orElse(Collections.emptyList())) {
 			if (matchesEndpoint(ep, path, method)) {
 				if (currOperation == null) {
 					throw new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND);
@@ -87,7 +88,8 @@ public class SwaggerDiffService {
 		}
 
 		// Check if endpoint is in missingEndpoints (deleted)
-		for (org.openapitools.openapidiff.core.model.Endpoint ep : diff.getMissingEndpoints()) {
+		for (org.openapitools.openapidiff.core.model.Endpoint ep :
+				Optional.ofNullable(diff.getMissingEndpoints()).orElse(Collections.emptyList())) {
 			if (matchesEndpoint(ep, path, method)) {
 				OpenAPI prevApi = parseOpenApi(prevSnapshot.getRawJson());
 				Operation prevOperation = findOperation(prevApi, path, method);
@@ -99,7 +101,8 @@ public class SwaggerDiffService {
 		}
 
 		// Check if endpoint is in changedOperations
-		for (ChangedOperation changedOp : diff.getChangedOperations()) {
+		for (ChangedOperation changedOp :
+				Optional.ofNullable(diff.getChangedOperations()).orElse(Collections.emptyList())) {
 			if (matchesChangedOperation(changedOp, path, method)) {
 				OpenAPI prevApi = parseOpenApi(prevSnapshot.getRawJson());
 				return openApiDiffMapper.fromChangedOperation(path, method, changedOp,
