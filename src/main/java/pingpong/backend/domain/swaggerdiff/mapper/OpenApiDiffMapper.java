@@ -520,17 +520,30 @@ public class OpenApiDiffMapper {
 
 	// ── Schema Normalization ──
 
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	private JsonNode normalizeSchema(Schema<?> schema, Map<String, Schema> allSchemas) {
+		return normalizeSchema(schema, allSchemas, new HashSet<>());
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private JsonNode normalizeSchema(Schema<?> schema, Map<String, Schema> allSchemas, Set<String> visiting) {
 		if (schema == null) return null;
 
 		// Resolve $ref
 		if (schema.get$ref() != null) {
 			String refName = extractSchemaName(schema.get$ref());
 			if (refName != null && allSchemas != null) {
+				// Circular reference detected — return $ref node to break the cycle
+				if (visiting.contains(refName)) {
+					ObjectNode refNode = objectMapper.createObjectNode();
+					refNode.put("$ref", schema.get$ref());
+					return refNode;
+				}
 				Schema resolved = allSchemas.get(refName);
 				if (resolved != null) {
-					return normalizeSchema(resolved, allSchemas);
+					visiting.add(refName);
+					JsonNode result = normalizeSchema(resolved, allSchemas, visiting);
+					visiting.remove(refName);
+					return result;
 				}
 			}
 			// Cannot resolve — return $ref only
@@ -556,7 +569,7 @@ public class OpenApiDiffMapper {
 		if (schema.getProperties() != null && !schema.getProperties().isEmpty()) {
 			ObjectNode propsNode = objectMapper.createObjectNode();
 			for (Map.Entry<String, Schema> entry : ((Map<String, Schema>) (Map<?, ?>) schema.getProperties()).entrySet()) {
-				JsonNode propNode = normalizeSchema(entry.getValue(), allSchemas);
+				JsonNode propNode = normalizeSchema(entry.getValue(), allSchemas, visiting);
 				if (propNode != null) propsNode.set(entry.getKey(), propNode);
 			}
 			node.set("properties", propsNode);
@@ -564,17 +577,17 @@ public class OpenApiDiffMapper {
 
 		// items (for arrays)
 		if (schema.getItems() != null) {
-			JsonNode itemsNode = normalizeSchema(schema.getItems(), allSchemas);
+			JsonNode itemsNode = normalizeSchema(schema.getItems(), allSchemas, visiting);
 			if (itemsNode != null) node.set("items", itemsNode);
 		}
 
 		// oneOf / anyOf / allOf
 		if (schema.getOneOf() != null && !schema.getOneOf().isEmpty())
-			node.set("oneOf", buildComposedArray(schema.getOneOf(), allSchemas));
+			node.set("oneOf", buildComposedArray(schema.getOneOf(), allSchemas, visiting));
 		if (schema.getAnyOf() != null && !schema.getAnyOf().isEmpty())
-			node.set("anyOf", buildComposedArray(schema.getAnyOf(), allSchemas));
+			node.set("anyOf", buildComposedArray(schema.getAnyOf(), allSchemas, visiting));
 		if (schema.getAllOf() != null && !schema.getAllOf().isEmpty())
-			node.set("allOf", buildComposedArray(schema.getAllOf(), allSchemas));
+			node.set("allOf", buildComposedArray(schema.getAllOf(), allSchemas, visiting));
 
 		// enum
 		if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
@@ -589,10 +602,10 @@ public class OpenApiDiffMapper {
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private ArrayNode buildComposedArray(List<?> schemaList, Map<String, Schema> allSchemas) {
+	private ArrayNode buildComposedArray(List<?> schemaList, Map<String, Schema> allSchemas, Set<String> visiting) {
 		ArrayNode arr = objectMapper.createArrayNode();
 		((List<Schema>) (List<?>) schemaList).stream()
-			.map(s -> normalizeSchema(s, allSchemas))
+			.map(s -> normalizeSchema(s, allSchemas, visiting))
 			.filter(Objects::nonNull)
 			.forEach(arr::add);
 		return arr;
