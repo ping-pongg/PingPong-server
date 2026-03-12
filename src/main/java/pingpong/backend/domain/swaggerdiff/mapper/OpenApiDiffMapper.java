@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.openapitools.openapidiff.core.model.ChangedMediaType;
@@ -567,35 +568,13 @@ public class OpenApiDiffMapper {
 			if (itemsNode != null) node.set("items", itemsNode);
 		}
 
-		// oneOf
-		if (schema.getOneOf() != null && !schema.getOneOf().isEmpty()) {
-			ArrayNode arr = objectMapper.createArrayNode();
-			for (Schema s : (List<Schema>) (List<?>) schema.getOneOf()) {
-				JsonNode n = normalizeSchema(s, allSchemas);
-				if (n != null) arr.add(n);
-			}
-			node.set("oneOf", arr);
-		}
-
-		// anyOf
-		if (schema.getAnyOf() != null && !schema.getAnyOf().isEmpty()) {
-			ArrayNode arr = objectMapper.createArrayNode();
-			for (Schema s : (List<Schema>) (List<?>) schema.getAnyOf()) {
-				JsonNode n = normalizeSchema(s, allSchemas);
-				if (n != null) arr.add(n);
-			}
-			node.set("anyOf", arr);
-		}
-
-		// allOf
-		if (schema.getAllOf() != null && !schema.getAllOf().isEmpty()) {
-			ArrayNode arr = objectMapper.createArrayNode();
-			for (Schema s : (List<Schema>) (List<?>) schema.getAllOf()) {
-				JsonNode n = normalizeSchema(s, allSchemas);
-				if (n != null) arr.add(n);
-			}
-			node.set("allOf", arr);
-		}
+		// oneOf / anyOf / allOf
+		if (schema.getOneOf() != null && !schema.getOneOf().isEmpty())
+			node.set("oneOf", buildComposedArray(schema.getOneOf(), allSchemas));
+		if (schema.getAnyOf() != null && !schema.getAnyOf().isEmpty())
+			node.set("anyOf", buildComposedArray(schema.getAnyOf(), allSchemas));
+		if (schema.getAllOf() != null && !schema.getAllOf().isEmpty())
+			node.set("allOf", buildComposedArray(schema.getAllOf(), allSchemas));
 
 		// enum
 		if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
@@ -607,6 +586,16 @@ public class OpenApiDiffMapper {
 		}
 
 		return node.isEmpty() ? null : node;
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private ArrayNode buildComposedArray(List<?> schemaList, Map<String, Schema> allSchemas) {
+		ArrayNode arr = objectMapper.createArrayNode();
+		((List<Schema>) (List<?>) schemaList).stream()
+			.map(s -> normalizeSchema(s, allSchemas))
+			.filter(Objects::nonNull)
+			.forEach(arr::add);
+		return arr;
 	}
 
 	private String extractSchemaName(String ref) {
