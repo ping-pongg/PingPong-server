@@ -25,9 +25,12 @@ public record MyTeamResponse(
         String github,
 
         @Schema(description = "팀 정보 업데이트 여부", example = "false")
-        Boolean isUpdated
+        Boolean isUpdated,
+
+        @Schema(description = "썸네일 이미지 URL", nullable = true)
+        String thumbnailUrl
 ) {
-    public static MyTeamResponse of(Team team) {
+    public static MyTeamResponse of(Team team, String thumbnailUrl) {
         return new MyTeamResponse(
                 team.getId(),
                 team.getName(),
@@ -35,7 +38,8 @@ public record MyTeamResponse(
                 team.getDiscord(),
                 team.getSwagger(),
                 team.getGithub(),
-                team.getIsUpdated()
+                team.getIsUpdated(),
+                thumbnailUrl
         );
     }
 }
