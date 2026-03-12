@@ -11,4 +11,6 @@ public interface SwaggerSnapshotRepository extends JpaRepository<SwaggerSnapshot
 
 	Optional<SwaggerSnapshot> findTopByTeamIdOrderByIdDesc(Long teamId);
 
+	Optional<SwaggerSnapshot> findTopByTeamIdAndIdLessThanOrderByIdDesc(Long teamId, Long snapshotId);
+
 }
