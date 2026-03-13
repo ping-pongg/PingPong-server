@@ -21,14 +21,18 @@ import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
 import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
+import pingpong.backend.domain.qa.dto.ParameterTemplate;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
+import pingpong.backend.domain.qa.dto.QaTemplateResponse;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
+import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
@@ -132,6 +136,57 @@ public class QaService {
 
 		return result;
 	}
+
+
+	@Transactional
+	public Long createManualQaCase(Long endpointId, QaScenarioDetail request) {
+		// 1. 대상 엔드포인트 존재 확인
+		Endpoint endpoint = endpointRepository.findById(endpointId)
+			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+
+		// 2. RequestData 및 ExpectedResponse 추출
+		var reqData = request.requestData();
+		var expRes = request.expectedResponse();
+
+		// 3. 필드 직렬화 (Map -> JSON String)
+		String headersJson = serializeSafe(reqData.headers());
+		String bodyJson = serializeSafe(reqData.body());
+		String expectedBodyJson = serializeSafe(expRes.bodyFields());
+
+		// 5. 엔티티 생성
+		// 기존 QaCase 엔티티에 expectedStatus, expectedBody, codeSnippet 등의 필드가 있다고 가정합니다.
+		QaCase qaCase = QaCase.create(
+			endpoint,
+			request.description(),
+			null, // pathVariables (필요 시 reqData에서 추출)
+			null, // queryParams (필요 시 reqData에서 추출)
+			headersJson,
+			bodyJson
+		);
+
+		QaCase saved = qaCaseRepository.save(qaCase);
+
+		log.info("USER-QA-GEN: 유저 커스텀 시나리오 저장 완료 (endpointId={}, scenario={})",
+			endpointId, request.scenarioName());
+
+		return saved.getId();
+	}
+
+
+	private String serializeSafe(Object obj) {
+		if (obj == null) return "{}";
+		try {
+			// 이미 String인 경우 불필요한 직렬화 방지
+			if (obj instanceof String s) return s;
+
+			return objectMapper.writeValueAsString(obj);
+		} catch (Exception e) {
+			// 에러를 던지지 않고 경고 로그만 남김
+			log.warn("JSON 직렬화 실패: {} - 객체: {}", e.getMessage(), obj.getClass().getSimpleName());
+			return "{}"; // 기본값 반환
+		}
+	}
+
 
 	/**
 	 * AI 응답 결과를 QaCase 엔티티로 변환하여 일괄 저장

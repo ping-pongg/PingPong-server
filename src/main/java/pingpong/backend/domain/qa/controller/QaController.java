@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.QaCaseResponse;
 import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.service.QaService;
@@ -29,13 +31,24 @@ public class QaController {
 
 	private final QaService qaService;
 
-	@PostMapping("/{endpointId}")
+	@PostMapping("/{endpointId}/auto")
 	@Operation(
-		summary="해당 Endpoint의 QA 시나리오 생성",
-		description = "edpoint에 해당하는 QA 케이스들을 생성합니다."
+		summary="[AI] 해당 Endpoint의 QA 시나리오 생성",
+		description = "endpoint에 해당하는 QA 케이스들을 AI가 생성합니다."
 	)
 	public SuccessResponse<QaScenarioResponse> createQaCases(@PathVariable Long endpointId){
 		return SuccessResponse.ok(qaService.createQaCases(endpointId));
+	}
+
+	@PostMapping("/{endpointId}/manual")
+	@Operation(
+		summary="유저가 직접 해당 Endpoint의 QA 시나리오 추가",
+		description = "유저가 직접 endpoint에 해당하는 QA 케이스들을 추가합니다."
+	)
+	public SuccessResponse<Long> createManualQaCases(
+		@PathVariable Long endpointId,@RequestBody QaScenarioDetail request
+		){
+		return SuccessResponse.ok(qaService.createManualQaCase(endpointId,request));
 	}
 
 	@GetMapping
