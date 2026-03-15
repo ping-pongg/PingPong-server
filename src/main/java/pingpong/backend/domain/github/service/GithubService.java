@@ -75,18 +75,28 @@ public class GithubService {
 	public void changeConfigGithub(Long teamId, GithubConfigRequest request){
 		Github github = githubRepository.findByTeamId(teamId)
 			.orElseThrow(() -> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+		Team team=github.getTeam();
 
-		GithubUrlParser.RepoInfo repoInfo= GithubUrlParser.parse(request.url());
-		boolean isValid=githubClient.validateBranch(repoInfo.owner(), repoInfo.repo(), request.branch());
-		if(!isValid) {
-			throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
+		boolean isUrlChanged = !request.url().equals(team.getGithub());
+
+		if(isUrlChanged) {
+			GithubUrlParser.RepoInfo repoInfo = GithubUrlParser.parse(request.url());
+			boolean isValid = githubClient.validateBranch(repoInfo.owner(), repoInfo.repo(), request.branch());
+
+			if (!isValid) {
+				throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
+			}
+
+			github.updateConfig(repoInfo.owner(), repoInfo.repo(), request.branch());
+			team.updateGithub(request.url());
+		}else{
+			boolean isValid = githubClient.validateBranch(github.getRepoOwner(), github.getRepoName(), request.branch());
+			if (!isValid) {
+				throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
+			}
+
+			github.updateConfig(github.getRepoOwner(), github.getRepoName(), request.branch());
 		}
-
-		github.updateConfig(
-			repoInfo.owner(),
-			repoInfo.repo(),
-			request.branch()
-		);
 	}
 
 
@@ -94,6 +104,8 @@ public class GithubService {
 	public void deleteGithubConfig(Long teamId){
 		Github github = githubRepository.findByTeamId(teamId)
 			.orElseThrow(() -> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+		Team team=github.getTeam();
+		team.updateGithub(null);
 		githubRepository.delete(github);
 	}
 

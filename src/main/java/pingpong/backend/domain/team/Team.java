@@ -46,8 +46,8 @@ public class Team {
                 .build();
     }
 
-    public void markUpdated() {
-        this.isUpdated = Boolean.TRUE;
+    public void updateGithub(String githubUrl) {
+        this.github = githubUrl;
     }
 }
 
