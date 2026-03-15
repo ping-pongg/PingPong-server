@@ -21,8 +21,17 @@ public record TeamCreateRequest(
         @Schema(description = "Swagger 링크", example = "https://api.example.com/swagger-ui/index.html", nullable = true)
         String swagger,
 
-        @Schema(description = "GitHub 링크", example = "https://github.com/org/repo", nullable = true)
+        @Schema(description = "GitHub 링크", example = "https://github.com/Nexus-team-02/Nexus-server", nullable = true)
         String github,
+
+        // @Schema(description = "GitHub Owner", example = "Nexus-team-02", nullable = true)
+        // String githubOwner,
+        //
+        // @Schema(description = "GitHub Repository", example = "Nexus-server", nullable = true)
+        // String githubRepo,
+
+        @Schema(description = "GitHub Branch", example = "main", nullable = true)
+        String githubBranch,
 
         @NotNull
         @Schema(
