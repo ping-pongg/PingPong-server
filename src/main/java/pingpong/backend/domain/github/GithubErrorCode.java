@@ -16,6 +16,7 @@ public enum GithubErrorCode implements ApiErrorCode {
 	GITHUB_CONFIG_NOT_FOUND("GITHUB404", "Github 설정이 존재하지 않아요.", HttpStatus.NOT_FOUND),
 	GITHUB_API_EMPTY_ERROR("GITHUB404", "Github API 응답이 비어있습니다.", HttpStatus.NOT_FOUND),
 	GITHUB_DIFF_ERROR("GITHUB500", "Github 변경사항 분석 중 오류가 발생했어요.", HttpStatus.INTERNAL_SERVER_ERROR),
+	INVALID_URL_FORMAT("GITHUB500", "잘못된 github url 형태입니다.", HttpStatus.BAD_REQUEST),
 
 	SHA_INTERNAL_ERROR("SHA500", "SHA 정보를 불러올 수 없어요.", HttpStatus.INTERNAL_SERVER_ERROR);
 

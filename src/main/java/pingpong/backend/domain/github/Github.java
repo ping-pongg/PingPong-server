@@ -57,9 +57,27 @@ public class Github {
 	@Column
 	private LocalDateTime updatedAt;
 
+	public static Github create(String repoOwner, String repoName, String branch,Team team) {
+		return Github.builder()
+			.repoOwner(repoOwner)
+			.repoName(repoName)
+			.branch(branch)
+			.createdAt(LocalDateTime.now())
+			.team(team)
+			.build();
+	}
+
 	public Github updateSyncInfo(String newSha){
 		this.lastHeadSha = newSha;
 		this.lastSyncedAt = LocalDateTime.now();
 		return this;
+	}
+
+	public void updateConfig(String repoOwner,String repoName,String branch){
+		this.repoOwner = repoOwner;
+		this.repoName = repoName;
+		this.branch = (branch==null||branch.isBlank())?"main":branch;
+		this.lastSyncedAt=null;
+		this.lastHeadSha=null;
 	}
 }

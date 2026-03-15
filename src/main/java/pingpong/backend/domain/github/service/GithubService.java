@@ -13,6 +13,7 @@ import pingpong.backend.domain.github.client.GithubClient;
 import pingpong.backend.domain.github.dto.request.GithubConfigRequest;
 import pingpong.backend.domain.github.dto.response.BranchListResponse;
 import pingpong.backend.domain.github.dto.response.BranchResponse;
+import pingpong.backend.domain.github.dto.response.GithubConfigResponse;
 import pingpong.backend.domain.github.dto.response.GithubSyncDetailResponse;
 import pingpong.backend.domain.github.dto.response.GithubSyncResult;
 import pingpong.backend.domain.github.repository.GithubRepository;
@@ -31,12 +32,10 @@ public class GithubService {
 	private final GithubRepository githubRepository;
 
 	@Transactional(readOnly = true)
-	public BranchListResponse getAllBranches(Long teamId,String owner,String repo) {
+	public BranchListResponse getAllBranches(String owner,String repo) {
 		if (owner == null || owner.isBlank() || repo == null || repo.isBlank()) {
 			throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
 		}
-
-		teamRepository.findById(teamId).orElseThrow(()->new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
 		List<BranchResponse> githubBranches=githubClient.fetchBranches(owner,repo);
 
 		if(githubBranches.isEmpty()) {
@@ -54,7 +53,8 @@ public class GithubService {
 		if(githubRepository.existsByTeamId(teamId)){
 			throw new CustomException(GithubErrorCode.GITHUB_CONFIG_CONFLICT);
 		}
-		boolean isValid=githubClient.validateBranch(request.repoOwner(),request.repoName(),request.branch());
+		GithubUrlParser.RepoInfo repoInfo= GithubUrlParser.parse(request.url());
+		boolean isValid=githubClient.validateBranch(repoInfo.owner(), repoInfo.repo(),request.branch());
 		if(!isValid) {
 			throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
 		}
@@ -62,8 +62,8 @@ public class GithubService {
 		Team team=teamRepository.findById(teamId).orElseThrow(()->new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
 		Github github=Github.builder()
 			.team(team)
-			.repoOwner(request.repoOwner())
-			.repoName(request.repoName())
+			.repoOwner(repoInfo.owner())
+			.repoName(repoInfo.repo())
 			.branch(request.branch())
 			.lastHeadSha(null)
 			.build();
@@ -72,8 +72,48 @@ public class GithubService {
 	}
 
 	@Transactional
+	public void changeConfigGithub(Long teamId, GithubConfigRequest request){
+		Github github = githubRepository.findByTeamId(teamId)
+			.orElseThrow(() -> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+
+		GithubUrlParser.RepoInfo repoInfo= GithubUrlParser.parse(request.url());
+		boolean isValid=githubClient.validateBranch(repoInfo.owner(), repoInfo.repo(), request.branch());
+		if(!isValid) {
+			throw new CustomException(GithubErrorCode.REPOSITORY_NOT_FOUND);
+		}
+
+		github.updateConfig(
+			repoInfo.owner(),
+			repoInfo.repo(),
+			request.branch()
+		);
+	}
+
+
+	@Transactional
+	public void deleteGithubConfig(Long teamId){
+		Github github = githubRepository.findByTeamId(teamId)
+			.orElseThrow(() -> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+		githubRepository.delete(github);
+	}
+
+	@Transactional(readOnly = true)
+	public GithubConfigResponse getGithubConfig(Long teamId){
+		Github github = githubRepository.findByTeamId(teamId)
+			.orElseThrow(() -> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+
+		return GithubConfigResponse.builder()
+			.repoOwner(github.getRepoOwner())
+			.repoName(github.getRepoName())
+			.branch(github.getBranch())
+			.lastHeadSha((github.getLastHeadSha()==null||github.getLastHeadSha().isBlank())?null:github.getLastHeadSha())
+			.lastSyncedAt((github.getLastSyncedAt()==null?null:github.getLastSyncedAt()))
+			.build();
+	}
+
+	@Transactional
 	public GithubSyncResult syncGithubBranch(Long teamId){
-		Github github=githubRepository.findById(teamId).orElseThrow(
+		Github github=githubRepository.findByTeamId(teamId).orElseThrow(
 			()->new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND)
 		);
 		String newHeadSha=githubClient.getLatestHeadSha(

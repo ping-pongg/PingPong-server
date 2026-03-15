@@ -37,6 +37,7 @@ public class GithubClient {
 	}
 
 	public String getLatestHeadSha(String owner,String repo,String branch){
+		log.info("GitHub API 호출 준비 - Owner: {}, Repo: {}, Branch: {}", owner, repo, branch);
 		String url=String.format("https://api.github.com/repos/%s/%s/git/ref/heads/%s",owner,repo,branch);
 
 		try{

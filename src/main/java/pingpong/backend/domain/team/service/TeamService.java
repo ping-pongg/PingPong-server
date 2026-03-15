@@ -8,6 +8,9 @@ import pingpong.backend.domain.flow.Flow;
 import pingpong.backend.domain.flow.FlowImage;
 import pingpong.backend.domain.flow.repository.FlowImageRepository;
 import pingpong.backend.domain.flow.repository.FlowRepository;
+import pingpong.backend.domain.github.Github;
+import pingpong.backend.domain.github.repository.GithubRepository;
+import pingpong.backend.domain.github.service.GithubUrlParser;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.service.MemberService;
@@ -41,6 +44,7 @@ public class TeamService {
     private final FlowRepository flowRepository;
     private final FlowImageRepository flowImageRepository;
     private final PresignedUrlService presignedUrlService;
+    private final GithubRepository githubRepository;
 
     /**
      * 팀 생성 + 생성자 자동 참여 (요구사항 1 반영)
@@ -61,6 +65,10 @@ public class TeamService {
         memberTeamRepository.save(
                 MemberTeam.of(savedTeam.getId(), creator.getId(), req.creatorRole())
         );
+
+        GithubUrlParser.RepoInfo repoInfo= GithubUrlParser.parse(req.github());
+        Github github=Github.create(repoInfo.owner(),repoInfo.repo(),req.githubBranch(),savedTeam);
+        githubRepository.save(github);
 
         if (req.swagger() != null && !req.swagger().isBlank()) {
             eventPublisher.publishEvent(new SwaggerSyncInitEvent(savedTeam.getId(), creator));
