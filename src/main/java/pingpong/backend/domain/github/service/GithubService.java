@@ -13,6 +13,7 @@ import pingpong.backend.domain.github.client.GithubClient;
 import pingpong.backend.domain.github.dto.request.GithubConfigRequest;
 import pingpong.backend.domain.github.dto.response.BranchListResponse;
 import pingpong.backend.domain.github.dto.response.BranchResponse;
+import pingpong.backend.domain.github.dto.response.GithubSyncDetailResponse;
 import pingpong.backend.domain.github.dto.response.GithubSyncResult;
 import pingpong.backend.domain.github.repository.GithubRepository;
 import pingpong.backend.domain.team.Team;
@@ -70,6 +71,7 @@ public class GithubService {
 		githubRepository.save(github);
 	}
 
+	@Transactional
 	public GithubSyncResult syncGithubBranch(Long teamId){
 		Github github=githubRepository.findById(teamId).orElseThrow(
 			()->new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND)
@@ -91,7 +93,7 @@ public class GithubService {
 			return GithubSyncResult.noChange();
 		}
 		//변경 있음. Diff 로직 실행
-		Object diffData=githubClient.compareCommits(
+		GithubSyncDetailResponse diffData=githubClient.compareCommits(
 			github.getRepoOwner(),
 			github.getRepoName(),
 			lastHeadSha,
@@ -99,6 +101,6 @@ public class GithubService {
 		);
 
 		github.updateSyncInfo(newHeadSha);
-
+		return new GithubSyncResult(true,diffData);
 	}
 }

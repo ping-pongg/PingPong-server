@@ -3,6 +3,7 @@ package pingpong.backend.domain.github.controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,7 +37,7 @@ public class GithubController {
 	}
 
 	@PostMapping("/teams/{teamId}/github/config")
-	@Operation(summary = "추적할 repository, branch를 결정")
+	@Operation(summary = "추적할 repository, branch 설정")
 	public SuccessResponse<Void> getBranchList(
 		@PathVariable Long teamId,
 		@RequestBody GithubConfigRequest request
@@ -45,7 +46,10 @@ public class GithubController {
 		return SuccessResponse.ok();
 	}
 
+
+
 	@PostMapping("/teams/{teamId}/github/sync")
+	@Operation(summary="최신 커밋을 동기화 실행 후 diff 반환")
 	public SuccessResponse<GithubSyncResult> githubSync(
 		@PathVariable Long teamId
 	){
