@@ -15,8 +15,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
-import pingpong.backend.domain.qa.dto.QaCaseResponse;
-import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
+import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
+import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
@@ -53,11 +54,20 @@ public class QaController {
 
 	@GetMapping
 	@Operation(
-		summary = "Endpoint별 QA 목록 조회",
-		description = "endpointId에 해당하는 QA 케이스 목록을 반환합니다."
+		summary = "QA 케이스 목록 조회",
+		description = "특정 엔드포인트에 대한 QA 케이스 요약 목록을 반환합니다."
 	)
-	public SuccessResponse<List<QaCaseResponse>> getQaCases(@RequestParam Long endpointId) {
+	public SuccessResponse<List<QaCaseSummaryDto>> getQaCaseList(@RequestParam Long endpointId) {
 		return SuccessResponse.ok(qaService.getQaCasesByEndpointId(endpointId));
+	}
+
+	@GetMapping("/{qaId}/results")
+	@Operation(
+		summary = "QA 케이스 단건 상세 조회",
+		description = "QA 케이스의 상세 정보를 엔드포인트 스키마 및 실제 테스트 값과 함께 반환합니다."
+	)
+	public SuccessResponse<QaCaseDetailDto> getQaCaseDetail(@PathVariable Long qaId) {
+		return SuccessResponse.ok(qaService.getQaCaseDetail(qaId));
 	}
 
 	@GetMapping("/tags")
@@ -74,20 +84,11 @@ public class QaController {
 		summary = "QA 케이스 실행",
 		description = "qaId에 해당하는 QA 케이스를 실행합니다. 실행에 필요한 정보(pathVariables, queryParams, headers, body)는 QA 테이블에서 읽어오며, 실행 결과에 따라 isSuccess 필드가 자동으로 업데이트됩니다."
 	)
-	public SuccessResponse<QaExecuteResultResponse> executeQaCase(
+	public SuccessResponse<QaExecuteResultDto> executeQaCase(
 		@PathVariable Long qaId,
 		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization
 	) {
 		return SuccessResponse.ok(qaService.executeQaCase(qaId, proxyAuthorization));
-	}
-
-	@GetMapping("/{qaId}/results")
-	@Operation(
-		summary = "QA 실행 이력 조회",
-		description = "qaId에 해당하는 QA 케이스의 실행 결과 이력을 최신순으로 반환합니다."
-	)
-	public SuccessResponse<List<QaExecuteResultResponse>> getExecuteResults(@PathVariable Long qaId) {
-		return SuccessResponse.ok(qaService.getExecuteResults(qaId));
 	}
 
 	@GetMapping("/failures")

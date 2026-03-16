@@ -5,34 +5,33 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
 import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
-import pingpong.backend.domain.qa.dto.ParameterTemplate;
-import pingpong.backend.domain.qa.dto.QaCaseResponse;
-import pingpong.backend.domain.qa.dto.QaExecuteResultResponse;
+import pingpong.backend.domain.qa.dto.EndpointRequestBodyDto;
+import pingpong.backend.domain.qa.dto.EndpointResponseDto;
+import pingpong.backend.domain.qa.dto.EndpointSecurityDto;
+import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
+import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
+import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
-import pingpong.backend.domain.qa.dto.QaTemplateResponse;
+import pingpong.backend.domain.swaggerdiff.dto.EndpointParameterDto;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
-import pingpong.backend.domain.swagger.SwaggerRequest;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
@@ -44,7 +43,6 @@ import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.global.exception.CustomException;
-import pingpong.backend.global.rag.chat.RagUserPrompt;
 
 @Service
 @Slf4j
@@ -85,20 +83,81 @@ public class QaService {
 		this.llmQaService = llmQaService;
 	}
 
-	public List<QaCaseResponse> getQaCasesByEndpointId(Long endpointId) {
+	public List<QaCaseSummaryDto> getQaCasesByEndpointId(Long endpointId) {
+		Endpoint endpoint = endpointRepository.findById(endpointId)
+			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
+
 		return qaCaseRepository.findAllByEndpointId(endpointId).stream()
-			.map(qa -> new QaCaseResponse(
+			.map(qa -> new QaCaseSummaryDto(
 				qa.getId(),
-				qa.getEndpoint().getId(),
-				qa.getIsSuccess(),
+				endpoint.getId(),
+				tagOrDefault(endpoint.getTag()),
+				endpoint.getPath(),
+				endpoint.getMethod(),
 				qa.getDescription(),
-				parseStringMap(qa.getPathVariables()),
-				parseStringMap(qa.getQueryParams()),
-				parseStringMap(qa.getHeaders()),
-				parseBody(qa.getBody()),
-				qa.getCreatedAt()
+				qa.getIsSuccess()
 			))
 			.toList();
+	}
+
+	public QaCaseDetailDto getQaCaseDetail(Long qaId) {
+		QaCase qaCase = qaCaseRepository.findById(qaId)
+			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
+
+		Endpoint endpoint = qaCase.getEndpoint();
+
+		List<EndpointParameterDto> parameters = swaggerParameterRepository
+			.findByEndpointId(endpoint.getId()).stream()
+			.map(p -> EndpointParameterDto.fromEntity(p, objectMapper))
+			.toList();
+
+		List<EndpointRequestBodyDto> requests = swaggerRequestRepository
+			.findByEndpointId(endpoint.getId()).stream()
+			.map(r -> EndpointRequestBodyDto.fromEntity(r, objectMapper))
+			.toList();
+
+		List<EndpointResponseDto> responses = swaggerResponseRepository
+			.findByEndpointId(endpoint.getId()).stream()
+			.map(r -> EndpointResponseDto.fromEntity(r, objectMapper))
+			.toList();
+
+		List<EndpointSecurityDto> security = swaggerEndpointSecurityRepository
+			.findByEndpointId(endpoint.getId()).stream()
+			.map(EndpointSecurityDto::fromEntity)
+			.toList();
+
+		QaCaseDetailDto.QaData qaData = new QaCaseDetailDto.QaData(
+			parseJsonToMap(qaCase.getPathVariables()),
+			parseJsonToMap(qaCase.getQueryParams()),
+			parseJsonToMap(qaCase.getHeaders()),
+			parseJsonToNode(qaCase.getBody())
+		);
+
+		QaExecuteResultDto latestExecuteResult = qaExecuteResultRepository
+			.findTopByQaCaseIdOrderByExecutedAtDesc(qaId)
+			.map(r -> new QaExecuteResultDto(
+				r.getId(),
+				r.getHttpStatus(),
+				r.getIsSuccess(),
+				parseJsonToMap(r.getResponseHeaders()),
+				parseJsonToNode(r.getResponseBody()),
+				r.getExecutedAt(),
+				r.getDurationMs()
+			))
+			.orElse(null);
+
+		return new QaCaseDetailDto(
+			qaCase.getId(),
+			endpoint.getId(),
+			tagOrDefault(endpoint.getTag()),
+			endpoint.getPath(),
+			endpoint.getMethod(),
+			qaCase.getDescription(),
+			qaCase.getIsSuccess(),
+			parameters, requests, responses, security,
+			qaData,
+			latestExecuteResult
+		);
 	}
 
 	@Transactional
@@ -243,7 +302,7 @@ public class QaService {
 	}
 
 	@Transactional
-	public QaExecuteResultResponse executeQaCase(Long qaId, String proxyAuthorization) {
+	public QaExecuteResultDto executeQaCase(Long qaId, String proxyAuthorization) {
 		QaCase qa = qaCaseRepository.findById(qaId)
 			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
 
@@ -273,9 +332,8 @@ public class QaService {
 			);
 			qaExecuteResultRepository.save(result);
 
-			return new QaExecuteResultResponse(
+			return new QaExecuteResultDto(
 				result.getId(),
-				qa.getId(),
 				result.getHttpStatus(),
 				result.getIsSuccess(),
 				response.responseHeaders(),
@@ -290,9 +348,8 @@ public class QaService {
 			QaExecuteResult result = QaExecuteResult.createFailed(qa, e.getMessage(), durationMs);
 			qaExecuteResultRepository.save(result);
 
-			return new QaExecuteResultResponse(
+			return new QaExecuteResultDto(
 				result.getId(),
-				qa.getId(),
 				result.getHttpStatus(),
 				result.getIsSuccess(),
 				null,
@@ -301,24 +358,6 @@ public class QaService {
 				result.getDurationMs()
 			);
 		}
-	}
-
-	public List<QaExecuteResultResponse> getExecuteResults(Long qaCaseId) {
-		if (!qaCaseRepository.existsById(qaCaseId)) {
-			throw new CustomException(QaErrorCode.QA_NOT_FOUND);
-		}
-		return qaExecuteResultRepository.findAllByQaCaseIdOrderByExecutedAtDesc(qaCaseId).stream()
-			.map(r -> new QaExecuteResultResponse(
-				r.getId(),
-				r.getQaCase().getId(),
-				r.getHttpStatus(),
-				r.getIsSuccess(),
-				parseStringMap(r.getResponseHeaders()),
-				parseBody(r.getResponseBody()),
-				r.getExecutedAt(),
-				r.getDurationMs()
-			))
-			.toList();
 	}
 
 	public List<QaTeamFailureResponse> getTeamFailures(Long teamId) {
@@ -391,6 +430,28 @@ public class QaService {
 					.toList();
 			})
 			.orElse(Collections.emptyList());
+	}
+
+	private String tagOrDefault(String tag) {
+		return tag != null ? tag : "default";
+	}
+
+	private Map<String, String> parseJsonToMap(String json) {
+		if (json == null || json.isBlank()) return Collections.emptyMap();
+		try {
+			return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
+		} catch (Exception e) {
+			return Collections.emptyMap();
+		}
+	}
+
+	private com.fasterxml.jackson.databind.JsonNode parseJsonToNode(String json) {
+		if (json == null || json.isBlank()) return null;
+		try {
+			return objectMapper.readTree(json);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	private Map<String, String> parseStringMap(String json) {
