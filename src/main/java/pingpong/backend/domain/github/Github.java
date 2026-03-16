@@ -48,6 +48,9 @@ public class Github {
 	@Column(name="last_head_sha")
 	private String lastHeadSha;
 
+	@Column(name="new_head_sha")
+	private String newHeadSha;
+
 	@Column(name="last_synced_at")
 	private LocalDateTime lastSyncedAt;
 
@@ -67,8 +70,9 @@ public class Github {
 			.build();
 	}
 
-	public Github updateSyncInfo(String newSha){
-		this.lastHeadSha = newSha;
+	public Github updateSyncInfo(String lastHeadSha,String newSha){
+		this.lastHeadSha = lastHeadSha;
+		this.newHeadSha = newSha;
 		this.lastSyncedAt = LocalDateTime.now();
 		return this;
 	}
@@ -79,5 +83,6 @@ public class Github {
 		this.branch = (branch==null||branch.isBlank())?"main":branch;
 		this.lastSyncedAt=null;
 		this.lastHeadSha=null;
+		this.newHeadSha=null;
 	}
 }

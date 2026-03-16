@@ -222,7 +222,7 @@ public class SwaggerService {
 	 * [Command] Swagger 동기화 및 저장 (변경이 있을 때만 실행)
 	 */
 	@Transactional
-	public void syncSwagger(Long teamId, Member member) {
+	public boolean syncSwagger(Long teamId, Member member) {
 		String swagger = teamService.getTeam(teamId).getSwagger();
 		ssrfGuard.validate(swagger);
 
@@ -234,7 +234,7 @@ public class SwaggerService {
 
 		// 1. 변화가 없다면 저장 절차를 건너뜀 (Early Return)
 		if (latest.isPresent() && latest.get().getSpecHash().equals(specHash)) {
-			return;
+			return false;
 		}
 
 		// 2. 이전 Endpoint Map 준비 (비교용)
@@ -275,6 +275,7 @@ public class SwaggerService {
 		// 6. 전체 Endpoint 상태 업데이트 (연관 관계 등)
 		List<Endpoint> allEndpoints = Stream.concat(endpoints.stream(), deletedEndpoints.stream()).toList();
 		endpointService.unlinkChangedEndpoints(allEndpoints);
+		return true;
 	}
 
 	/**

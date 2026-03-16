@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import pingpong.backend.domain.github.service.GithubService;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
@@ -26,6 +27,7 @@ import pingpong.backend.domain.swagger.dto.response.EndpointSearchResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointResponse;
+import pingpong.backend.domain.swagger.dto.response.SyncResultResponse;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
 import pingpong.backend.domain.swagger.service.EndpointService;
 import pingpong.backend.domain.swagger.service.SwaggerService;
@@ -40,6 +42,7 @@ public class SwaggerController {
 	private final SwaggerService swaggerService;
 	private final ApiExecuteService apiExecuteService;
 	private final EndpointService endpointService;
+	private final GithubService githubService;
 
 	@Hidden
 	@GetMapping("/api/v1/swagger/{teamId}")
@@ -62,27 +65,26 @@ public class SwaggerController {
 		return SuccessResponse.ok(swaggerService.getLatestSnapshotGrouped(teamId));
 	}
 
-	@PostMapping("/api/v1/swagger/{teamId}/sync")
+	@PostMapping("/api/v1/teams/{teamId}/sync-all")
 	@Operation(
-		summary = "새로고침 버튼 누르면 호출하는 API",
+		summary = "팀 개발 자산(Swagger & GitHub) 통합 동기화",
 		description = """
-        지정한 서버의 Swagger(OpenAPI) 문서를 조회하여 최신 스냅샷과 비교합니다.
-        스펙 해시가 동일한 경우에는 별도의 저장 없이 빈 결과를 반환합니다.
-
-        스펙에 변경이 감지되면 다음 작업을 수행합니다:
-        - endpoint, request, response, parameter 정보를 정규화하여 저장
-        - 이전 스냅샷과 비교하여 endpoint 단위 변경 여부 판별
-        - 신규/수정/삭제된 endpoint를 ChangeType 기준으로 구분
-
-        최종적으로 변경이 발생한 endpoint만 controller(tag) 단위로 그룹화하여 반환합니다.
-        """
+       팀에 등록된 외부 소스(Swagger Spec 및 GitHub Repository)의 최신 상태를 확인하고 변경사항을 DB에 기록합니다.
+       
+       [주요 프로세스]
+       1. Swagger(OpenAPI): 최신 스펙 해시를 비교하여 변경 감지 시 Endpoint 정보를 정규화하여 업데이트합니다.
+       2. GitHub: 최신 커밋 SHA를 확인하고, 해당 커밋 SHA를 저장합니다.
+       
+       ※ 이 API는 데이터를 갱신(Sync)하는 역할만 수행하며, 실제 변경 내역은 각 도메인의 Diff 조회 API(GET `/teams/{teamId}/github/sync-result`)를 통해 확인하시기 바랍니다.
+       """
 	)
-	public SuccessResponse<Void> syncSwagger(
+	public SuccessResponse<SyncResultResponse> syncSwaggerAndCode(
 		@PathVariable Long teamId,
 		@CurrentMember Member currentMember
 	) {
-		swaggerService.syncSwagger(teamId, currentMember);
-		return SuccessResponse.ok();
+		boolean swaggerChanged=swaggerService.syncSwagger(teamId, currentMember);
+		boolean githubChanged=githubService.syncGithubBranch(teamId);
+		return SuccessResponse.ok(SyncResultResponse.of(swaggerChanged, githubChanged));
 	}
 
 	@GetMapping("/api/v1/endpoints/diff/{endpointId}")
@@ -105,7 +107,6 @@ public class SwaggerController {
 	@Operation(
 		summary = "팀에 속한 전체 엔드포인트 조회",
 		description = "지정한 팀(프로젝트)에 등록된 모든 엔드포인트를 조회합니다. " +
-			"엔드포인트 매칭 화면 및 검색 화면에서 전체(ALL) 목록을 표시할 때 사용됩니다. " +
 			"각 엔드포인트의 태그, 경로, HTTP 메서드, 요약 정보 및 변경 여부를 포함하여 반환합니다."
 	)
 	public SuccessResponse<List<EndpointResponse>> getEndpointList(

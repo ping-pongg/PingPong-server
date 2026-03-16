@@ -10,6 +10,7 @@ public record GithubConfigResponse (
 	String repoName,
 	String branch,
 	String lastHeadSha,
+	String newHeadSha,
 	LocalDateTime lastSyncedAt
 ){
 }

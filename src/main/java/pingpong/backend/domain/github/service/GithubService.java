@@ -66,6 +66,7 @@ public class GithubService {
 			.repoName(repoInfo.repo())
 			.branch(request.branch())
 			.lastHeadSha(null)
+			.newHeadSha(null)
 			.build();
 
 		githubRepository.save(github);
@@ -119,40 +120,49 @@ public class GithubService {
 			.repoName(github.getRepoName())
 			.branch(github.getBranch())
 			.lastHeadSha((github.getLastHeadSha()==null||github.getLastHeadSha().isBlank())?null:github.getLastHeadSha())
+			.newHeadSha((github.getNewHeadSha()==null||github.getNewHeadSha().isBlank())?null:github.getNewHeadSha())
 			.lastSyncedAt((github.getLastSyncedAt()==null?null:github.getLastSyncedAt()))
 			.build();
 	}
 
 	@Transactional
-	public GithubSyncResult syncGithubBranch(Long teamId){
+	public boolean syncGithubBranch(Long teamId){
 		Github github=githubRepository.findByTeamId(teamId).orElseThrow(
 			()->new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND)
 		);
-		String newHeadSha=githubClient.getLatestHeadSha(
-			github.getRepoOwner(),
-			github.getRepoName(),
-			github.getBranch()
+		String currentRemoteSha = githubClient.getLatestHeadSha(
+			github.getRepoOwner(), github.getRepoName(), github.getBranch()
 		);
 
-		String lastHeadSha=github.getLastHeadSha();
-		//첫 sync
-		if(lastHeadSha==null){
-			github.updateSyncInfo(newHeadSha);
+		String baseSha = github.getNewHeadSha();
+
+		if (baseSha == null) {
+			github.updateSyncInfo(currentRemoteSha, currentRemoteSha);
+			return false;
+		}
+
+		if (baseSha.equals(currentRemoteSha)) {
+			return false; // 원격 데이터가 이전 동기화 때와 같음
+		}
+
+		// 3. 변경 사항이 있는 경우 (SHA가 다름)
+		github.updateSyncInfo(baseSha,currentRemoteSha);
+		return true;
+	}
+
+	@Transactional(readOnly = true)
+	public GithubSyncResult getLatestGithubDiff(Long teamId){
+		Github github=githubRepository.findByTeamId(teamId).orElseThrow(()-> new CustomException(GithubErrorCode.GITHUB_CONFIG_NOT_FOUND));
+
+		if (github.getLastHeadSha() == null) {
 			return GithubSyncResult.noChange();
 		}
-		//변경 없음
-		if(lastHeadSha.equals(newHeadSha)){
-			return GithubSyncResult.noChange();
-		}
-		//변경 있음. Diff 로직 실행
 		GithubSyncDetailResponse diffData=githubClient.compareCommits(
 			github.getRepoOwner(),
 			github.getRepoName(),
-			lastHeadSha,
-			newHeadSha
+			github.getLastHeadSha(),
+			github.getNewHeadSha()
 		);
-
-		github.updateSyncInfo(newHeadSha);
 		return new GithubSyncResult(true,diffData);
 	}
 }

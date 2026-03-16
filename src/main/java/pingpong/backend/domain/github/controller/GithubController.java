@@ -80,11 +80,23 @@ public class GithubController {
 		return SuccessResponse.ok();
 	}
 
-	@PostMapping("/teams/{teamId}/github/sync")
-	@Operation(summary="최신 커밋을 동기화 실행 후 diff 반환")
-	public SuccessResponse<GithubSyncResult> githubSync(
+	@GetMapping("/teams/{teamId}/github/sync-result")
+	@Operation(
+		summary = "최신 GitHub 동기화 결과(Diff) 조회",
+		description = """
+       가장 최근에 실행된 GitHub 동기화 작업의 상세 변경 내역(Diff)을 조회합니다.
+       
+       [제공 정보]
+       1. 변경 여부: 이전 동기화 시점 대비 소스코드의 변경 발생 여부
+       2. Diff 상세: 파일별 추가/수정/삭제된 코드 라인 및 커밋 비교 정보
+       
+       ※ 이 API는 실시간으로 GitHub을 조회하지 않고, 마지막으로 수행된 '통합 동기화(POST)' 시점에 저장된 결과를 반환합니다.
+       만약 최신 소스 반영이 필요하다면 통합 동기화 API를 먼저 호출하십시오.
+       """
+	)
+	public SuccessResponse<GithubSyncResult> getLatestGithubDiff(
 		@PathVariable Long teamId
 	){
-		return SuccessResponse.ok(githubService.syncGithubBranch(teamId));
+		return SuccessResponse.ok(githubService.getLatestGithubDiff(teamId));
 	}
 }
