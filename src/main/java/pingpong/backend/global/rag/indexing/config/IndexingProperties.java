@@ -17,9 +17,9 @@ public class IndexingProperties {
 
     private int maxNormalizedChars = 120000;
 
-    private int executorCorePoolSize = 2;
+    private int executorCorePoolSize = 5;
 
-    private int executorMaxPoolSize = 4;
+    private int executorMaxPoolSize = 20;
 
-    private int executorQueueCapacity = 300;
+    private int executorQueueCapacity =50;
 }

@@ -15,6 +15,7 @@ import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.member.MemberErrorCode;
 import pingpong.backend.domain.member.service.MemberService;
 import pingpong.backend.domain.notion.repository.NotionRepository;
+import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.event.SwaggerSyncInitEvent;
 import pingpong.backend.domain.swagger.service.SsrfGuard;
 import pingpong.backend.domain.team.MemberTeam;

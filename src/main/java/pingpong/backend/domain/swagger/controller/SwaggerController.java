@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.github.service.GithubService;
 import pingpong.backend.domain.member.Member;
+import pingpong.backend.domain.qa.service.QaService;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
 import pingpong.backend.domain.swagger.dto.response.EndpointDetailResponse;
@@ -43,6 +44,7 @@ public class SwaggerController {
 	private final ApiExecuteService apiExecuteService;
 	private final EndpointService endpointService;
 	private final GithubService githubService;
+	private final QaService qaService;
 
 	@Hidden
 	@GetMapping("/api/v1/swagger/{teamId}")
@@ -84,6 +86,9 @@ public class SwaggerController {
 	) {
 		boolean swaggerChanged=swaggerService.syncSwagger(teamId, currentMember);
 		boolean githubChanged=githubService.syncGithubBranch(teamId);
+		if(swaggerChanged){
+			qaService.createQaCases;
+		}
 		return SuccessResponse.ok(SyncResultResponse.of(swaggerChanged, githubChanged));
 	}
 
