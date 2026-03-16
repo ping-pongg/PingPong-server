@@ -1,5 +1,6 @@
 package pingpong.backend.domain.swaggerdiff.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import pingpong.backend.domain.swaggerdiff.dto.EndpointDiffListResponse;
 import pingpong.backend.domain.swaggerdiff.service.SwaggerDiffService;
 import pingpong.backend.global.response.result.SuccessResponse;
 
+@Hidden
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/swagger-diff")
