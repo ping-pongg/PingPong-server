@@ -8,6 +8,8 @@ public record TaskDetailResponse(
         String status,
         String dateStart,
         String dateEnd,
+        String completedDateStart,
+        String completedDateEnd,
         String pageContent,
         List<FlowDetail> flows
 ) {
