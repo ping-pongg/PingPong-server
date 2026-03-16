@@ -6,8 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import pingpong.backend.domain.swagger.dto.response.EndpointDiffDetailResponse;
+import pingpong.backend.domain.swaggerdiff.dto.EndpointDiffDetailDto;
+import pingpong.backend.domain.swaggerdiff.dto.EndpointDiffListResponse;
 import pingpong.backend.domain.swaggerdiff.service.SwaggerDiffService;
 import pingpong.backend.global.response.result.SuccessResponse;
 
@@ -19,14 +21,26 @@ public class SwaggerDiffController {
 
 	private final SwaggerDiffService swaggerDiffService;
 
+	@GetMapping("/diff-list")
+	@Operation(
+		summary = "diff 엔드포인트 리스트 조회",
+		description = "두 스냅샷을 비교하여 added/removed/modified/unchanged 엔드포인트를 태그별로 그룹화하여 반환합니다."
+	)
+	public SuccessResponse<EndpointDiffListResponse> getDiffList(
+		@RequestParam Long teamId
+	) {
+		return SuccessResponse.ok(swaggerDiffService.getDiffList(teamId));
+	}
+
 	@GetMapping("/endpoints/{endpointId}")
 	@Operation(
-		summary = "openapi-diff 기반 endpoint diff 조회",
-		description = "두 스냅샷의 원본 OpenAPI spec을 openapi-diff 라이브러리로 비교하여 변경 사항을 반환합니다."
+		summary = "엔드포인트 단건 조회",
+		description = "openapi-diff 기반 EndpointDiffDetailDto를 반환합니다. 응답 내 diffType 필드로 변경 유형을 구분하세요."
 	)
-	public SuccessResponse<EndpointDiffDetailResponse> getEndpointDiffDetails(
-		@PathVariable Long endpointId
+	public SuccessResponse<EndpointDiffDetailDto> getEndpointDetail(
+			@PathVariable Long endpointId
 	) {
-		return SuccessResponse.ok(swaggerDiffService.getEndpointDiffDetails(endpointId));
+		return SuccessResponse.ok(swaggerDiffService.getEndpointUnifiedDetail(endpointId));
 	}
+
 }
