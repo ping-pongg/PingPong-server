@@ -10,7 +10,7 @@ public record NotionPageUpdateRequest(
         String title,
 
         @Valid
-        @Schema(description = "날짜 범위 (date 속성에 매핑)",
+        @Schema(description = "계획일 범위 (계획일 속성에 매핑)",
                 example = """
                         {
                           "start": "2026-02-10",
@@ -18,6 +18,16 @@ public record NotionPageUpdateRequest(
                         }
                         """)
         NotionDateRange date,
+
+        @Valid
+        @Schema(description = "완료일 범위 (완료일 속성에 매핑)",
+                example = """
+                        {
+                          "start": "2026-03-01",
+                          "end": null
+                        }
+                        """)
+        NotionDateRange completedDate,
 
         @Schema(description = "상태 옵션명 (status 속성에 매핑)", example = "완료")
         String status

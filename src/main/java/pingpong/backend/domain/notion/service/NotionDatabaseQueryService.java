@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
+import pingpong.backend.domain.notion.NotionPropertyName;
 import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.common.PageDateRange;
 import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
@@ -87,10 +88,11 @@ public class NotionDatabaseQueryService {
                 JsonNode properties = pageNode.path("properties");
                 String pageUrl = pageNode.path("url").asText(null);
                 String title = NotionPropertyExtractor.extractTitle(properties);
-                PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
+                PageDateRange date = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.PLANNED_DATE.getValue());
+                PageDateRange completedDate = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.COMPLETED_DATE.getValue());
                 String status = NotionPropertyExtractor.extractStatus(properties);
 
-                pages.add(new PageSummary(pageId, pageUrl, title, date, status));
+                pages.add(new PageSummary(pageId, pageUrl, title, date, completedDate, status));
             }
         }
 

@@ -10,7 +10,8 @@ public record PageSummary(
         String id,       // 페이지 ID (dashes removed)
         String url,      // 페이지 URL
         String title,    // 페이지 제목
-        PageDateRange date,  // 날짜 범위 (nullable)
+        PageDateRange date,           // 계획일 (nullable)
+        PageDateRange completedDate,  // 완료일 (nullable)
         String status    // 상태 (nullable)
 ) {
 }

@@ -86,6 +86,8 @@ public class TaskService {
                 task.getStatus(),
                 task.getDateStart(),
                 task.getDateEnd(),
+                task.getCompletedDateStart(),
+                task.getCompletedDateEnd(),
                 task.getPageContent(),
                 flowDetails
         );

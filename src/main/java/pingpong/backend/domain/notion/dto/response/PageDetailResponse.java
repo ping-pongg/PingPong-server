@@ -13,7 +13,8 @@ public record PageDetailResponse(
         String id,                  // 페이지 ID (dashes removed)
         String url,                 // 페이지 URL
         String title,               // 페이지 제목
-        PageDateRange date,         // 날짜 범위 (nullable)
+        PageDateRange date,         // 계획일 (nullable)
+        PageDateRange completedDate, // 완료일 (nullable)
         String status,              // 상태 (nullable)
         String pageContent,         // paragraph 블록들의 텍스트를 연결한 내용
         String parentDatabaseId,    // 부모 데이터베이스 ID (dashes removed, nullable)

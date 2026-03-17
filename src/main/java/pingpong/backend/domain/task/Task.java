@@ -41,6 +41,12 @@ public class Task {
     @Column(name = "date_end")
     private String dateEnd;
 
+    @Column(name = "completed_date_start")
+    private String completedDateStart;
+
+    @Column(name = "completed_date_end")
+    private String completedDateEnd;
+
     @Column(name = "status")
     private String status;
 
@@ -67,6 +73,7 @@ public class Task {
 
     public static Task from(Long teamId, PageDetailResponse page) {
         PageDateRange date = page.date();
+        PageDateRange completedDate = page.completedDate();
         return Task.builder()
                 .id(page.id())
                 .teamId(teamId)
@@ -74,6 +81,8 @@ public class Task {
                 .title(page.title())
                 .dateStart(date != null ? date.start() : null)
                 .dateEnd(date != null ? date.end() : null)
+                .completedDateStart(completedDate != null ? completedDate.start() : null)
+                .completedDateEnd(completedDate != null ? completedDate.end() : null)
                 .status(page.status())
                 .pageContent(page.pageContent())
                 .lastSyncedAt(Instant.now())

@@ -3,6 +3,7 @@ package pingpong.backend.domain.notion.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 import org.springframework.http.HttpStatus;
+import pingpong.backend.domain.notion.NotionPropertyName;
 import pingpong.backend.global.exception.ApiErrorCode;
 import pingpong.backend.global.exception.CustomException;
 
@@ -40,7 +41,7 @@ public class NotionPropertyResolver {
         }
     }
 
-    public record PropertyNames(String title, String date, String status) {
+    public record PropertyNames(String title, String date, String status, String completedDate) {
     }
 
     public PropertyNames resolvePropertyNames(JsonNode databaseNode) {
@@ -48,6 +49,7 @@ public class NotionPropertyResolver {
         String title = null;
         String date = null;
         String status = null;
+        String completedDate = null;
         if (props.isObject()) {
             Iterator<String> names = props.fieldNames();
             while (names.hasNext()) {
@@ -56,14 +58,16 @@ public class NotionPropertyResolver {
                 String type = prop.path("type").asText(null);
                 if ("title".equals(type)) {
                     title = name;
-                } else if ("date".equals(type)) {
-                    date = name;
                 } else if ("status".equals(type)) {
                     status = name;
+                } else if (NotionPropertyName.PLANNED_DATE.getValue().equals(name)) {
+                    date = name;
+                } else if (NotionPropertyName.COMPLETED_DATE.getValue().equals(name)) {
+                    completedDate = name;
                 }
             }
         }
-        return new PropertyNames(title, date, status);
+        return new PropertyNames(title, date, status, completedDate);
     }
 
     public List<String> resolvePropertyKeys(JsonNode databaseNode) {

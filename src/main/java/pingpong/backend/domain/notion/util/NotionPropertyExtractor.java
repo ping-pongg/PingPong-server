@@ -80,40 +80,42 @@ public class NotionPropertyExtractor {
     }
 
     /**
-     * properties 객체에서 date 타입의 속성 값을 추출
+     * properties 객체에서 지정한 이름의 date 속성 값을 추출
      *
      * @param propertiesNode Notion API의 properties JSON 노드
+     * @param propertyName   추출할 date 속성의 이름 (예: "계획일", "완료일")
      * @return PageDateRange 객체, 날짜가 없으면 null
      */
-    public static PageDateRange extractDateRange(JsonNode propertiesNode) {
+    public static PageDateRange extractDateRange(JsonNode propertiesNode, String propertyName) {
         if (propertiesNode == null || propertiesNode.isNull()) {
             return null;
         }
 
-        Iterator<String> fieldNames = propertiesNode.fieldNames();
-        while (fieldNames.hasNext()) {
-            String fieldName = fieldNames.next();
-            JsonNode property = propertiesNode.get(fieldName);
-
-            if (property.has("type") && "date".equals(property.get("type").asText())) {
-                JsonNode date = property.get("date");
-                if (date != null && !date.isNull()) {
-                    String start = date.has("start") && !date.get("start").isNull()
-                            ? date.get("start").asText()
-                            : null;
-                    String end = date.has("end") && !date.get("end").isNull()
-                            ? date.get("end").asText()
-                            : null;
-
-                    // start와 end 둘 다 null이면 null 반환
-                    if (start == null && end == null) {
-                        return null;
-                    }
-                    return new PageDateRange(start, end);
-                }
-            }
+        JsonNode property = propertiesNode.get(propertyName);
+        if (property == null || property.isNull()) {
+            return null;
         }
-        return null;
+
+        if (!property.has("type") || !"date".equals(property.get("type").asText())) {
+            return null;
+        }
+
+        JsonNode date = property.get("date");
+        if (date == null || date.isNull()) {
+            return null;
+        }
+
+        String start = date.has("start") && !date.get("start").isNull()
+                ? date.get("start").asText()
+                : null;
+        String end = date.has("end") && !date.get("end").isNull()
+                ? date.get("end").asText()
+                : null;
+
+        if (start == null && end == null) {
+            return null;
+        }
+        return new PageDateRange(start, end);
     }
 
     /**

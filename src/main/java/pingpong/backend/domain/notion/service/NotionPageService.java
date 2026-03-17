@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pingpong.backend.domain.notion.NotionErrorCode;
+import pingpong.backend.domain.notion.NotionPropertyName;
 import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.request.NotionCreatePageRequest;
 import pingpong.backend.domain.notion.dto.common.NotionDateRange;
@@ -73,7 +74,8 @@ public class NotionPageService {
         JsonNode properties = pageNode.path("properties");
         String pageUrl = pageNode.path("url").asText(null);
         String title = NotionPropertyExtractor.extractTitle(properties);
-        PageDateRange date = NotionPropertyExtractor.extractDateRange(properties);
+        PageDateRange date = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.PLANNED_DATE.getValue());
+        PageDateRange completedDate = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.COMPLETED_DATE.getValue());
         String status = NotionPropertyExtractor.extractStatus(properties);
         String parentDatabaseId = compactNotionId(pageNode.path("parent").path("database_id").asText(null));
 
@@ -95,6 +97,7 @@ public class NotionPageService {
                 pageUrl,
                 title,
                 date,
+                completedDate,
                 status,
                 pageContent,
                 parentDatabaseId,
@@ -131,7 +134,8 @@ public class NotionPageService {
             propertiesNode.set(propertyNames.title(), titleNode);
         }
 
-        buildDateProperty(payload.date(), propertyNames, availableProperties, propertiesNode);
+        buildDateProperty(payload.date(), propertyNames.date(), availableProperties, propertiesNode);
+        buildDateProperty(payload.completedDate(), propertyNames.completedDate(), availableProperties, propertiesNode);
 
         if (payload.status() != null && !payload.status().isBlank()) {
             propertyResolver.requireProperty(propertyNames.status(), "status", availableProperties);
@@ -187,7 +191,7 @@ public class NotionPageService {
         titleNode.set("title", notionJsonUtils.toRichTextArray(payload.title()));
         propertiesNode.set(propertyNames.title(), titleNode);
 
-        buildDateProperty(payload.date(), propertyNames, availableProperties, propertiesNode);
+        buildDateProperty(payload.date(), propertyNames.date(), availableProperties, propertiesNode);
 
         if (payload.status() != null && !payload.status().isBlank()) {
             propertyResolver.requireProperty(propertyNames.status(), "status", availableProperties);
@@ -220,13 +224,13 @@ public class NotionPageService {
     }
 
     private void buildDateProperty(NotionDateRange dateRange,
-                                   PropertyNames propertyNames,
+                                   String notionPropertyName,
                                    List<String> availableProperties,
                                    ObjectNode propertiesNode) {
         if (dateRange == null) {
             return;
         }
-        propertyResolver.requireProperty(propertyNames.date(), "date", availableProperties);
+        propertyResolver.requireProperty(notionPropertyName, "date", availableProperties);
 
         String start = dateRange.start();
         String end = dateRange.end();
@@ -247,7 +251,7 @@ public class NotionPageService {
         }
         ObjectNode dateNode = objectMapper.createObjectNode();
         dateNode.set("date", dateValue);
-        propertiesNode.set(propertyNames.date(), dateNode);
+        propertiesNode.set(notionPropertyName, dateNode);
     }
 
     private ResponseEntity<String> callApi(Long teamId, Supplier<ResponseEntity<String>> supplier) {
@@ -314,7 +318,8 @@ public class NotionPageService {
         boolean titleEmpty = payload.title() == null || payload.title().isBlank();
         boolean statusEmpty = payload.status() == null || payload.status().isBlank();
         boolean dateEmpty = payload.date() == null;
-        return titleEmpty && statusEmpty && dateEmpty;
+        boolean completedDateEmpty = payload.completedDate() == null;
+        return titleEmpty && statusEmpty && dateEmpty && completedDateEmpty;
     }
 
     private String compactNotionId(String notionId) {
