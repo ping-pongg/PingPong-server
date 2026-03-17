@@ -89,9 +89,10 @@ public class NotionDatabaseQueryService {
                 String pageUrl = pageNode.path("url").asText(null);
                 String title = NotionPropertyExtractor.extractTitle(properties);
                 PageDateRange date = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.PLANNED_DATE.getValue());
+                PageDateRange completedDate = NotionPropertyExtractor.extractDateRange(properties, NotionPropertyName.COMPLETED_DATE.getValue());
                 String status = NotionPropertyExtractor.extractStatus(properties);
 
-                pages.add(new PageSummary(pageId, pageUrl, title, date, status));
+                pages.add(new PageSummary(pageId, pageUrl, title, date, completedDate, status));
             }
         }
 
