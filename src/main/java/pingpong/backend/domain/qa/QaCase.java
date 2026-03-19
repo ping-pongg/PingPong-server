@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,6 +24,8 @@ import lombok.NoArgsConstructor;
 import pingpong.backend.domain.qa.converter.JsonNodeConverter;
 import pingpong.backend.domain.qa.converter.MapStringConverter;
 import pingpong.backend.domain.qa.dto.ExpectedResponse;
+import pingpong.backend.domain.qa.enums.SourceType;
+import pingpong.backend.domain.qa.enums.TestType;
 import pingpong.backend.domain.swagger.Endpoint;
 
 @Getter
@@ -39,7 +43,12 @@ public class QaCase {
 	private String scenarioName;
 
 	@Column
-	private String testType;
+	@Enumerated(EnumType.STRING)
+	private TestType testType;
+
+	@Column
+	@Enumerated(EnumType.STRING)
+	private SourceType sourceType;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "endpoint_id", nullable = false)
@@ -74,12 +83,13 @@ public class QaCase {
 	public static QaCase create(
 		Endpoint endpoint,
 		String scenarioName,
-		String testType,
+		TestType testType,
 		String description,
 		String pathVariables,
 		String queryParams,
 		Map<String, String> headers,
 		JsonNode body,
+		SourceType sourceType,
 		int expectedStatusCode
 	) {
 		QaCase qa = new QaCase();
@@ -93,6 +103,7 @@ public class QaCase {
 		qa.body = body;
 		// Embedded 객체 생성
 		qa.expectedStatusCode = expectedStatusCode;
+		qa.sourceType = sourceType;
 		qa.createdAt = LocalDateTime.now();
 		return qa;
 	}
@@ -104,7 +115,8 @@ public class QaCase {
 		String pathVariables,
 		String queryParams,
 		Map<String, String> headers,
-		JsonNode body
+		JsonNode body,
+		SourceType sourceType
 	) {
 		this.pathVariables = pathVariables;
 		this.queryParams = queryParams;
@@ -112,5 +124,6 @@ public class QaCase {
 		this.body = body;
 		// 수정이 발생했으므로 성공 여부를 초기화하거나 최신화할 준비를 합니다.
 		this.createdAt = LocalDateTime.now();
+		this.sourceType=sourceType;
 	}
 }
