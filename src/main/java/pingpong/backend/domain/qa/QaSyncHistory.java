@@ -16,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import pingpong.backend.domain.qa.enums.SyncStatus;
 import pingpong.backend.domain.team.Team;
 
 @Entity
