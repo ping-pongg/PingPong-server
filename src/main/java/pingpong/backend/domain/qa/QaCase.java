@@ -1,8 +1,12 @@
 package pingpong.backend.domain.qa;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -15,6 +19,9 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import pingpong.backend.domain.qa.converter.JsonNodeConverter;
+import pingpong.backend.domain.qa.converter.MapStringConverter;
+import pingpong.backend.domain.qa.dto.ExpectedResponse;
 import pingpong.backend.domain.swagger.Endpoint;
 
 @Getter
@@ -27,6 +34,12 @@ public class QaCase {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+
+	@Column
+	private String scenarioName;
+
+	@Column
+	private String testType;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "endpoint_id", nullable = false)
@@ -45,27 +58,44 @@ public class QaCase {
 	private String queryParams;
 
 	@Column(columnDefinition = "TEXT")
-	private String headers;
+	@Convert(converter = MapStringConverter.class)
+	private Map<String,String> headers;
 
 	@Column(columnDefinition = "LONGTEXT")
-	private String body;
+	@Convert(converter = JsonNodeConverter.class)
+	private JsonNode body;
+
+	@Column
+	private int expectedStatusCode;
 
 	@Column
 	private LocalDateTime createdAt;
 
-	public static QaCase create(Endpoint endpoint, String description,
-		String pathVariables, String queryParams, String headers, String body) {
+	public static QaCase create(
+		Endpoint endpoint,
+		String scenarioName,
+		String testType,
+		String description,
+		String pathVariables,
+		String queryParams,
+		Map<String, String> headers,
+		JsonNode body,
+		int expectedStatusCode
+	) {
 		QaCase qa = new QaCase();
 		qa.endpoint = endpoint;
+		qa.scenarioName = scenarioName;
+		qa.testType = testType;
 		qa.description = description;
 		qa.pathVariables = pathVariables;
 		qa.queryParams = queryParams;
 		qa.headers = headers;
 		qa.body = body;
+		// Embedded 객체 생성
+		qa.expectedStatusCode = expectedStatusCode;
 		qa.createdAt = LocalDateTime.now();
 		return qa;
 	}
-
 	public void updateIsSuccess(boolean isSuccess) {
 		this.isSuccess = isSuccess;
 	}

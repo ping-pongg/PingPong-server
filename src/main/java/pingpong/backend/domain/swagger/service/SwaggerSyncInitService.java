@@ -17,6 +17,7 @@ import pingpong.backend.domain.qa.QaSyncHistory;
 import pingpong.backend.domain.qa.dto.SwaggerChangedEvent;
 import pingpong.backend.domain.qa.repository.QaSyncHistoryRepository;
 import pingpong.backend.domain.qa.service.QaService;
+import pingpong.backend.domain.qa.service.QaSyncHistoryService;
 import pingpong.backend.domain.swagger.dto.response.EndpointGroupResponse;
 import pingpong.backend.domain.swagger.event.SwaggerSyncInitEvent;
 import pingpong.backend.domain.team.Team;
@@ -33,6 +34,7 @@ public class SwaggerSyncInitService {
     private final QaService qaService;
     private final TeamRepository teamRepository;
     private final QaSyncHistoryRepository qaSyncHistoryRepository;
+    private final QaSyncHistoryService qaSyncHistoryService;
 
     @Async("indexExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -66,7 +68,6 @@ public class SwaggerSyncInitService {
     // 2. 변경 이벤트 (중간에 새로고침 버튼 눌렀을 때)
     @Async("indexExecutor")
     @EventListener
-    @Transactional
     public void onSwaggerChanged(SwaggerChangedEvent event) {
         log.info("SWAGGER_FLOW: 변경된 엔드포인트 QA 자동 생성 시작 teamId={}", event.teamId());
         try {
@@ -85,26 +86,25 @@ public class SwaggerSyncInitService {
         Team team=teamRepository.findById(teamId).orElseThrow(()->new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
 
         List<EndpointGroupResponse> groups = swaggerService.getLatestSnapshotGrouped(teamId);
-        QaSyncHistory history=qaSyncHistoryRepository.save(new QaSyncHistory(team,groups.size()));
-        history.start(); //PROCESSING으로 변경
-
+        QaSyncHistory history=qaSyncHistoryService.createNewHistory(team,groups.size());
         log.info("QA_GEN: 시나리오 생성 작업 시작 (대상 그룹 수: {})", groups.size());
 
         for (EndpointGroupResponse group : groups) {
             for (var endpoint : group.endpoints()) {
+                if(!endpoint.isChanged()){
+                    continue;
+                }
                 try {
                     // API Rate Limit 방지를 위한 미세 지연
                     Thread.sleep(200);
                     qaService.createQaCases(endpoint.endpointId());
-                    history.incrementSuccess();
+                    qaSyncHistoryService.updateProgress(history.getId(),true);
                 } catch (Exception e) {
-                    log.error("QA_GEN: 개별 엔드포인트 생성 실패 - id={}, msg={}",
-                        endpoint.endpointId(), e.getMessage());
-                    history.incrementFail();
+                    qaSyncHistoryService.updateProgress(history.getId(),true);
                 }
             }
         }
-        history.complete();
+        qaSyncHistoryService.completeHistory(history.getId());
         log.info("QA_GEN: 모든 프로세스 완료 teamId={}", teamId);
     }
 }

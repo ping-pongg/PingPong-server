@@ -232,10 +232,14 @@ public class SwaggerService {
 
 		Optional<SwaggerSnapshot> latest = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
 
-		// 1. 변화가 없다면 저장 절차를 건너뜀 (Early Return)
-		if (latest.isPresent() && latest.get().getSpecHash().equals(specHash)) {
-			return false;
+		if(latest.isPresent()){
+			String latestHash=latest.get().getSpecHash();
+			if(specHash.equals(latestHash)){
+				log.info("기존 스냅샷과 해시가 일치하여 동기화를 진행하지 않습니다. teamId:{}",teamId);
+				return false;
+			}
 		}
+		log.info("새로운 스웨거 스냅샷 생성을 시작합니다. teamId:{}",teamId);
 
 		// 2. 이전 Endpoint Map 준비 (비교용)
 		Map<String, Endpoint> prevMap = latest.map(snapshot ->

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,11 +12,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
+import pingpong.backend.domain.qa.QaSyncHistory;
 import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.EndpointRequestBodyDto;
@@ -27,6 +30,7 @@ import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
+import pingpong.backend.domain.qa.repository.QaSyncHistoryRepository;
 import pingpong.backend.domain.swaggerdiff.dto.EndpointParameterDto;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
@@ -49,7 +53,7 @@ import pingpong.backend.global.exception.CustomException;
 @Transactional(readOnly = true)
 public class QaService {
 
-	private final ChatClient qaClient;
+
 	private final QaCaseRepository qaCaseRepository;
 	private final QaExecuteResultRepository qaExecuteResultRepository;
 	private final ApiExecuteService apiExecuteService;
@@ -61,15 +65,15 @@ public class QaService {
 	private final SwaggerRequestRepository swaggerRequestRepository;
 	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final LlmQaService llmQaService;
+	private final QaSyncHistoryRepository qaSyncHistoryRepository;
 
 
-	public QaService(@Qualifier("qaClient") ChatClient qaClient, QaCaseRepository qaCaseRepository,
+	public QaService(QaCaseRepository qaCaseRepository,
 		QaExecuteResultRepository qaExecuteResultRepository, ApiExecuteService apiExecuteService,
 		ObjectMapper objectMapper, SwaggerSnapshotRepository swaggerSnapshotRepository,
 		EndpointRepository endpointRepository, SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository,
 		SwaggerParameterRepository swaggerParameterRepository, SwaggerRequestRepository swaggerRequestRepository,
-		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService) {
-		this.qaClient = qaClient;
+		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService, QaSyncHistoryRepository qaSyncHistoryRepository) {
 		this.qaCaseRepository = qaCaseRepository;
 		this.qaExecuteResultRepository = qaExecuteResultRepository;
 		this.apiExecuteService = apiExecuteService;
@@ -81,9 +85,11 @@ public class QaService {
 		this.swaggerRequestRepository = swaggerRequestRepository;
 		this.swaggerResponseRepository = swaggerResponseRepository;
 		this.llmQaService = llmQaService;
+		this.qaSyncHistoryRepository=qaSyncHistoryRepository;
 	}
 
 	public List<QaCaseSummaryDto> getQaCasesByEndpointId(Long endpointId) {
+
 		Endpoint endpoint = endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
@@ -129,8 +135,8 @@ public class QaService {
 		QaCaseDetailDto.QaData qaData = new QaCaseDetailDto.QaData(
 			parseJsonToMap(qaCase.getPathVariables()),
 			parseJsonToMap(qaCase.getQueryParams()),
-			parseJsonToMap(qaCase.getHeaders()),
-			parseJsonToNode(qaCase.getBody())
+			qaCase.getHeaders(),
+			qaCase.getBody()
 		);
 
 		QaExecuteResultDto latestExecuteResult = qaExecuteResultRepository
@@ -207,20 +213,21 @@ public class QaService {
 		var reqData = request.requestData();
 		var expRes = request.expectedResponse();
 
-		// 3. 필드 직렬화 (Map -> JSON String)
-		String headersJson = serializeSafe(reqData.headers());
-		String bodyJson = serializeSafe(reqData.body());
-		String expectedBodyJson = serializeSafe(expRes.bodyFields());
+		// 3. 필드 직렬화 (Map -> JSON Node)
+		JsonNode bodyNode = objectMapper.valueToTree(reqData.body());
 
 		// 5. 엔티티 생성
 		// 기존 QaCase 엔티티에 expectedStatus, expectedBody, codeSnippet 등의 필드가 있다고 가정합니다.
 		QaCase qaCase = QaCase.create(
 			endpoint,
+			request.scenarioName(),
+			request.testType(),
 			request.description(),
 			null, // pathVariables (필요 시 reqData에서 추출)
 			null, // queryParams (필요 시 reqData에서 추출)
-			headersJson,
-			bodyJson
+			reqData.headers(),
+			bodyNode,
+			expRes.statusCode()
 		);
 
 		QaCase saved = qaCaseRepository.save(qaCase);
@@ -254,38 +261,30 @@ public class QaService {
 		List<QaCase> qaCases = result.scenarios().stream()
 			.map(scenario -> {
 				var req = scenario.requestData();
+				var expected=scenario.expectedResponse();
 
 				// Map 객체들을 JSON 문자열로 변환 (DB의 TEXT/LONGTEXT 컬럼 대응)
-				String headersJson = toJsonString(req.headers());
-				String bodyJson = toJsonString(req.body());
+				Map<String,String> headers=req.headers();
 
-				// 만약 RequestData에 pathVariables나 queryParams가 명시적으로 구분되어 있지 않다면,
-				// 현재는 headers와 body 위주로 저장하고 나머지는 null 처리하거나 추후 확장이 가능합니다.
+				JsonNode bodyNode=objectMapper.valueToTree(req.body());
+				String pathVars = null;
+				String queryParams = null;
+
 				return QaCase.create(
 					endpoint,
+					scenario.scenarioName(), // scenarioName 추가
+					scenario.testType(),     // testType 추가
 					scenario.description(),
-					null,        // pathVariables (필요 시 AI 응답 구조에 추가)
-					null,        // queryParams (필요 시 AI 응답 구조에 추가)
-					headersJson,
-					bodyJson
-				);
+					pathVars,
+					queryParams,
+					headers,
+					bodyNode,                // JsonNode 타입
+					expected.statusCode());
 			})
 			.toList();
 
 		qaCaseRepository.saveAll(qaCases);
-	}
-
-	/**
-	 * 객체를 JSON 문자열로 안전하게 변환
-	 */
-	private String toJsonString(Object obj) {
-		if (obj == null) return null;
-		try {
-			return objectMapper.writeValueAsString(obj);
-		} catch (JsonProcessingException e) {
-			log.warn("QA-GEN: JSON 변환 실패 - {}", e.getMessage());
-			return null;
-		}
+		log.info("QA_SAVE: {}개의 시나리오가 저장되었습니다. endpointId={}", qaCases.size(), endpoint.getId());
 	}
 
 
@@ -312,8 +311,8 @@ public class QaService {
 		ApiExecuteRequest request = new ApiExecuteRequest(
 			parseStringMap(qa.getPathVariables()),
 			parseStringMap(qa.getQueryParams()),
-			parseStringMap(qa.getHeaders()),
-			parseBody(qa.getBody())
+			qa.getHeaders(),
+			qa.getBody()
 		);
 
 		long startTime = System.currentTimeMillis();
@@ -384,8 +383,8 @@ public class QaService {
 								qa.getDescription(),
 								parseStringMap(qa.getPathVariables()),
 								parseStringMap(qa.getQueryParams()),
-								parseStringMap(qa.getHeaders()),
-								parseBody(qa.getBody()),
+								qa.getHeaders(),
+								qa.getBody(),
 								new QaTeamFailureResponse.LatestResult(
 									result.getHttpStatus(),
 									parseBody(result.getResponseBody()),
