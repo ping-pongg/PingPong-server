@@ -64,7 +64,10 @@ public record QaCaseDetailDto(
 		Map<String, String> headers,
 
 		@Schema(description = "요청 본문 실제 값")
-		JsonNode body
+		JsonNode body,
+
+		@Schema(description = "테스트 실행 시 나와야 하는 httpStatus")
+		int expectedStatusCode
 	) {
 	}
 }

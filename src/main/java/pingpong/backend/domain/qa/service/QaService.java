@@ -137,7 +137,8 @@ public class QaService {
 			parseJsonToMap(qaCase.getPathVariables()),
 			parseJsonToMap(qaCase.getQueryParams()),
 			qaCase.getHeaders(),
-			qaCase.getBody()
+			qaCase.getBody(),
+			qaCase.getExpectedStatusCode()
 		);
 
 		QaExecuteResultDto latestExecuteResult = qaExecuteResultRepository
