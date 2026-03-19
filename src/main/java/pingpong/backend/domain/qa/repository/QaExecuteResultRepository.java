@@ -9,4 +9,5 @@ import pingpong.backend.domain.qa.QaExecuteResult;
 public interface QaExecuteResultRepository extends JpaRepository<QaExecuteResult, Long> {
 
 	java.util.Optional<QaExecuteResult> findTopByQaCaseIdOrderByExecutedAtDesc(Long qaCaseId);
+	List<QaExecuteResult> findByQaCaseIdOrderByExecutedAtDesc(Long qaCaseId);
 }

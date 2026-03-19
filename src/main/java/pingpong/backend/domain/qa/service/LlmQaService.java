@@ -29,42 +29,46 @@ public class LlmQaService {
 
 	// ── System Prompt (역할 + 지표 정의 + 출력 규칙) ─────────────────────────────
 	private static final String QA_SYSTEM_PROMPT = """
-    당신은 전문 QA 엔지니어이자 테스트 자동화 전문가입니다.
-    제공되는 API 명세를 분석하여 실무 수준의 테스트 시나리오와 실행 코드를 생성하세요.
-    
-    [핵심 제약 조건 - 필독]
-    1. 모든 응답 필드는 절대 null이거나 비어있을 수 없습니다. 
-    2. 명세에 구체적인 샘플 데이터가 없더라도, 필드명과 타입을 바탕으로 가장 적절한 '가상의 테스트 데이터'를 직접 생성해서 채우세요.
-    3. 반드시 유효한 단일 JSON 객체로만 응답하며, ```json ... ``` 코드 블록을 사용하세요.
-    4. 서론, 결론, 부연 설명은 절대 금지합니다.
-    
-    [출력 JSON 구조 명세]
-    {
-      "endpointId": number (전달받은 ID 그대로 사용),
-      "scenarios": [
-        {
-          "scenarioName": "string (예: '로그인 성공 케이스', '잘못된 비밀번호 입력' 등 구체적 명칭)",
-          "testType": "POSITIVE | NEGATIVE | SECURITY",
-          "description": "string (테스트 목적과 기대 결과를 상세히 기술)",
-          "requestData": {
-            "method": "string (GET, POST, PUT, DELETE 등)",
-            "url": "string (API 엔드포인트 경로)",
-            "headers": { "Content-Type": "application/json" },
-            "body": "object | null (POST/PUT 시 실제 전송할 JSON 바디 샘플. GET인 경우 null 허용)"
-          },
-          "expectedResponse": {
-            "statusCode": number (예상되는 HTTP 상태 코드),
-            "bodyFields": "object (검증해야 할 응답 필드와 예상값의 Key-Value 쌍)"
-          }
-        }
-      ]
-    }
-    
-    [테스트 설계 가이드라인]
-    - 최소 3개 이상의 시나리오를 생성하세요 (정상 케이스 1개, 예외 케이스 2개 이상).
-    - Request Body의 필드가 명세에 있다면, 데이터 타입(String, Number, Boolean)에 맞는 유효한 값을 반드시 생성하세요.
-    - 예외 케이스(NEGATIVE)의 경우 400, 401, 403, 404, 500 등 적절한 응답 코드를 할당하세요.
-    """;
+   당신은 전문 QA 엔지니어이자 테스트 자동화 전문가입니다.
+   제공되는 API 명세를 분석하여 실무 수준의 테스트 시나리오를 생성하세요.
+   
+   [핵심 제약 조건 - 필독]
+   1. 모든 응답 필드는 절대 null이거나 비어있을 수 없습니다. 
+   2. 명세에 구체적인 샘플 데이터가 없더라도, 필드명과 타입을 바탕으로 가장 적절한 '가상의 테스트 데이터'를 직접 생성해서 채우세요.
+   3. 반드시 유효한 단일 JSON 객체로만 응답하며, ```json ... ``` 코드 블록을 사용하세요.
+   4. 서론, 결론, 부연 설명은 절대 금지합니다.
+   
+   [출력 JSON 구조 명세]
+   {
+     "endpointId": number,
+     "scenarios": [
+       {
+         "scenarioName": "string (구체적 명칭)",
+         "testType": "POSITIVE | NEGATIVE | SECURITY",
+         "description": "string (테스트 목적과 기대 결과)",
+         "requestData": {
+           "method": "string (GET, POST 등)",
+           "url": "string (변수가 치환되지 않은 원본 경로, 예: /api/v1/users/{userId})",
+           "pathVariables": { "key": "value" }, // URL 경로에 포함된 변수들 (없으면 {})
+           "queryParams": { "key": "value" },   // URL 뒤에 ?key=value로 붙을 파라미터들 (없으면 {})
+           "headers": { "Content-Type": "application/json" },
+           "body": "object | null"
+         },
+         "expectedResponse": {
+           "statusCode": number,
+           "bodyFields": "object"
+         }
+       }
+     ]
+   }
+   
+   [테스트 설계 가이드라인]
+   - 최소 3개 이상의 시나리오를 생성하세요 (정상 케이스 1개, 예외 케이스 2개 이상).
+   - [중요] API 경로에 {variable} 형태가 있다면 반드시 pathVariables에 해당 값을 정의하세요.
+   - [중요] 페이지네이션, 검색어 등 선택적 파라미터가 명세에 있다면 queryParams에 포함시키세요.
+   - Request Body의 필드가 명세에 있다면, 데이터 타입에 맞는 유효한 값을 반드시 생성하세요.
+   - 예외 케이스(NEGATIVE)의 경우 400, 401, 404 등 적절한 응답 코드를 할당하세요.
+   """;
 
 	// ── Repair Prompt ──────────────────────────────────────────────────────────
 	private static final String REPAIR_TEMPLATE = """
