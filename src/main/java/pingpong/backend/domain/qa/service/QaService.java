@@ -1,9 +1,11 @@
 package pingpong.backend.domain.qa.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,22 +13,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
+import pingpong.backend.domain.qa.QaSyncHistory;
 import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
 import pingpong.backend.domain.qa.dto.EndpointRequestBodyDto;
 import pingpong.backend.domain.qa.dto.EndpointResponseDto;
 import pingpong.backend.domain.qa.dto.EndpointSecurityDto;
+import pingpong.backend.domain.qa.dto.QaBulkExecuteResponse;
 import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
 import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
 import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
+import pingpong.backend.domain.qa.dto.QaReRunRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
+import pingpong.backend.domain.qa.dto.QaScenarioRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
+import pingpong.backend.domain.qa.enums.SourceType;
+import pingpong.backend.domain.qa.repository.QaSyncHistoryRepository;
 import pingpong.backend.domain.swaggerdiff.dto.EndpointParameterDto;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
@@ -49,7 +58,7 @@ import pingpong.backend.global.exception.CustomException;
 @Transactional(readOnly = true)
 public class QaService {
 
-	private final ChatClient qaClient;
+
 	private final QaCaseRepository qaCaseRepository;
 	private final QaExecuteResultRepository qaExecuteResultRepository;
 	private final ApiExecuteService apiExecuteService;
@@ -61,15 +70,15 @@ public class QaService {
 	private final SwaggerRequestRepository swaggerRequestRepository;
 	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final LlmQaService llmQaService;
+	private final QaSyncHistoryRepository qaSyncHistoryRepository;
 
 
-	public QaService(@Qualifier("qaClient") ChatClient qaClient, QaCaseRepository qaCaseRepository,
+	public QaService(QaCaseRepository qaCaseRepository,
 		QaExecuteResultRepository qaExecuteResultRepository, ApiExecuteService apiExecuteService,
 		ObjectMapper objectMapper, SwaggerSnapshotRepository swaggerSnapshotRepository,
 		EndpointRepository endpointRepository, SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository,
 		SwaggerParameterRepository swaggerParameterRepository, SwaggerRequestRepository swaggerRequestRepository,
-		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService) {
-		this.qaClient = qaClient;
+		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService, QaSyncHistoryRepository qaSyncHistoryRepository) {
 		this.qaCaseRepository = qaCaseRepository;
 		this.qaExecuteResultRepository = qaExecuteResultRepository;
 		this.apiExecuteService = apiExecuteService;
@@ -81,9 +90,11 @@ public class QaService {
 		this.swaggerRequestRepository = swaggerRequestRepository;
 		this.swaggerResponseRepository = swaggerResponseRepository;
 		this.llmQaService = llmQaService;
+		this.qaSyncHistoryRepository=qaSyncHistoryRepository;
 	}
 
 	public List<QaCaseSummaryDto> getQaCasesByEndpointId(Long endpointId) {
+
 		Endpoint endpoint = endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
@@ -94,6 +105,7 @@ public class QaService {
 				tagOrDefault(endpoint.getTag()),
 				endpoint.getPath(),
 				endpoint.getMethod(),
+				qa.getScenarioName(),
 				qa.getDescription(),
 				qa.getIsSuccess()
 			))
@@ -129,8 +141,9 @@ public class QaService {
 		QaCaseDetailDto.QaData qaData = new QaCaseDetailDto.QaData(
 			parseJsonToMap(qaCase.getPathVariables()),
 			parseJsonToMap(qaCase.getQueryParams()),
-			parseJsonToMap(qaCase.getHeaders()),
-			parseJsonToNode(qaCase.getBody())
+			qaCase.getHeaders(),
+			qaCase.getBody(),
+			qaCase.getExpectedStatusCode()
 		);
 
 		QaExecuteResultDto latestExecuteResult = qaExecuteResultRepository
@@ -142,7 +155,8 @@ public class QaService {
 				parseJsonToMap(r.getResponseHeaders()),
 				parseJsonToNode(r.getResponseBody()),
 				r.getExecutedAt(),
-				r.getDurationMs()
+				r.getDurationMs(),
+				qaCase.getExpectedStatusCode()
 			))
 			.orElse(null);
 
@@ -198,29 +212,29 @@ public class QaService {
 
 
 	@Transactional
-	public Long createManualQaCase(Long endpointId, QaScenarioDetail request) {
+	public Long createManualQaCase(Long endpointId, QaScenarioRequest request) {
 		// 1. 대상 엔드포인트 존재 확인
 		Endpoint endpoint = endpointRepository.findById(endpointId)
 			.orElseThrow(() -> new CustomException(SwaggerErrorCode.ENDPOINT_NOT_FOUND));
 
 		// 2. RequestData 및 ExpectedResponse 추출
-		var reqData = request.requestData();
-		var expRes = request.expectedResponse();
-
-		// 3. 필드 직렬화 (Map -> JSON String)
-		String headersJson = serializeSafe(reqData.headers());
-		String bodyJson = serializeSafe(reqData.body());
-		String expectedBodyJson = serializeSafe(expRes.bodyFields());
+		var reqData = request.qaData();
+		// 3. 필드 직렬화 (Map -> JSON Node)
+		JsonNode bodyNode = objectMapper.valueToTree(reqData.body());
 
 		// 5. 엔티티 생성
 		// 기존 QaCase 엔티티에 expectedStatus, expectedBody, codeSnippet 등의 필드가 있다고 가정합니다.
 		QaCase qaCase = QaCase.create(
 			endpoint,
+			request.scenarioName(),
+			request.testType(),
 			request.description(),
-			null, // pathVariables (필요 시 reqData에서 추출)
-			null, // queryParams (필요 시 reqData에서 추출)
-			headersJson,
-			bodyJson
+			serializeSafe(reqData.pathVariables()), // pathVariables (필요 시 reqData에서 추출)
+			serializeSafe(reqData.queryParams()), // queryParams (필요 시 reqData에서 추출)
+			reqData.headers(),
+			bodyNode,
+			SourceType.MANUAL,
+			reqData.expectedStatusCode()
 		);
 
 		QaCase saved = qaCaseRepository.save(qaCase);
@@ -254,38 +268,29 @@ public class QaService {
 		List<QaCase> qaCases = result.scenarios().stream()
 			.map(scenario -> {
 				var req = scenario.requestData();
+				var expected=scenario.expectedResponse();
 
 				// Map 객체들을 JSON 문자열로 변환 (DB의 TEXT/LONGTEXT 컬럼 대응)
-				String headersJson = toJsonString(req.headers());
-				String bodyJson = toJsonString(req.body());
+				Map<String,String> headers=req.headers();
 
-				// 만약 RequestData에 pathVariables나 queryParams가 명시적으로 구분되어 있지 않다면,
-				// 현재는 headers와 body 위주로 저장하고 나머지는 null 처리하거나 추후 확장이 가능합니다.
+				JsonNode bodyNode=objectMapper.valueToTree(req.body());
+
 				return QaCase.create(
 					endpoint,
+					scenario.scenarioName(), // scenarioName 추가
+					scenario.testType(),     // testType 추가
 					scenario.description(),
-					null,        // pathVariables (필요 시 AI 응답 구조에 추가)
-					null,        // queryParams (필요 시 AI 응답 구조에 추가)
-					headersJson,
-					bodyJson
-				);
+					serializeSafe(req.pathVariables()),
+					serializeSafe(req.queryParams()),
+					headers,
+					bodyNode,                // JsonNode 타입
+					SourceType.AI_GENERATED,
+					expected.statusCode());
 			})
 			.toList();
 
 		qaCaseRepository.saveAll(qaCases);
-	}
-
-	/**
-	 * 객체를 JSON 문자열로 안전하게 변환
-	 */
-	private String toJsonString(Object obj) {
-		if (obj == null) return null;
-		try {
-			return objectMapper.writeValueAsString(obj);
-		} catch (JsonProcessingException e) {
-			log.warn("QA-GEN: JSON 변환 실패 - {}", e.getMessage());
-			return null;
-		}
+		log.info("QA_SAVE: {}개의 시나리오가 저장되었습니다. endpointId={}", qaCases.size(), endpoint.getId());
 	}
 
 
@@ -302,6 +307,47 @@ public class QaService {
 	}
 
 	@Transactional
+	public QaExecuteResultDto reRunQaCase(Long qaId, QaReRunRequest reRunData, String proxyAuthorization) {
+		// 1. 기존 QA 케이스 정보 조회 (엔드포인트 정보 참조용)
+		QaCase qa = qaCaseRepository.findById(qaId)
+			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
+
+		// 2. 화면에서 넘어온 수정 데이터로 DB 업데이트 (기존 엔티티 필드 갱신)
+		// pathVariables와 queryParams가 String(JSON)이라면 여기서 직렬화 처리
+		qa.updateTestData(
+			serializeToJson(reRunData.pathVariables()),
+			serializeToJson(reRunData.queryParams()),
+			reRunData.headers(),
+			reRunData.body(),
+			SourceType.AI_ASSISTED
+		);
+
+		// 3. 기존의 실행 로직을 그대로 호출 (재사용!)
+		// 이미 엔티티가 업데이트되었으므로 executeQaCase는 수정된 데이터를 읽어서 실행합니다.
+		return executeQaCase(qaId, proxyAuthorization);
+	}
+
+	public List<QaExecuteResultDto> getQaExecuteResults(Long qaId) {
+		// 1. 해당 QA 케이스가 존재하는지 확인 (기대 상태 코드를 가져오기 위함)
+		QaCase qaCase = qaCaseRepository.findById(qaId)
+			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
+
+		// 2. 실행 내역 조회
+		List<QaExecuteResult> results = qaExecuteResultRepository.findByQaCaseIdOrderByExecutedAtDesc(qaId);
+
+		// 3. 엔티티 리스트를 DTO 리스트로 변환
+		return results.stream()
+			.map(result -> QaExecuteResultDto.fromEntity(
+				result,
+				parseJsonToMap(result.getResponseHeaders()), // JSON 문자열 -> Map
+				parseJsonToNode(result.getResponseBody()),   // JSON 문자열 -> JsonNode
+				qaCase.getExpectedStatusCode()              // QA 케이스의 기대 코드
+			))
+			.toList();
+	}
+
+
+	@Transactional
 	public QaExecuteResultDto executeQaCase(Long qaId, String proxyAuthorization) {
 		QaCase qa = qaCaseRepository.findById(qaId)
 			.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
@@ -312,8 +358,8 @@ public class QaService {
 		ApiExecuteRequest request = new ApiExecuteRequest(
 			parseStringMap(qa.getPathVariables()),
 			parseStringMap(qa.getQueryParams()),
-			parseStringMap(qa.getHeaders()),
-			parseBody(qa.getBody())
+			qa.getHeaders(),
+			qa.getBody()
 		);
 
 		long startTime = System.currentTimeMillis();
@@ -321,14 +367,24 @@ public class QaService {
 			ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
 			long durationMs = System.currentTimeMillis() - startTime;
 
-			boolean isSuccess = response.httpStatus() >= 200 && response.httpStatus() < 300;
-			qa.updateIsSuccess(isSuccess);
+			// 성공 여부 판단 로직 변경
+			// 단순히 200번대가 아니라, '기대한 상태 코드'와 일치하는지 확인
+			int actualStatus = response.httpStatus();
+			int expectedStatus = qa.getExpectedStatusCode();
+
+			boolean isStatusMatch = (actualStatus == expectedStatus);
+
+			// 추가: 만약 바디 필드까지 엄격하게 검증하고 싶다면 여기에 추가 로직을 넣습니다.
+			// boolean isBodyMatch = checkBodyFields(response.body(), qa.getExpectedBodyFields());
+
+			boolean finalSuccess = isStatusMatch;
+			qa.updateIsSuccess(finalSuccess);
 
 			String headersJson = serializeToJson(response.responseHeaders());
 			String bodyJson = serializeToJson(response.body());
 
 			QaExecuteResult result = QaExecuteResult.create(
-				qa, response.httpStatus(), isSuccess, headersJson, bodyJson, durationMs
+				qa, response.httpStatus(), finalSuccess, headersJson, bodyJson, durationMs
 			);
 			qaExecuteResultRepository.save(result);
 
@@ -336,10 +392,11 @@ public class QaService {
 				result.getId(),
 				result.getHttpStatus(),
 				result.getIsSuccess(),
-				response.responseHeaders(),
+				null,
 				response.body(),
 				result.getExecutedAt(),
-				result.getDurationMs()
+				result.getDurationMs(),
+				qa.getExpectedStatusCode()
 			);
 		} catch (CustomException e) {
 			long durationMs = System.currentTimeMillis() - startTime;
@@ -355,9 +412,51 @@ public class QaService {
 				null,
 				result.getResponseBody(),
 				result.getExecutedAt(),
-				result.getDurationMs()
+				result.getDurationMs(),
+				qa.getExpectedStatusCode()
 			);
 		}
+	}
+
+	/**
+	 * qa를 한 번에 여러개 실행
+	 * @param qaIds
+	 * @param proxyAuthorization
+	 * @return
+	 */
+	@Transactional
+	public QaBulkExecuteResponse executeBulkQaCases(List<Long> qaIds, String proxyAuthorization) {
+		List<QaExecuteResultDto> results = new ArrayList<>();
+		int successCount = 0;
+
+		for (Long qaId : qaIds) {
+			try {
+				// 기존 단일 실행 로직 재활용
+				QaExecuteResultDto result = executeQaCase(qaId, proxyAuthorization);
+				results.add(result);
+
+				if (result.isSuccess()) {
+					successCount++;
+				}
+			} catch (Exception e) {
+				// 특정 ID 실행 중 에러가 나도 로그만 남기고 다음 ID로 넘어감
+				log.error("Bulk 실행 중 오류 발생 - qaId: {}, error: {}", qaId, e.getMessage());
+				// 실패한 결과도 리스트에 추가 (에러 메시지 포함)
+				results.add(createFailedResultDto(qaId, e.getMessage()));
+			}
+		}
+
+		return new QaBulkExecuteResponse(
+			qaIds.size(),
+			successCount,
+			qaIds.size() - successCount,
+			results
+		);
+	}
+
+	// 실패 시 응답을 위한 간단한 헬퍼 메서드
+	private QaExecuteResultDto createFailedResultDto(Long qaId, String message) {
+		return new QaExecuteResultDto(null, 500, false, null, message, LocalDateTime.now(), 0L, 0);
 	}
 
 	public List<QaTeamFailureResponse> getTeamFailures(Long teamId) {
@@ -384,8 +483,8 @@ public class QaService {
 								qa.getDescription(),
 								parseStringMap(qa.getPathVariables()),
 								parseStringMap(qa.getQueryParams()),
-								parseStringMap(qa.getHeaders()),
-								parseBody(qa.getBody()),
+								qa.getHeaders(),
+								qa.getBody(),
 								new QaTeamFailureResponse.LatestResult(
 									result.getHttpStatus(),
 									parseBody(result.getResponseBody()),

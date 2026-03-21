@@ -2,11 +2,10 @@ package pingpong.backend.domain.qa.dto;
 
 import pingpong.backend.domain.qa.enums.TestType;
 
-public record QaScenarioDetail(
+public record QaScenarioRequest (
 	String scenarioName,
 	TestType testType,
 	String description,
-	RequestData requestData,
-	ExpectedResponse expectedResponse,
-	String executionCodeSnippet
-) {}
+	QaCaseDetailDto.QaData qaData
+){
+}

@@ -21,6 +21,9 @@ public record QaCaseSummaryDto(
 	@Schema(description = "HTTP 메서드")
 	CrudMethod method,
 
+	@Schema(description = "QA 시나리오 이름")
+	String scenarioName,
+
 	@Schema(description = "QA 케이스 설명")
 	String description,
 

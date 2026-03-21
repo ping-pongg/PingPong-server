@@ -18,7 +18,7 @@ public record TeamCreateRequest(
         @Schema(description = "Discord 링크", example = "https://discord.gg/xxxx", nullable = true)
         String discord,
 
-        @Schema(description = "Swagger 링크", example = "https://api.example.com/swagger-ui/index.html", nullable = true)
+        @Schema(description = "Swagger 링크", example = "https://pingpongg.site/swagger-ui/index.html", nullable = true)
         String swagger,
 
         @Schema(description = "GitHub 링크", example = "https://github.com/Nexus-team-02/Nexus-server", nullable = true)

@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -83,15 +84,33 @@ public class ApiExecuteService {
 		String fullUrl = baseUrl + resolvedPath;
 
 		// 9. 외부 API 요청
-		ResponseEntity<String> response = apiExecuteClient.execute(
-			fullUrl,
-			endpoint.getMethod(),
-			mergedReq.queryParams(),
-			mergedReq.headers(),
-			mergedReq.body()
-		);
+		ResponseEntity<String> response;
+		try {
+			response = apiExecuteClient.execute(
+				fullUrl,
+				endpoint.getMethod(),
+				mergedReq.queryParams(),
+				mergedReq.headers(),
+				mergedReq.body()
+			);
+		} catch (HttpStatusCodeException e) {
+			//서버가 응답을 준 모든 에러를 여기서 잡음
+			Map<String, String> errorHeaders = new HashMap<>();
+			if (e.getResponseHeaders() != null) {
+				e.getResponseHeaders().forEach((k, v) -> errorHeaders.put(k, v.get(0)));
+			}
 
-		// 10. 응답 변환
+			return new ApiExecuteResponse(
+				e.getStatusCode().value(),
+				errorHeaders,
+				parseBody(e.getResponseBodyAsString())
+			);
+		}catch(Exception e){
+			//시스템 에러이므로 진짜 예외처리
+			log.error("API 접속 실패:{}",e.getMessage());
+			throw new CustomException(SwaggerErrorCode.API_EXECUTE_ERROR);
+		}
+		// 10. 정상 200번대 응답 변환
 		Map<String, String> responseHeaders = new HashMap<>();
 		response.getHeaders().forEach((key, values) -> {
 			if (!values.isEmpty()) {

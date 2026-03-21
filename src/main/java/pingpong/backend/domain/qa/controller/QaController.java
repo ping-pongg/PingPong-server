@@ -11,14 +11,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
+import pingpong.backend.domain.qa.dto.QaBulkExecuteRequest;
+import pingpong.backend.domain.qa.dto.QaBulkExecuteResponse;
 import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
 import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
 import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
+import pingpong.backend.domain.qa.dto.QaReRunRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
+import pingpong.backend.domain.qa.dto.QaScenarioRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.service.QaService;
@@ -32,6 +37,7 @@ public class QaController {
 
 	private final QaService qaService;
 
+	@Hidden
 	@PostMapping("/{endpointId}/auto")
 	@Operation(
 		summary="[AI] 해당 Endpoint의 QA 시나리오 생성",
@@ -47,7 +53,7 @@ public class QaController {
 		description = "유저가 직접 endpoint에 해당하는 QA 케이스들을 추가합니다."
 	)
 	public SuccessResponse<Long> createManualQaCases(
-		@PathVariable Long endpointId,@RequestBody QaScenarioDetail request
+		@PathVariable Long endpointId,@RequestBody QaScenarioRequest request
 		){
 		return SuccessResponse.ok(qaService.createManualQaCase(endpointId,request));
 	}
@@ -61,6 +67,15 @@ public class QaController {
 		return SuccessResponse.ok(qaService.getQaCasesByEndpointId(endpointId));
 	}
 
+	@GetMapping("/execute-result")
+	@Operation(
+		summary = "QA 실행내역 목록 조회",
+		description = "특정 시나리오(qaId)에 대한 모든 실행 이력을 최신순으로 반환합니다."
+	)
+	public SuccessResponse<List<QaExecuteResultDto>> getQaResultList(@RequestParam Long qaId) {
+		return SuccessResponse.ok(qaService.getQaExecuteResults(qaId));
+	}
+
 	@GetMapping("/{qaId}/results")
 	@Operation(
 		summary = "QA 케이스 단건 상세 조회",
@@ -68,6 +83,16 @@ public class QaController {
 	)
 	public SuccessResponse<QaCaseDetailDto> getQaCaseDetail(@PathVariable Long qaId) {
 		return SuccessResponse.ok(qaService.getQaCaseDetail(qaId));
+	}
+
+	@PostMapping("/{qaId}/re-run")
+	@Operation(summary = "QA 케이스 수정 후 재실행", description = "화면에서 수정한 데이터를 바탕으로 QA를 재실행하고 결과를 저장합니다.")
+	public SuccessResponse<QaExecuteResultDto> reRunQaCase(
+		@PathVariable Long qaId,
+		@RequestBody QaReRunRequest reRunData,
+		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization
+	) {
+		return SuccessResponse.ok(qaService.reRunQaCase(qaId, reRunData, proxyAuthorization));
 	}
 
 	@GetMapping("/tags")
@@ -89,6 +114,18 @@ public class QaController {
 		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization
 	) {
 		return SuccessResponse.ok(qaService.executeQaCase(qaId, proxyAuthorization));
+	}
+
+	@PostMapping("/execute/bulk")
+	@Operation(
+		summary = "QA 케이스 일괄 실행",
+		description = "전달받은 qaId 리스트에 해당하는 모든 케이스를 순차적으로 실행합니다."
+	)
+	public SuccessResponse<QaBulkExecuteResponse> executeBulkQaCases(
+		@RequestBody QaBulkExecuteRequest request,
+		@RequestHeader(value = "X-Proxy-Authorization", required = false) String proxyAuthorization
+	) {
+		return SuccessResponse.ok(qaService.executeBulkQaCases(request.qaIds(), proxyAuthorization));
 	}
 
 	@GetMapping("/failures")
