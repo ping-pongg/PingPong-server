@@ -39,4 +39,8 @@ public record GithubSyncDetailResponse (
 		String type, //add,delete,unchanged
 		String content
 	){}
+
+	public static GithubSyncDetailResponse empty(){
+		return new GithubSyncDetailResponse(null, null, null);
+	}
 }

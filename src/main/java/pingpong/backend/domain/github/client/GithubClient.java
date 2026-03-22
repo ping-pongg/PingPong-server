@@ -74,6 +74,10 @@ public class GithubClient {
 
 			//최신 커밋 정보 추출 (리스트의 마지막 요소)
 			List<Map<String, Object>> commits = (List<Map<String, Object>>)body.get("commits");
+			if (commits == null || commits.isEmpty()) {
+				// 커밋 변경 사항이 없을 때의 처리 (예: 빈 객체 반환 혹은 특정 메시지 처리)
+				return GithubSyncDetailResponse.empty(); // 별도의 static 생성자나 기본 응답 처리를 권장합니다.
+			}
 			Map<String, Object> lastCommitMap = commits.get(commits.size() - 1);
 			Map<String, Object> commitDetail = (Map<String, Object>)lastCommitMap.get("commit");
 			Map<String, Object> authorDetail = (Map<String, Object>)lastCommitMap.get("author");
