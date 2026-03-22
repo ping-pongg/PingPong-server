@@ -66,6 +66,7 @@ public class Github {
 			.repoName(repoName)
 			.branch(branch)
 			.lastHeadSha(lastHeadSha)
+			.newHeadSha(lastHeadSha)
 			.lastSyncedAt(LocalDateTime.now())
 			.createdAt(LocalDateTime.now())
 			.team(team)
@@ -85,6 +86,6 @@ public class Github {
 		this.branch = (branch==null||branch.isBlank())?"main":branch;
 		this.lastSyncedAt=LocalDateTime.now();
 		this.lastHeadSha=lastHeadSha;
-		this.newHeadSha=null;
+		this.newHeadSha=lastHeadSha;
 	}
 }
