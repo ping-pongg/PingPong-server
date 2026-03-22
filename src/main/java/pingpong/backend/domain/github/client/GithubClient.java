@@ -62,7 +62,8 @@ public class GithubClient {
 			return false;
 		}
 	}
-//test
+
+	//testtest
 	public GithubSyncDetailResponse compareCommits(String repoOwner,String repoName,String base,String head){
 		String url=String.format("https://api.github.com/repos/%s/%s/compare/%s...%s",repoOwner,repoName,base,head);
 
