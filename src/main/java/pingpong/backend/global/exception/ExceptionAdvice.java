@@ -13,17 +13,22 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import pingpong.backend.global.notification.DiscordNotificationService;
 import pingpong.backend.global.response.ErrorResponse;
 import pingpong.backend.global.response.result.ExceptionResult;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import static pingpong.backend.global.exception.ErrorCode.PARAMETER_GRAMMAR_ERROR;
 import static pingpong.backend.global.exception.ErrorCode.PARAMETER_VALIDATION_ERROR;
 
 @RequiredArgsConstructor
 @RestControllerAdvice
 public class ExceptionAdvice {
+
+    private final Optional<DiscordNotificationService> discordNotificationService;
 
     /**
      * 등록되지 않은 에러
@@ -33,6 +38,10 @@ public class ExceptionAdvice {
     protected ErrorResponse<ExceptionResult.ServerErrorData> handleUntrackedException(
             Exception e, HttpServletRequest req
     ) {
+        discordNotificationService.ifPresent(service ->
+                service.sendErrorNotification(e, req.getMethod() + " " + req.getRequestURI())
+        );
+
         ExceptionResult.ServerErrorData serverErrorData = ExceptionResult.ServerErrorData.builder()
                 .errorClass(e.getClass().toString())
                 .errorMessage(e.getMessage())
