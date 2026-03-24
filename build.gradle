@@ -61,6 +61,9 @@ dependencies {
 	// Spring AI Advisors (QuestionAnswerAdvisor)
 	implementation "org.springframework.ai:spring-ai-advisors-vector-store"
 
+	// Spring Retry
+	implementation 'org.springframework.retry:spring-retry'
+
 	// Sentry
 	implementation 'io.sentry:sentry-spring-boot-starter-jakarta:8.13.2'
 
