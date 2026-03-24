@@ -21,6 +21,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 import pingpong.backend.domain.qa.converter.JsonNodeConverter;
 import pingpong.backend.domain.qa.converter.MapStringConverter;
 import pingpong.backend.domain.qa.dto.ExpectedResponse;
@@ -29,6 +30,7 @@ import pingpong.backend.domain.qa.enums.TestType;
 import pingpong.backend.domain.swagger.Endpoint;
 
 @Getter
+@DynamicUpdate
 @Entity
 @Table(name = "qa_case")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

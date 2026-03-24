@@ -9,6 +9,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -347,6 +350,7 @@ public class QaService {
 	}
 
 
+	@Retryable(retryFor = CannotAcquireLockException.class, maxAttempts = 3, backoff = @Backoff(delay = 100, multiplier = 2))
 	@Transactional
 	public QaExecuteResultDto executeQaCase(Long qaId, String proxyAuthorization) {
 		QaCase qa = qaCaseRepository.findById(qaId)
@@ -424,7 +428,6 @@ public class QaService {
 	 * @param proxyAuthorization
 	 * @return
 	 */
-	@Transactional
 	public QaBulkExecuteResponse executeBulkQaCases(List<Long> qaIds, String proxyAuthorization) {
 		List<QaExecuteResultDto> results = new ArrayList<>();
 		int successCount = 0;
