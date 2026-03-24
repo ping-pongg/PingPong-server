@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -47,6 +48,17 @@ public class ExceptionAdvice {
                 .errorMessage(e.getMessage())
                 .build();
         return ErrorResponse.ok(ErrorCode.SERVER_UNTRACKED_ERROR.getErrorCode(), ErrorCode.SERVER_UNTRACKED_ERROR.getMessage(), serverErrorData);
+    }
+
+    /**
+     * 필수 @RequestHeader 누락 예외 (400)
+     */
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse<String> handleMissingHeader(MissingRequestHeaderException e) {
+        return ErrorResponse.ok(PARAMETER_VALIDATION_ERROR.getErrorCode(),
+                "'" + e.getHeaderName() + "' 헤더가 필요합니다.",
+                e.getMessage());
     }
 
     /**
