@@ -21,6 +21,8 @@ import pingpong.backend.domain.qa.dto.QaBulkExecuteResponse;
 import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
 import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
 import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
+import pingpong.backend.domain.qa.dto.QaPathVariableRequest;
+import pingpong.backend.domain.qa.dto.QaPathVariableResponse;
 import pingpong.backend.domain.qa.dto.QaReRunRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioRequest;
@@ -132,5 +134,27 @@ public class QaController {
 	@Operation(hidden = true)
 	public SuccessResponse<List<QaTeamFailureResponse>> getTeamFailures(@RequestParam Long teamId) {
 		return SuccessResponse.ok(qaService.getTeamFailures(teamId));
+	}
+
+	@GetMapping("/path-variables")
+	@Operation(
+		summary = "팀의 Path Variable 목록 조회",
+		description = "팀의 모든 엔드포인트에서 사용되는 path variable 목록을 중복 제거하여 반환합니다. 이미 저장된 기본값이 있으면 함께 반환합니다."
+	)
+	public SuccessResponse<List<QaPathVariableResponse>> getPathVariables(@RequestParam Long teamId) {
+		return SuccessResponse.ok(qaService.getPathVariableList(teamId));
+	}
+
+	@PostMapping("/path-variables")
+	@Operation(
+		summary = "팀의 Path Variable 기본값 저장",
+		description = "QA 케이스 자동 생성 시 사용할 path variable 기본값을 팀 단위로 저장합니다."
+	)
+	public SuccessResponse<Void> savePathVariables(
+		@RequestParam Long teamId,
+		@RequestBody QaPathVariableRequest request
+	) {
+		qaService.savePathVariableDefaults(teamId, request.pathVariables());
+		return SuccessResponse.ok(null);
 	}
 }

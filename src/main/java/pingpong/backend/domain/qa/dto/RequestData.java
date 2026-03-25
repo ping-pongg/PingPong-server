@@ -8,5 +8,5 @@ public record RequestData(
 	Map<String,String> pathVariables,
 	Map<String,String> queryParams,
 	Map<String, String> headers, // 필요한 HTTP 헤더 (JSON 등)
-	Map<String, Object> body     // 요청 본문 데이터 (JSON 구조)
+	Object body     // 요청 본문 데이터 (JSON 객체 또는 배열)
 ) {}
