@@ -62,7 +62,9 @@ public class ApiExecuteService {
 		// 4. X-Proxy-Authorization를 headers에 머지 (항상 우선)
 		Map<String, String> mergedHeaders = new HashMap<>(req.headers() != null ? req.headers() : new HashMap<>());
 		if (proxyAuthorization != null && !proxyAuthorization.isBlank()) {
-			mergedHeaders.put("authorization", proxyAuthorization);
+			mergedHeaders.keySet().removeIf(k -> k.equalsIgnoreCase("authorization"));
+			String authValue = proxyAuthorization.startsWith("Bearer ") ? proxyAuthorization : "Bearer " + proxyAuthorization;
+			mergedHeaders.put("Authorization", authValue);
 		}
 		ApiExecuteRequest mergedReq = new ApiExecuteRequest(req.pathVariables(), req.queryParams(), mergedHeaders, req.body());
 

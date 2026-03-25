@@ -46,6 +46,10 @@ public class SwaggerSyncInitService {
             log.info("SWAGGER_SYNC_INIT: 초기 동기화 완료 teamId={}", teamId);
 
             List<EndpointGroupResponse> groups = swaggerService.getLatestSnapshotGrouped(teamId);
+
+            // path variable 기본값 동기화 (QA 생성 전에 실행)
+            qaService.syncPathVariableDefaults(teamId);
+
             log.info("SWAGGER_INIT_FLOW: QA 시나리오 자동 생성 시작 (대상 그룹 수: {})", groups.size());
 
             groups.forEach(group ->
@@ -86,6 +90,10 @@ public class SwaggerSyncInitService {
         Team team=teamRepository.findById(teamId).orElseThrow(()->new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
 
         List<EndpointGroupResponse> groups = swaggerService.getLatestSnapshotGrouped(teamId);
+
+        // path variable 기본값 동기화 (QA 생성 전에 실행)
+        qaService.syncPathVariableDefaults(teamId);
+
         QaSyncHistory history=qaSyncHistoryService.createNewHistory(team,groups.size());
         log.info("QA_GEN: 시나리오 생성 작업 시작 (대상 그룹 수: {})", groups.size());
 

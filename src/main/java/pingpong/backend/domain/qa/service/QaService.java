@@ -1,8 +1,12 @@
 package pingpong.backend.domain.qa.service;
 
+import static java.util.stream.Collectors.toMap;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import pingpong.backend.domain.qa.QaCase;
 import pingpong.backend.domain.qa.QaErrorCode;
 import pingpong.backend.domain.qa.QaExecuteResult;
+import pingpong.backend.domain.qa.QaParamDefault;
 import pingpong.backend.domain.qa.QaSyncHistory;
 import pingpong.backend.domain.qa.dto.EndpointQaSummaryResponse;
 import pingpong.backend.domain.qa.dto.EndpointQaTagGroupResponse;
@@ -32,18 +37,23 @@ import pingpong.backend.domain.qa.dto.QaBulkExecuteResponse;
 import pingpong.backend.domain.qa.dto.QaCaseDetailDto;
 import pingpong.backend.domain.qa.dto.QaCaseSummaryDto;
 import pingpong.backend.domain.qa.dto.QaExecuteResultDto;
+import pingpong.backend.domain.qa.dto.QaPathVariableRequest;
+import pingpong.backend.domain.qa.dto.QaPathVariableResponse;
 import pingpong.backend.domain.qa.dto.QaReRunRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioDetail;
 import pingpong.backend.domain.qa.dto.QaScenarioRequest;
 import pingpong.backend.domain.qa.dto.QaScenarioResponse;
 import pingpong.backend.domain.qa.dto.QaTeamFailureResponse;
 import pingpong.backend.domain.qa.enums.SourceType;
+import pingpong.backend.domain.qa.enums.TestType;
 import pingpong.backend.domain.qa.repository.QaSyncHistoryRepository;
 import pingpong.backend.domain.swaggerdiff.dto.EndpointParameterDto;
 import pingpong.backend.domain.qa.repository.QaCaseRepository;
 import pingpong.backend.domain.qa.repository.QaExecuteResultRepository;
+import pingpong.backend.domain.qa.repository.QaParamDefaultRepository;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
+import pingpong.backend.domain.swagger.SwaggerParameter;
 import pingpong.backend.domain.swagger.dto.EndpointAggregate;
 import pingpong.backend.domain.swagger.dto.request.ApiExecuteRequest;
 import pingpong.backend.domain.swagger.dto.response.ApiExecuteResponse;
@@ -54,6 +64,9 @@ import pingpong.backend.domain.swagger.repository.SwaggerRequestRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerResponseRepository;
 import pingpong.backend.domain.swagger.repository.SwaggerSnapshotRepository;
 import pingpong.backend.domain.swagger.service.ApiExecuteService;
+import pingpong.backend.domain.team.Team;
+import pingpong.backend.domain.team.TeamErrorCode;
+import pingpong.backend.domain.team.repository.TeamRepository;
 import pingpong.backend.global.exception.CustomException;
 
 @Service
@@ -74,6 +87,8 @@ public class QaService {
 	private final SwaggerResponseRepository swaggerResponseRepository;
 	private final LlmQaService llmQaService;
 	private final QaSyncHistoryRepository qaSyncHistoryRepository;
+	private final QaParamDefaultRepository qaParamDefaultRepository;
+	private final TeamRepository teamRepository;
 
 
 	public QaService(QaCaseRepository qaCaseRepository,
@@ -81,7 +96,9 @@ public class QaService {
 		ObjectMapper objectMapper, SwaggerSnapshotRepository swaggerSnapshotRepository,
 		EndpointRepository endpointRepository, SwaggerEndpointSecurityRepository swaggerEndpointSecurityRepository,
 		SwaggerParameterRepository swaggerParameterRepository, SwaggerRequestRepository swaggerRequestRepository,
-		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService, QaSyncHistoryRepository qaSyncHistoryRepository) {
+		SwaggerResponseRepository swaggerResponseRepository, LlmQaService llmQaService,
+		QaSyncHistoryRepository qaSyncHistoryRepository, QaParamDefaultRepository qaParamDefaultRepository,
+		TeamRepository teamRepository) {
 		this.qaCaseRepository = qaCaseRepository;
 		this.qaExecuteResultRepository = qaExecuteResultRepository;
 		this.apiExecuteService = apiExecuteService;
@@ -94,6 +111,8 @@ public class QaService {
 		this.swaggerResponseRepository = swaggerResponseRepository;
 		this.llmQaService = llmQaService;
 		this.qaSyncHistoryRepository=qaSyncHistoryRepository;
+		this.qaParamDefaultRepository = qaParamDefaultRepository;
+		this.teamRepository = teamRepository;
 	}
 
 	public List<QaCaseSummaryDto> getQaCasesByEndpointId(Long endpointId) {
@@ -184,8 +203,12 @@ public class QaService {
 		EndpointAggregate spec = collectData(endpointId);
 		Endpoint endpoint = spec.endpoint();
 
+		// 1-1. 팀의 path variable 기본값 로딩
+		Long teamId = endpoint.getSnapshot().getTeam().getId();
+		Map<String, String> paramDefaults = loadParamDefaults(teamId);
+
 		// 2. LlmQaService를 통해 시나리오 생성 요청 (Step 1 & Step 2 포함)
-		LlmQaService.QaOutcome outcome = llmQaService.generateScenarios(spec);
+		LlmQaService.QaOutcome outcome = llmQaService.generateScenarios(spec, paramDefaults);
 
 		// 3. 결과 확인 및 예외 처리
 		// outcome.raw()가 null이면 LLM 호출 자체 실패, outcome.result()가 null이면 파싱 최종 실패
@@ -204,8 +227,8 @@ public class QaService {
 		log.info("QA-GEN: 시나리오 생성 성공! 개수: {} (endpointId={})",
 			result.scenarios().size(), endpointId);
 
-		// 5. DB 저장 로직 실행
-		saveScenariosToDb(endpoint, result);
+		// 5. DB 저장 로직 실행 (POSITIVE 케이스 후처리 포함)
+		saveScenariosToDb(endpoint, result, paramDefaults);
 
 		log.info("QA-GEN: 성공! {}개의 시나리오가 DB에 저장되었습니다. (endpointId={})",
 			result.scenarios().size(), endpointId);
@@ -266,27 +289,39 @@ public class QaService {
 
 	/**
 	 * AI 응답 결과를 QaCase 엔티티로 변환하여 일괄 저장
+	 * POSITIVE 케이스의 path variable은 사용자 기본값으로 후처리
 	 */
-	private void saveScenariosToDb(Endpoint endpoint, QaScenarioResponse result) {
+	private void saveScenariosToDb(Endpoint endpoint, QaScenarioResponse result,
+		Map<String, String> paramDefaults) {
+
+		// path 타입 파라미터의 스키마 타입 매핑 (후처리 fallback용)
+		Map<String, String> pathParamSchemaTypes = loadPathParamSchemaTypes(endpoint.getId());
+
 		List<QaCase> qaCases = result.scenarios().stream()
 			.map(scenario -> {
 				var req = scenario.requestData();
-				var expected=scenario.expectedResponse();
+				var expected = scenario.expectedResponse();
 
-				// Map 객체들을 JSON 문자열로 변환 (DB의 TEXT/LONGTEXT 컬럼 대응)
-				Map<String,String> headers=req.headers();
+				Map<String, String> headers = req.headers();
+				JsonNode bodyNode = objectMapper.valueToTree(req.body());
 
-				JsonNode bodyNode=objectMapper.valueToTree(req.body());
+				// path variable 후처리: NEGATIVE 404 테스트만 제외하고 모든 케이스에 적용
+				Map<String, String> pathVars = req.pathVariables() != null
+					? new HashMap<>(req.pathVariables()) : new HashMap<>();
+				boolean isNotFoundTest = scenario.testType() == TestType.NEGATIVE && expected.statusCode() == 404;
+				if (!isNotFoundTest) {
+					applyPathVariableDefaults(pathVars, paramDefaults, pathParamSchemaTypes);
+				}
 
 				return QaCase.create(
 					endpoint,
-					scenario.scenarioName(), // scenarioName 추가
-					scenario.testType(),     // testType 추가
+					scenario.scenarioName(),
+					scenario.testType(),
 					scenario.description(),
-					serializeSafe(req.pathVariables()),
+					serializeSafe(pathVars),
 					serializeSafe(req.queryParams()),
 					headers,
-					bodyNode,                // JsonNode 타입
+					bodyNode,
 					SourceType.AI_GENERATED,
 					expected.statusCode());
 			})
@@ -294,6 +329,54 @@ public class QaService {
 
 		qaCaseRepository.saveAll(qaCases);
 		log.info("QA_SAVE: {}개의 시나리오가 저장되었습니다. endpointId={}", qaCases.size(), endpoint.getId());
+	}
+
+	/**
+	 * POSITIVE 케이스의 path variable에 사용자 기본값을 적용하고,
+	 * 미제공 시 integer ID 파라미터는 "1"로 대체
+	 */
+	private void applyPathVariableDefaults(Map<String, String> pathVars,
+		Map<String, String> paramDefaults, Map<String, String> pathParamSchemaTypes) {
+		for (String paramName : pathVars.keySet()) {
+			// 1순위: 사용자 제공 기본값
+			if (paramDefaults.containsKey(paramName)) {
+				pathVars.put(paramName, paramDefaults.get(paramName));
+			}
+			// 2순위: integer 타입 ID 파라미터는 "1"로 fallback
+			else if (isIntegerIdParam(paramName, pathParamSchemaTypes.get(paramName))) {
+				pathVars.put(paramName, "1");
+			}
+		}
+	}
+
+	private boolean isIntegerIdParam(String paramName, String schemaType) {
+		if (!paramName.toLowerCase().endsWith("id")) {
+			return false;
+		}
+		// schema type이 integer이거나, schema 정보가 없는 경우(null/"") Id로 끝나는 파라미터는 ID로 간주
+		return schemaType == null || schemaType.isBlank() || "integer".equals(schemaType);
+	}
+
+	private Map<String, String> loadParamDefaults(Long teamId) {
+		return qaParamDefaultRepository.findByTeamId(teamId).stream()
+			.filter(d -> d.getParamValue() != null && !d.getParamValue().isBlank())
+			.collect(toMap(QaParamDefault::getParamName, QaParamDefault::getParamValue));
+	}
+
+	private Map<String, String> loadPathParamSchemaTypes(Long endpointId) {
+		return swaggerParameterRepository.findByEndpointId(endpointId).stream()
+			.filter(p -> "path".equals(p.getInType()))
+			.collect(toMap(SwaggerParameter::getName, p -> extractSchemaType(p.getSchemaJson()), (a, b) -> a));
+	}
+
+	private String extractSchemaType(String schemaJson) {
+		if (schemaJson == null || schemaJson.isBlank()) return "";
+		try {
+			JsonNode schema = objectMapper.readTree(schemaJson);
+			return schema.has("type") ? schema.get("type").asText() : "";
+		} catch (Exception e) {
+			return "";
+		}
 	}
 
 
@@ -359,8 +442,18 @@ public class QaService {
 		Long endpointId = qa.getEndpoint().getId();
 		Long teamId = qa.getEndpoint().getSnapshot().getTeam().getId();
 
+		// path variable 후처리: NEGATIVE 404 테스트만 제외하고 모든 케이스에 적용
+		Map<String, String> pathVars = parseStringMap(qa.getPathVariables());
+		boolean isNotFoundTest = qa.getTestType() == TestType.NEGATIVE && qa.getExpectedStatusCode() == 404;
+		if (pathVars != null && !isNotFoundTest) {
+			pathVars = new HashMap<>(pathVars);
+			Map<String, String> paramDefaults = loadParamDefaults(teamId);
+			Map<String, String> schemaTypes = loadPathParamSchemaTypes(endpointId);
+			applyPathVariableDefaults(pathVars, paramDefaults, schemaTypes);
+		}
+
 		ApiExecuteRequest request = new ApiExecuteRequest(
-			parseStringMap(qa.getPathVariables()),
+			pathVars,
 			parseStringMap(qa.getQueryParams()),
 			qa.getHeaders(),
 			qa.getBody()
@@ -534,6 +627,97 @@ public class QaService {
 			.orElse(Collections.emptyList());
 	}
 
+	/**
+	 * 스웨거 sync 시 호출: 최신 스냅샷의 path 파라미터 기준으로 QaParamDefault를 동기화
+	 */
+	@Transactional
+	public void syncPathVariableDefaults(Long teamId) {
+		var snapshotOpt = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+		if (snapshotOpt.isEmpty()) return;
+
+		List<Endpoint> endpoints = endpointRepository.findBySnapshotId(snapshotOpt.get().getId());
+		if (endpoints.isEmpty()) return;
+
+		List<Long> endpointIds = endpoints.stream().map(Endpoint::getId).toList();
+		List<SwaggerParameter> pathParams = swaggerParameterRepository
+			.findByEndpointIdInAndInType(endpointIds, "path");
+
+		// 스웨거 기준 고유 path variable 이름 수집
+		Map<String, String> currentParams = new LinkedHashMap<>();
+		for (SwaggerParameter param : pathParams) {
+			currentParams.putIfAbsent(param.getName(), extractSchemaType(param.getSchemaJson()));
+		}
+
+		// DB 기존 레코드와 비교하여 upsert
+		List<QaParamDefault> existingDefaults = qaParamDefaultRepository.findByTeamId(teamId);
+		Map<String, QaParamDefault> existingMap = existingDefaults.stream()
+			.collect(toMap(QaParamDefault::getParamName, d -> d));
+
+		// 사라진 param 삭제
+		List<QaParamDefault> toDelete = existingDefaults.stream()
+			.filter(d -> !currentParams.containsKey(d.getParamName()))
+			.toList();
+		if (!toDelete.isEmpty()) {
+			qaParamDefaultRepository.deleteAll(toDelete);
+		}
+
+		// 새로 등장한 param 추가 (빈 값)
+		if (!currentParams.isEmpty()) {
+			Team team = teamRepository.findById(teamId)
+				.orElseThrow(() -> new CustomException(TeamErrorCode.TEAM_NOT_FOUND));
+			List<QaParamDefault> toAdd = currentParams.keySet().stream()
+				.filter(name -> !existingMap.containsKey(name))
+				.map(name -> QaParamDefault.create(team, name, ""))
+				.toList();
+			if (!toAdd.isEmpty()) {
+				qaParamDefaultRepository.saveAll(toAdd);
+			}
+		}
+
+		log.info("QA_PARAM_SYNC: teamId={} path variable 기본값 동기화 완료", teamId);
+	}
+
+	/**
+	 * 팀의 path variable 기본값 목록 조회 (순수 조회 전용)
+	 */
+	public List<QaPathVariableResponse> getPathVariableList(Long teamId) {
+		var snapshotOpt = swaggerSnapshotRepository.findTopByTeamIdOrderByIdDesc(teamId);
+		if (snapshotOpt.isEmpty()) return Collections.emptyList();
+
+		List<Endpoint> endpoints = endpointRepository.findBySnapshotId(snapshotOpt.get().getId());
+		if (endpoints.isEmpty()) return Collections.emptyList();
+
+		List<Long> endpointIds = endpoints.stream().map(Endpoint::getId).toList();
+		List<SwaggerParameter> pathParams = swaggerParameterRepository
+			.findByEndpointIdInAndInType(endpointIds, "path");
+
+		// 스웨거 기준 스키마 타입 매핑 (응답용)
+		Map<String, String> schemaTypeMap = new LinkedHashMap<>();
+		for (SwaggerParameter param : pathParams) {
+			schemaTypeMap.putIfAbsent(param.getName(), extractSchemaType(param.getSchemaJson()));
+		}
+
+		List<QaParamDefault> defaults = qaParamDefaultRepository.findByTeamId(teamId);
+		return defaults.stream()
+			.map(d -> new QaPathVariableResponse(
+				d.getId(),
+				d.getParamName(),
+				schemaTypeMap.getOrDefault(d.getParamName(), ""),
+				d.getParamValue()
+			))
+			.toList();
+	}
+
+	@Transactional
+	public void updatePathVariableDefaults(List<QaPathVariableRequest.ParamUpdate> params) {
+		for (QaPathVariableRequest.ParamUpdate param : params) {
+			QaParamDefault entity = qaParamDefaultRepository.findById(param.id())
+				.orElseThrow(() -> new CustomException(QaErrorCode.QA_NOT_FOUND));
+			entity.updateValue(param.value());
+		}
+		log.info("QA_PARAM: {}개의 path variable 기본값 수정 완료", params.size());
+	}
+
 	private String tagOrDefault(String tag) {
 		return tag != null ? tag : "default";
 	}
@@ -543,6 +727,7 @@ public class QaService {
 		try {
 			return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
 		} catch (Exception e) {
+			log.warn("JSON → Map 파싱 실패: {}", e.getMessage());
 			return Collections.emptyMap();
 		}
 	}
