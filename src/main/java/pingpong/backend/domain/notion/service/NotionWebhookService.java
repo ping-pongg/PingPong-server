@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.notion.Notion;
 import pingpong.backend.domain.notion.repository.NotionRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,18 +94,19 @@ public class NotionWebhookService {
             return;
         }
 
-        Optional<Notion> notionOpt = notionRepository.findByWorkspaceId(workspaceId);
-        if (notionOpt.isEmpty()) {
+        List<Notion> notions = notionRepository.findByWorkspaceId(workspaceId);
+        if (notions.isEmpty()) {
             log.warn("WEBHOOK: workspace_id={}에 해당하는 Notion 연동 정보 없음.", workspaceId);
             return;
         }
 
-        Long teamId = notionOpt.get().getTeam().getId();
-
-        if ("page.deleted".equals(type)) {
-            notionWebhookIndexingService.triggerPageDeletion(teamId, pageId);
-        } else {
-            notionWebhookIndexingService.triggerPageIndexing(teamId, pageId);
+        for (Notion notion : notions) {
+            Long teamId = notion.getTeam().getId();
+            if ("page.deleted".equals(type)) {
+                notionWebhookIndexingService.triggerPageDeletion(teamId, pageId);
+            } else {
+                notionWebhookIndexingService.triggerPageIndexing(teamId, pageId);
+            }
         }
     }
 
