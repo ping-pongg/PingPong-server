@@ -460,59 +460,59 @@ public class QaService {
 		);
 
 		long startTime = System.currentTimeMillis();
+		int actualStatus;
+		Object responseBody;
+		String responseHeadersJson = null;
+
+
 		try {
 			ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
 			long durationMs = System.currentTimeMillis() - startTime;
 
 			// 성공 여부 판단 로직 변경
 			// 단순히 200번대가 아니라, '기대한 상태 코드'와 일치하는지 확인
-			int actualStatus = response.httpStatus();
-			int expectedStatus = qa.getExpectedStatusCode();
+			actualStatus = response.httpStatus();
+			responseBody=response.body();
+			responseHeadersJson=serializeToJson(response.responseHeaders());
 
-			boolean isStatusMatch = (actualStatus == expectedStatus);
-
-			// 추가: 만약 바디 필드까지 엄격하게 검증하고 싶다면 여기에 추가 로직을 넣습니다.
-			// boolean isBodyMatch = checkBodyFields(response.body(), qa.getExpectedBodyFields());
-
-			boolean finalSuccess = isStatusMatch;
-			qa.updateIsSuccess(finalSuccess);
-
-			String headersJson = serializeToJson(response.responseHeaders());
-			String bodyJson = serializeToJson(response.body());
-
-			QaExecuteResult result = QaExecuteResult.create(
-				qa, response.httpStatus(), finalSuccess, headersJson, bodyJson, durationMs
-			);
-			qaExecuteResultRepository.save(result);
-
-			return new QaExecuteResultDto(
-				result.getId(),
-				result.getHttpStatus(),
-				result.getIsSuccess(),
-				null,
-				response.body(),
-				result.getExecutedAt(),
-				result.getDurationMs(),
-				qa.getExpectedStatusCode()
-			);
 		} catch (CustomException e) {
-			long durationMs = System.currentTimeMillis() - startTime;
-			qa.updateIsSuccess(false);
-
-			QaExecuteResult result = QaExecuteResult.createFailed(qa, e.getMessage(), durationMs);
-			qaExecuteResultRepository.save(result);
-
-			return new QaExecuteResultDto(
-				result.getId(),
-				result.getHttpStatus(),
-				result.getIsSuccess(),
-				null,
-				result.getResponseBody(),
-				result.getExecutedAt(),
-				result.getDurationMs(),
-				qa.getExpectedStatusCode()
-			);
+			actualStatus = e.getErrorCode().getStatus().value();
+			responseBody = e.getData();
+			if (responseBody == null) responseBody = e.getMessage();
 		}
+
+		long durationMs = System.currentTimeMillis() - startTime;
+		int expectedStatus = qa.getExpectedStatusCode();
+
+		// 3. 성공 여부 판단 (핵심: 예외 여부와 상관없이 상태 코드만 비교)
+		boolean isSuccess = (actualStatus == expectedStatus);
+		qa.updateIsSuccess(isSuccess);
+
+		// 4. 결과 저장 (기대값 일치 시 create, 불일치 시 createFailed 호출하거나 통합 사용)
+		String bodyJson = serializeToJson(responseBody);
+		QaExecuteResult result;
+
+		if (isSuccess) {
+			// 기대한 대로 응답이 온 경우 (정상이든 에러든)
+			result = QaExecuteResult.create(qa, actualStatus, true, responseHeadersJson, bodyJson, durationMs);
+		} else {
+			// 기대와 다른 응답이 온 경우
+			result = QaExecuteResult.createFailed(qa, "Status Mismatch: Expected " + expectedStatus + " but got " + actualStatus, durationMs);
+		}
+
+		qaExecuteResultRepository.save(result);
+
+		return new QaExecuteResultDto(
+				result.getId(),
+				actualStatus,
+				isSuccess,
+				null,
+				responseBody,
+				result.getExecutedAt(),
+				durationMs,
+				expectedStatus
+		);
+
 	}
 
 	/**
