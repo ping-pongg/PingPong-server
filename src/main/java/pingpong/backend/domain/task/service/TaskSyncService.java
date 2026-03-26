@@ -9,6 +9,8 @@ import pingpong.backend.domain.notion.service.NotionConnectionService;
 import pingpong.backend.domain.task.Task;
 import pingpong.backend.domain.task.repository.FlowTaskRepository;
 import pingpong.backend.domain.task.repository.TaskRepository;
+import java.time.LocalDate;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -41,7 +43,21 @@ public class TaskSyncService {
             return;
         }
 
-        taskRepository.save(Task.from(teamId, page));
+        Optional<Task> existingTask = taskRepository.findById(page.id());
+        Task newTask = Task.from(teamId, page);
+
+        if (existingTask.isPresent()) {
+            Task existing = existingTask.get();
+            newTask.updateCreatedAt(existing.getCreatedAt());
+            newTask.updateFlowMappingCompleted(existing.getFlowMappingCompleted());
+            if (existing.getChildDatabaseId() != null) {
+                newTask.updateChildDatabaseId(existing.getChildDatabaseId());
+            }
+        } else {
+            newTask.updateCreatedAt(LocalDate.now());
+        }
+
+        taskRepository.save(newTask);
         log.info("TASK_SYNC: upsert 완료 teamId={} pageId={} title={}", teamId, page.id(), page.title());
     }
 
