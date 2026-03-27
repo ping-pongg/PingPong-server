@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.domain.swagger.SwaggerErrorCode;
@@ -21,4 +23,10 @@ public interface EndpointRepository extends JpaRepository<Endpoint, Long> {
 	List<Endpoint> findAllByIdIn(Collection<Long> ids);
 
 	List<Endpoint> findBySnapshotIdAndPathContainingIgnoreCase(Long snapshotId, String query);
+
+	@Query("SELECT e FROM Endpoint e WHERE e.snapshot.team.id = :teamId")
+	List<Endpoint> findAllBySnapshotTeamId(@Param("teamId") Long teamId);
+
+	@Query("SELECT e FROM Endpoint e WHERE e.snapshot.team.id IN :teamIds")
+	List<Endpoint> findAllBySnapshotTeamIdIn(@Param("teamIds") Collection<Long> teamIds);
 }
