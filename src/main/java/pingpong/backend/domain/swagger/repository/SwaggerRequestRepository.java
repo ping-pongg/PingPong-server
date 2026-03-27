@@ -1,5 +1,6 @@
 package pingpong.backend.domain.swagger.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,4 +10,6 @@ import pingpong.backend.domain.swagger.SwaggerRequest;
 public interface SwaggerRequestRepository extends JpaRepository<SwaggerRequest, Long> {
 
 	List<SwaggerRequest> findByEndpointId(Long endpointId);
+
+	List<SwaggerRequest> findByEndpointIdIn(Collection<Long> endpointIds);
 }
