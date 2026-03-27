@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Scenario Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+    /* ── 로그인 화면 ── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; background: #f0f2f5;
+    }
+    .login-box {
+      background: #fff; border-radius: 12px; padding: 40px 48px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 380px;
+    }
+    .login-box h2 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
+    .login-box p  { font-size: 13px; color: #666; margin-bottom: 24px; }
+    .login-box input, .login-box select {
+      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 14px; margin-bottom: 12px; outline: none;
+    }
+    .login-box input:focus { border-color: #374151; }
+    .login-box button {
+      width: 100%; padding: 11px; background: #374151; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 4px;
+    }
+    .login-box button:hover { background: #1f2937; }
+    #login-error { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+    /* ── 메인 레이아웃 ── */
+    #main { display: none; }
+    header {
+      background: #f3f4f6; color: #1f2937; padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between; height: 56px;
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    }
+    header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: #1f2937; }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+    #team-select {
+      padding: 5px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+      font-size: 13px; background: #fff; outline: none; cursor: pointer;
+    }
+    #refresh-btn {
+      background: transparent; color: #6b7280; border: 1px solid #d1d5db;
+      padding: 5px 13px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+    #refresh-btn:hover { background: #e5e7eb; color: #374151; }
+
+    .content { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+    .section-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+
+    /* ── KPI 카드 ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-card {
+      background: #fff; border-radius: 10px; padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); border-left: 4px solid transparent;
+    }
+    .kpi-card.body    { border-color: #4f46e5; }
+    .kpi-card.query   { border-color: #0ea5e9; }
+    .kpi-card.exec    { border-color: #10b981; }
+    .kpi-card.total   { border-color: #8b5cf6; }
+    .kpi-label { font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+    .kpi-sub   { font-size: 11px; color: #9ca3af; }
+
+    /* ── 차트 섹션 ── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .chart-card {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .chart-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .chart-wrap { position: relative; height: 260px; }
+
+    /* ── 테이블 섹션 ── */
+    .table-section {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px;
+    }
+    .table-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; }
+    tr:hover td { background: #f9fafb; }
+
+    /* ── 뱃지 ── */
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge.completed  { background: #d1fae5; color: #065f46; }
+    .badge.processing { background: #fef3c7; color: #92400e; }
+    .badge.failed     { background: #fee2e2; color: #991b1b; }
+    .badge.pending    { background: #f3f4f6; color: #6b7280; }
+    .badge.positive   { background: #dbeafe; color: #1e40af; }
+    .badge.negative   { background: #fce7f3; color: #9d174d; }
+
+    /* ── 탭 ── */
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
+    .tab-btn {
+      padding: 7px 16px; border: 1px solid #d1d5db; border-radius: 6px;
+      background: transparent; font-size: 13px; cursor: pointer; color: #374151;
+    }
+    .tab-btn:hover { background: #e5e7eb; }
+    .tab-btn.active { background: #374151; color: #fff; border-color: #374151; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── 이슈 태그 ── */
+    .issue-tag {
+      display: inline-block; padding: 2px 8px; margin: 1px 2px; border-radius: 4px;
+      font-size: 11px; background: #fef3c7; color: #92400e;
+    }
+
+    /* ── 로딩/빈 상태 ── */
+    .loading { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
+
+    /* ── 색상 유틸 ── */
+    .text-green { color: #059669; }
+    .text-red   { color: #dc2626; }
+    .text-gray  { color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+<!-- ── 로그인 ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>QA Scenario Dashboard</h2>
+    <p>QA 시나리오 생성 모니터링</p>
+    <input id="lg-user" type="text" placeholder="Username" />
+    <input id="lg-pass" type="password" placeholder="Password" />
+    <button onclick="login()">로그인</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── 메인 ── -->
+<div id="main">
+  <header>
+    <h1>QA Scenario Dashboard</h1>
+    <div class="header-controls">
+      <select id="team-select" onchange="loadDashboard()">
+        <option value="">전체 팀</option>
+      </select>
+      <button id="refresh-btn" onclick="loadDashboard()">새로고침</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <!-- KPI Cards -->
+    <div class="section-title">Overview</div>
+    <div class="kpi-grid">
+      <div class="kpi-card body">
+        <div class="kpi-label">Body Schema Match</div>
+        <div class="kpi-value" id="kpi-body">-</div>
+        <div class="kpi-sub" id="kpi-body-sub">POSITIVE 기준</div>
+      </div>
+      <div class="kpi-card query">
+        <div class="kpi-label">QueryParam Match</div>
+        <div class="kpi-value" id="kpi-query">-</div>
+        <div class="kpi-sub" id="kpi-query-sub">POSITIVE 기준</div>
+      </div>
+      <div class="kpi-card exec">
+        <div class="kpi-label">Execution Success</div>
+        <div class="kpi-value" id="kpi-exec">-</div>
+        <div class="kpi-sub" id="kpi-exec-sub"></div>
+      </div>
+      <div class="kpi-card total">
+        <div class="kpi-label">Total QA Cases</div>
+        <div class="kpi-value" id="kpi-total">-</div>
+        <div class="kpi-sub" id="kpi-total-sub"></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>TestType Distribution</h3>
+        <div class="chart-wrap"><canvas id="chart-testtype"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Schema Comparison Breakdown</h3>
+        <div class="chart-wrap"><canvas id="chart-schema"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Sync History -->
+    <div class="table-section">
+      <h3>QA Sync History</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Success</th>
+            <th>Fail</th>
+            <th>Started</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody id="sync-table-body">
+          <tr><td colspan="7" class="loading">로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Detail Tables (Tabbed) -->
+    <div class="table-section">
+      <h3>Detail</h3>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('body')">Body Mismatch</button>
+        <button class="tab-btn" onclick="switchTab('query')">QueryParam Mismatch</button>
+        <button class="tab-btn" onclick="switchTab('exec')">Failed Executions</button>
+      </div>
+
+      <div id="tab-body" class="tab-content active">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Scenario</th><th>TestType</th><th>Endpoint</th><th>Issues</th></tr>
+          </thead>
+          <tbody id="body-mismatch-table"></tbody>
+        </table>
+      </div>
+
+      <div id="tab-query" class="tab-content">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Scenario</th><th>TestType</th><th>Endpoint</th><th>Issues</th></tr>
+          </thead>
+          <tbody id="query-mismatch-table"></tbody>
+        </table>
+      </div>
+
+      <div id="tab-exec" class="tab-content">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Scenario</th><th>TestType</th><th>Endpoint</th></tr>
+          </thead>
+          <tbody id="exec-fail-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 전역 상태 ── */
+let AUTH = '';
+let testTypeChart = null;
+let schemaChart = null;
+
+/* ── 유틸 ── */
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt1(v) { return v != null ? v.toFixed(1) : '-'; }
+function fmtDate(iso) {
+  if (!iso) return '-';
+  try { return new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch { return iso; }
+}
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+async function apiFetch(path) {
+  const res = await fetch(path, { headers: { 'Authorization': AUTH } });
+  if (!res.ok) throw new Error(res.status);
+  const json = await res.json();
+  return json.result;
+}
+
+/* ── 로그인 ── */
+async function login() {
+  const u = document.getElementById('lg-user').value.trim();
+  const p = document.getElementById('lg-pass').value;
+  if (!u || !p) { document.getElementById('login-error').textContent = '아이디와 비밀번호를 입력하세요.'; return; }
+
+  AUTH = 'Basic ' + btoa(u + ':' + p);
+  try {
+    await apiFetch('/internal/qa/teams');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+    await loadTeams();
+    await loadDashboard();
+  } catch (e) {
+    AUTH = '';
+    document.getElementById('login-error').textContent = '인증 실패 (' + e.message + ')';
+  }
+}
+
+/* ── 팀 목록 로드 ── */
+async function loadTeams() {
+  try {
+    const teams = await apiFetch('/internal/qa/teams');
+    const sel = document.getElementById('team-select');
+    // 기존 옵션 유지 (첫 번째 "전체 팀")
+    while (sel.options.length > 1) sel.remove(1);
+    teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name || ('Team #' + t.id);
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('팀 목록 로드 실패:', e);
+  }
+}
+
+/* ── 대시보드 데이터 로드 ── */
+async function loadDashboard() {
+  const teamId = document.getElementById('team-select').value;
+  const qs = teamId ? '?teamId=' + teamId : '';
+
+  try {
+    const d = await apiFetch('/internal/qa/summary' + qs);
+    renderKPI(d);
+    renderCharts(d);
+    renderSyncHistory(d.syncHistories);
+    renderMismatchTables(d);
+  } catch (e) {
+    console.error('대시보드 로드 실패:', e);
+  }
+}
+
+/* ── KPI 렌더링 ── */
+function renderKPI(d) {
+  const bc = d.bodyComparison;
+  const qc = d.queryParamComparison;
+  const ex = d.executionSummary;
+  const tt = d.testTypeDistribution;
+
+  setText('kpi-body', fmt1(bc.positiveMatchRate) + '%');
+  setText('kpi-body-sub', 'POSITIVE ' + bc.positiveMatch + '/' + bc.positiveTotal + ' | NEGATIVE ' + bc.negativeMatch + '/' + bc.negativeTotal);
+
+  setText('kpi-query', fmt1(qc.positiveMatchRate) + '%');
+  setText('kpi-query-sub', 'POSITIVE ' + qc.positiveMatch + '/' + qc.positiveTotal + ' | NEGATIVE ' + qc.negativeMatch + '/' + qc.negativeTotal);
+
+  setText('kpi-exec', fmt1(ex.successRate) + '%');
+  setText('kpi-exec-sub', ex.successCount + ' success / ' + ex.failCount + ' fail (total ' + ex.totalCases + ')');
+
+  setText('kpi-total', bc.totalCases);
+  setText('kpi-total-sub', 'POSITIVE ' + tt.positiveCount + ' / NEGATIVE ' + tt.negativeCount);
+}
+
+/* ── 차트 렌더링 ── */
+function renderCharts(d) {
+  const tt = d.testTypeDistribution;
+  const bc = d.bodyComparison;
+  const qc = d.queryParamComparison;
+
+  // TestType Doughnut
+  if (testTypeChart) testTypeChart.destroy();
+  const ctx1 = document.getElementById('chart-testtype').getContext('2d');
+  testTypeChart = new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: ['POSITIVE', 'NEGATIVE'],
+      datasets: [{
+        data: [tt.positiveCount, tt.negativeCount],
+        backgroundColor: ['#3b82f6', '#ec4899'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const total = tt.positiveCount + tt.negativeCount;
+              const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+              return ctx.label + ': ' + ctx.raw + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Schema Comparison Stacked Bar
+  if (schemaChart) schemaChart.destroy();
+  const ctx2 = document.getElementById('chart-schema').getContext('2d');
+  schemaChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: ['Body (P)', 'Body (N)', 'QueryParam (P)', 'QueryParam (N)'],
+      datasets: [
+        {
+          label: 'Match',
+          data: [bc.positiveMatch, bc.negativeMatch, qc.positiveMatch, qc.negativeMatch],
+          backgroundColor: '#10b981'
+        },
+        {
+          label: 'Mismatch',
+          data: [bc.positiveMismatch, bc.negativeMismatch, qc.positiveMismatch, qc.negativeMismatch],
+          backgroundColor: '#ef4444'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: { stacked: true, grid: { color: '#f3f4f6' } },
+        y: { stacked: true, grid: { display: false } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + ctx.raw;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ── Sync History 테이블 ── */
+function renderSyncHistory(histories) {
+  const tbody = document.getElementById('sync-table-body');
+  if (!histories || histories.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">데이터가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = histories.map(h => {
+    const statusClass = (h.status || '').toLowerCase();
+    return '<tr>'
+      + '<td>' + escHtml(h.teamName || '-') + '</td>'
+      + '<td><span class="badge ' + statusClass + '">' + escHtml(h.status) + '</span></td>'
+      + '<td>' + (h.totalCount != null ? h.totalCount : '-') + '</td>'
+      + '<td class="text-green">' + (h.successCount != null ? h.successCount : '-') + '</td>'
+      + '<td class="text-red">' + (h.failCount != null ? h.failCount : '-') + '</td>'
+      + '<td>' + fmtDate(h.startedAt) + '</td>'
+      + '<td>' + fmtDate(h.completedAt) + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+/* ── Mismatch / Failed 테이블 ── */
+function renderMismatchTables(d) {
+  renderMismatchRows('body-mismatch-table', d.bodyComparison.mismatches, true);
+  renderMismatchRows('query-mismatch-table', d.queryParamComparison.mismatches, true);
+  renderFailedRows('exec-fail-table', d.executionSummary.failedCases);
+}
+
+function renderMismatchRows(tbodyId, items, showIssues) {
+  const tbody = document.getElementById(tbodyId);
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">불일치 항목이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(m => {
+    const testBadge = '<span class="badge ' + (m.testType === 'POSITIVE' ? 'positive' : 'negative') + '">' + escHtml(m.testType) + '</span>';
+    const issueHtml = (m.issues || []).map(i => '<span class="issue-tag">' + escHtml(i) + '</span>').join(' ');
+    return '<tr>'
+      + '<td>' + m.qaCaseId + '</td>'
+      + '<td>' + escHtml(m.scenarioName) + '</td>'
+      + '<td>' + testBadge + '</td>'
+      + '<td><strong>' + escHtml(m.endpointMethod) + '</strong> ' + escHtml(m.endpointPath) + '</td>'
+      + '<td>' + issueHtml + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function renderFailedRows(tbodyId, items) {
+  const tbody = document.getElementById(tbodyId);
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="loading">실패한 케이스가 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(m => {
+    const testBadge = '<span class="badge ' + (m.testType === 'POSITIVE' ? 'positive' : 'negative') + '">' + escHtml(m.testType) + '</span>';
+    return '<tr>'
+      + '<td>' + m.qaCaseId + '</td>'
+      + '<td>' + escHtml(m.scenarioName) + '</td>'
+      + '<td>' + testBadge + '</td>'
+      + '<td><strong>' + escHtml(m.endpointMethod) + '</strong> ' + escHtml(m.endpointPath) + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+/* ── 탭 전환 ── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  event.currentTarget.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* ── Enter 키 로그인 ── */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+    login();
+  }
+});
+</script>
+</body>
+</html>
