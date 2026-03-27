@@ -52,6 +52,7 @@ public class SecurityConfig {
 
             // Dashboard (HTML/JS/CSS is public; API data is protected by Basic Auth on /internal/**)
             "/dashboard/**",
+            "/qa-dashboard/**",
 
             // OAuth & MCP Well-Known
             "/.well-known/**",
