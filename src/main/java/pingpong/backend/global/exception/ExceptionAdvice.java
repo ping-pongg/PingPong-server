@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import pingpong.backend.global.notification.DiscordNotificationService;
 import pingpong.backend.global.response.ErrorResponse;
 import pingpong.backend.global.response.result.ExceptionResult;
@@ -30,6 +31,15 @@ import static pingpong.backend.global.exception.ErrorCode.PARAMETER_VALIDATION_E
 public class ExceptionAdvice {
 
     private final Optional<DiscordNotificationService> discordNotificationService;
+
+    /**
+     * 존재하지 않는 정적 리소스 접근 (크롤링 봇 등) — Discord 알림 없이 404 반환
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse<?> handleNoResourceFound(NoResourceFoundException e) {
+        return ErrorResponse.of(ErrorCode.NOT_FOUND.getErrorCode(), ErrorCode.NOT_FOUND.getMessage());
+    }
 
     /**
      * 등록되지 않은 에러
