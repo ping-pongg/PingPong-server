@@ -4,13 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pingpong.backend.domain.member.Member;
 import pingpong.backend.domain.notion.Notion;
 import pingpong.backend.domain.notion.NotionErrorCode;
-import pingpong.backend.domain.notion.client.NotionRestClient;
 import pingpong.backend.domain.notion.dto.response.ChildDatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.NotionOAuthExchangeResponse;
 import pingpong.backend.domain.notion.dto.response.NotionOAuthTokenResponse;
@@ -22,23 +20,16 @@ import pingpong.backend.domain.notion.dto.response.DatabaseWithPagesResponse;
 import pingpong.backend.domain.notion.dto.response.PageDetailResponse;
 import pingpong.backend.domain.notion.event.NotionInitialIndexEvent;
 import pingpong.backend.domain.notion.repository.NotionRepository;
-import pingpong.backend.domain.notion.util.NotionJsonUtils;
 import pingpong.backend.domain.swagger.Endpoint;
 import pingpong.backend.global.exception.CustomException;
-
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotionFacade {
 
-    private static final int MAX_RETRIES = 2;
-
     private final NotionOauthClient notionOauthClient;
-    private final NotionRestClient notionRestClient;
     private final NotionTokenService notionTokenService;
     private final NotionConnectionService notionConnectionService;
     private final NotionConnectionApiService notionConnectionApiService;
@@ -47,7 +38,6 @@ public class NotionFacade {
     private final NotionDatabaseCreateService notionDatabaseCreateService;
     private final NotionWebhookIndexingService notionWebhookIndexingService;
     private final NotionRepository notionRepository;
-    private final NotionJsonUtils notionJsonUtils;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -62,16 +52,12 @@ public class NotionFacade {
         }
         Notion notion = notionTokenService.upsertTokensFromOauth(teamId, tokenResponse);
 
-        if (notion.getDatabaseId() == null) {
-            notion = resolveAndPersistDatabaseId(teamId);
-        }
-
         return new NotionOAuthExchangeResponse(
                 true,
                 notion.getWorkspaceId(),
                 notion.getWorkspaceName(),
                 notion.getDatabaseId(),
-                notion.getDatabaseId() != null
+                notion.isDatabaseSelected()
         );
     }
 
@@ -193,34 +179,9 @@ public class NotionFacade {
                         n.getWorkspaceId(),
                         n.getWorkspaceName(),
                         n.getDatabaseId(),
-                        n.getDatabaseId() != null
+                        n.isDatabaseSelected()
                 ))
                 .orElse(new NotionOAuthExchangeResponse(false, null, null, null, false));
     }
 
-    private Notion resolveAndPersistDatabaseId(Long teamId) {
-        Notion notion = notionTokenService.getNotionOrThrow(teamId);
-
-        Map<String, Object> filter = new HashMap<>();
-        filter.put("property", "object");
-        filter.put("value", "database");
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("filter", filter);
-        body.put("page_size", 1);
-
-        ResponseEntity<String> response = notionTokenService.executeWithRefreshAndRetry(teamId,
-                () -> notionRestClient.post("/v1/search", notionTokenService.getAccessToken(teamId), body),
-                MAX_RETRIES,
-                200);
-
-        JsonNode json = notionJsonUtils.parseJson(response);
-        String databaseId = null;
-        if (json != null && json.has("results") && json.get("results").isArray() && !json.get("results").isEmpty()) {
-            databaseId = json.get("results").get(0).path("id").asText(null);
-        }
-
-        notion.updateDatabaseId(databaseId);
-        return notionRepository.save(notion);
-    }
 }

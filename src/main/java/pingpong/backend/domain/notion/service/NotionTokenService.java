@@ -48,6 +48,7 @@ public class NotionTokenService {
 
         notion.updateWorkspace(response.workspaceId(), response.botId(), response.workspaceName());
         notion.updateTokens(response.accessToken(), response.refreshToken(), Instant.now());
+        notion.resetDatabase();
 
         return notionRepository.save(notion);
     }
