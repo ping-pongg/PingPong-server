@@ -103,6 +103,7 @@ public class QaCase {
 		qa.queryParams = queryParams;
 		qa.headers = headers;
 		qa.body = body;
+		qa.isSuccess=null; //실행 안된 상태
 		// Embedded 객체 생성
 		qa.expectedStatusCode = expectedStatusCode;
 		qa.sourceType = sourceType;

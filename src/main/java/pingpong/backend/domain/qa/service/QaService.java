@@ -467,7 +467,6 @@ public class QaService {
 
 		try {
 			ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
-			long durationMs = System.currentTimeMillis() - startTime;
 
 			// 성공 여부 판단 로직 변경
 			// 단순히 200번대가 아니라, '기대한 상태 코드'와 일치하는지 확인
