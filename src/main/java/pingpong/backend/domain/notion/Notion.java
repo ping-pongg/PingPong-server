@@ -47,6 +47,9 @@ public class Notion {
     @Column(name = "data_source_id")
     private String dataSourceId;
 
+    @Column(name = "database_selected", nullable = false)
+    private boolean databaseSelected;
+
     @Column(name = "token_updated_at")
     private Instant tokenUpdatedAt;
 
@@ -80,6 +83,13 @@ public class Notion {
     public void updateConnection(String databaseId, String dataSourceId) {
         this.databaseId = compact(databaseId);
         this.dataSourceId = dataSourceId;
+        this.databaseSelected = true;
+    }
+
+    public void resetDatabase() {
+        this.databaseId = null;
+        this.dataSourceId = null;
+        this.databaseSelected = false;
     }
 
     private static String compact(String id) {
