@@ -467,7 +467,6 @@ public class QaService {
 
 		try {
 			ApiExecuteResponse response = apiExecuteService.execute(endpointId, teamId, request, proxyAuthorization);
-			long durationMs = System.currentTimeMillis() - startTime;
 
 			// 성공 여부 판단 로직 변경
 			// 단순히 200번대가 아니라, '기대한 상태 코드'와 일치하는지 확인
@@ -485,12 +484,20 @@ public class QaService {
 		int expectedStatus = qa.getExpectedStatusCode();
 
 		// 3. 성공 여부 판단 (핵심: 예외 여부와 상관없이 상태 코드만 비교)
-		boolean isSuccess = (actualStatus == expectedStatus);
-		qa.updateIsSuccess(isSuccess);
+		boolean currentExecutionSuccess = (actualStatus == expectedStatus);
+		boolean finalQaStatus = currentExecutionSuccess;
+		if (!currentExecutionSuccess) {
+			// qaExecuteResultRepository에 해당 qaId로 성공한 결과가 있는지 조회하는 메서드가 필요합니다.
+			boolean hasHistoryOfSuccess = qaExecuteResultRepository.existsByQaAndIsSuccessTrue(qa);
+			if (hasHistoryOfSuccess) {
+				finalQaStatus = true; // 과거에 성공했다면 최종 상태는 true로 유지
+			}
+		}
+		qa.updateIsSuccess(finalQaStatus);
 
 		// 4. 결과 저장
 		String bodyJson = serializeToJson(responseBody);
-		QaExecuteResult result = QaExecuteResult.create(qa, actualStatus, isSuccess, responseHeadersJson, bodyJson, durationMs);
+		QaExecuteResult result = QaExecuteResult.create(qa, actualStatus, currentExecutionSuccess, responseHeadersJson, bodyJson, durationMs);
 		qaExecuteResultRepository.save(result);
 
 		return new QaExecuteResultDto(
