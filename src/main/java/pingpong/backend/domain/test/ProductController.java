@@ -27,7 +27,6 @@ public class ProductController {
                 .title(request.getTitle())
                 .price(request.getPrice())
                 .isAvailable(true)
-                .registeredAt(LocalDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
