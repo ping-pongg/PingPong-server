@@ -22,4 +22,6 @@ public class ProductResponse {
 
     @Schema(description = "현재 판매 가능 여부", example = "true")
     private Boolean isAvailable;
+
+
 }

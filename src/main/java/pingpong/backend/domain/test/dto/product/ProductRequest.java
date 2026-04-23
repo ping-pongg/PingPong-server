@@ -23,4 +23,7 @@ public class ProductRequest {
 
     @Schema(description = "재고 수량", example = "100")
     private Integer stockQuantity;
+
+    @Schema(description = "바보",example="13")
+    private Integer babo;
 }
