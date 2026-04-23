@@ -26,4 +26,6 @@ public class ProductRequest {
 
     @Schema(description = "바보",example="13")
     private Integer babo;
+
+    //주석
 }
