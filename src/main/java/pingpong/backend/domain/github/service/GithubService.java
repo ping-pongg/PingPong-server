@@ -144,10 +144,12 @@ public class GithubService {
 		}
 
 		if (baseSha.equals(currentRemoteSha)) {
+			log.info("github code 변경사항이 없어요.");
 			return false; // 원격 데이터가 이전 동기화 때와 같음
 		}
 
 		// 3. 변경 사항이 있는 경우 (SHA가 다름)
+		log.info("github code 변경사항이 있어요.");
 		github.updateSyncInfo(baseSha,currentRemoteSha);
 		return true;
 	}
