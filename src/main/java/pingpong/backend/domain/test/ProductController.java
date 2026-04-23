@@ -1,6 +1,7 @@
 package pingpong.backend.domain.test;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -54,5 +55,18 @@ public class ProductController {
     @DeleteMapping("/{productId}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long productId) {
         return ResponseEntity.accepted().build();
+    }
+
+    @Operation(summary = "재고 부족 알림 신청", description = "상품이 품절되었을 때 재입고 알림을 신청합니다.")
+    @PostMapping("/{productId}/notifications")
+    public ResponseEntity<String> registerStockNotification(
+            @PathVariable Long productId,
+            @Schema(description = "알림을 받을 사용자 이메일", example = "user@example.com")
+            @RequestParam String email,
+            @Schema(description = "알림 우선순위 (HIGH, LOW)", example = "HIGH")
+            @RequestParam(defaultValue = "LOW") String priority) {
+
+        // Mock 응답
+        return ResponseEntity.ok(email + "님, 상품 " + productId + "번에 대한 알림 등록이 완료되었습니다.");
     }
 }
